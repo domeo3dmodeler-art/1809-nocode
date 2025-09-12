@@ -63,3 +63,8 @@ POST /admin/import/doors
 POST /admin/media/upload
 POST /auth/register
 POST /auth/login
+
+### /api/catalog/doors/options — dependsOn
+Фильтры принимаются через query: `?style=&model=&finish=&color=&type=&width=&height=`.
+Каждый массив опций считается как DISTINCT по таблице `products` с учётом текущих выбранных значений.
+Также возвращаются `kits[]` и `handles[]` (цены подтягиваются из соответствующих таблиц).

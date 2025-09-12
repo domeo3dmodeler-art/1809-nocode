@@ -35,3 +35,9 @@ XLSX/CSV, UTF-8. Анти-CSV инъекции: поля, начинающиес
 
 ## 5) Smoke-тесты
 `GET /catalog/doors/options`, `POST /price/doors`, экспорт КП/Счёт/Заказ.
+
+## Конфликты РРЦ (409)
+Если в импорте для одинакового ключа (model, finish, color, type, width, height) встречаются разные rrc_price (или расходятся с ценой в БД),
+эндпоинт возвращает 409 и CSV-отчёт со столбцами:
+`model,finish,color,type,width,height,rrc_price_existing,rrc_price_import,resolution`.
+Рекомендуемая стратегия `resolution`: выровнять цены и повторить импорт.
