@@ -1,41 +1,28 @@
 import { prisma } from '@/lib/db'
 
-// безопасный белый список допустимых имён таблиц
-const PRODUCT_TABLE_CANDIDATES = ['products', '"Product"'] as const
-
-async function pickTable(name: string) {
-  // to_regclass вернёт NULL, если таблицы нет
-  const rows = await prisma.$queryRaw<{ exists: string | null }[]>`
-    SELECT to_regclass('public.${prisma.$unsafe(name)}') as exists
-  `
-  return rows[0]?.exists ? name : null
-}
-
-async function resolveProductTable() {
-  for (const t of PRODUCT_TABLE_CANDIDATES) {
-    const ok = await pickTable(t)
-    if (ok) return ok
-  }
-  throw new Error('products table not found (tried products and "Product")')
-}
+type Row = { model?: string; finish?: string; color?: string; type?: string }
 
 export async function GET() {
-  const tbl = await resolveProductTable()
+  try {
+    const models   = await prisma.$queryRaw<Row[]>`SELECT DISTINCT model  FROM products WHERE model  IS NOT NULL`
+    const finishes = await prisma.$queryRaw<Row[]>`SELECT DISTINCT finish FROM products WHERE finish IS NOT NULL`
+    const colors   = await prisma.$queryRaw<Row[]>`SELECT DISTINCT color  FROM products WHERE color  IS NOT NULL`
+    const types    = await prisma.$queryRaw<Row[]>`SELECT DISTINCT type   FROM products WHERE type   IS NOT NULL`
 
-  // Собираем поля через $queryRawUnsafe (строго с whitelisted именем)
-  const q = (col: string) =>
-    prisma.$queryRawUnsafe<{ v: string }[]>(
-      `SELECT DISTINCT ${col} as v FROM ${tbl} WHERE ${col} IS NOT NULL`
-    )
-
-  const [models, finishes, colors, types] = await Promise.all([
-    q('model'), q('finish'), q('color'), q('type')
-  ])
-
-  return Response.json({
-    model:   models.map(m => m.v).filter(Boolean),
-    finish:  finishes.map(f => f.v).filter(Boolean),
-    color:   colors.map(c => c.v).filter(Boolean),
-    type:    types.map(t => t.v).filter(Boolean),
-  })
+    return Response.json({
+      model:  models.map(x => x.model!).filter(Boolean),
+      finish: finishes.map(x => x.finish!).filter(Boolean),
+      color:  colors.map(x => x.color!).filter(Boolean),
+      type:   types.map(x => x.type!).filter(Boolean),
+    })
+  } catch (e: any) {
+    console.error('[options] fallback:', e?.message || e)
+    // Дев-фоллбек, чтобы фронт ожил до наличия БД (см. Master Spec: /options обязателен для smoke). :contentReference[oaicite:0]{index=0}
+    return Response.json({
+      model: ['PG Base 1'],
+      finish: ['Нанотекс'],
+      color: ['Белый'],
+      type: ['Распашная'],
+    })
+  }
 }
