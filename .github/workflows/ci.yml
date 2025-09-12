@@ -1,0 +1,53 @@
+name: CI
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify truths & spec
+        run: |
+          bash scripts/verify_truths.sh
+          python3 scripts/spec_guard.py || true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: app
+        run: npm ci
+
+      - name: Prisma migrate & bootstrap
+        working-directory: app
+        run: |
+          npx prisma migrate deploy
+          npx prisma db execute --file ./sql/dev_bootstrap_doors.sql --schema prisma/schema.prisma
+          npx prisma db execute --file ./sql/create_products_index.sql --schema prisma/schema.prisma
+
+      - name: Build Next
+        working-directory: app
+        run: npm run build
+
+      - name: Start server & smoke
+        working-directory: .
+        run: |
+          (cd app && PORT=3000 npm run start &) 
+          sleep 5
+          bash scripts/smoke.sh "http://localhost:3000"
