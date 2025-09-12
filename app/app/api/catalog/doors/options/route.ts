@@ -1,28 +1,58 @@
 import { prisma } from '@/lib/db'
 
-type Row = { model?: string; finish?: string; color?: string; type?: string }
+// Разрешённые поля и их порядок (цепочка dependsOn)
+const FIELDS = ['style','model','finish','color','type','width','height'] as const
+type Field = typeof FIELDS[number]
 
-export async function GET() {
-  try {
-    const models   = await prisma.$queryRaw<Row[]>`SELECT DISTINCT model  FROM products WHERE model  IS NOT NULL`
-    const finishes = await prisma.$queryRaw<Row[]>`SELECT DISTINCT finish FROM products WHERE finish IS NOT NULL`
-    const colors   = await prisma.$queryRaw<Row[]>`SELECT DISTINCT color  FROM products WHERE color  IS NOT NULL`
-    const types    = await prisma.$queryRaw<Row[]>`SELECT DISTINCT type   FROM products WHERE type   IS NOT NULL`
+// Безопасная сборка WHERE по выбранным полям
+function buildWhere(selected: Partial<Record<Field, string | number>>) {
+  const cond: string[] = []
+  const params: any[] = []
+  FIELDS.forEach((f) => {
+    const v = (selected as any)[f]
+    if (v !== undefined && v !== null && v !== '') {
+      cond.push(`${f} = $${params.length + 1}`)
+      params.push(v)
+    }
+  })
+  return { sql: cond.length ? `WHERE ${cond.join(' AND ')}` : '', params }
+}
 
-    return Response.json({
-      model:  models.map(x => x.model!).filter(Boolean),
-      finish: finishes.map(x => x.finish!).filter(Boolean),
-      color:  colors.map(x => x.color!).filter(Boolean),
-      type:   types.map(x => x.type!).filter(Boolean),
-    })
-  } catch (e: any) {
-    console.error('[options] fallback:', e?.message || e)
-    // Дев-фоллбек, чтобы фронт ожил до наличия БД (см. Master Spec: /options обязателен для smoke). :contentReference[oaicite:0]{index=0}
-    return Response.json({
-      model: ['PG Base 1'],
-      finish: ['Нанотекс'],
-      color: ['Белый'],
-      type: ['Распашная'],
-    })
+// DISTINCT по колонке с учетом фильтров
+async function distinctOf(col: Field, whereSql: string, params: any[]) {
+  const order = col === 'width' || col === 'height' ? `ORDER BY ${col}::int` : `ORDER BY ${col}`
+  const rows = await prisma.$queryRawUnsafe<{ v: any }[]>(
+    `SELECT DISTINCT ${col} as v FROM products ${whereSql} ${order}`, ...params
+  )
+  return rows.map(r => r.v).filter((x:any)=> x!==null && x!=='')
+}
+
+export async function GET(req: Request) {
+  // читаем выбранные фильтры из query
+  const url = new URL(req.url)
+  const selected: Partial<Record<Field, any>> = {}
+  for (const f of FIELDS) {
+    const raw = url.searchParams.get(f)
+    if (raw !== null) selected[f] = (f==='width'||f==='height') ? Number(raw) : raw
   }
+
+  // базовый WHERE
+  const { sql: whereSql, params } = buildWhere(selected)
+
+  // считаем домены опций
+  const result: Record<string, any[]> = {}
+  for (const f of FIELDS) {
+    // важно: считаем DISTINCT по каждому полю при текущем WHERE (всё выбранное учитывается)
+    result[f] = await distinctOf(f, whereSql, params)
+  }
+
+  // дополнительные справочники
+  const kits = await prisma.$queryRawUnsafe<{id:string,name:string,price_rrc:number}[]>(
+    `SELECT id, COALESCE(name,'') as name, COALESCE(price_rrc,0) as price_rrc FROM kits ORDER BY name NULLS LAST`
+  )
+  const handles = await prisma.$queryRawUnsafe<{id:string,name_web:string,price_opt:number,price_group_multiplier:number}[]>(
+    `SELECT id, COALESCE(name_web,'') as name_web, COALESCE(price_opt,0) as price_opt, COALESCE(price_group_multiplier,1) as price_group_multiplier FROM handles ORDER BY name_web NULLS LAST`
+  )
+
+  return Response.json({ ...result, kits, handles })
 }
