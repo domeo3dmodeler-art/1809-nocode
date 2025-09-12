@@ -49,3 +49,17 @@ Wizard: Основное → Attributes (с `dependsOn`) → UI Flow → Pricing
 
 ## 9. Чеклисты приёмки
 Options учитывает dependsOn; `/price` считает корректно; экспорты формируются; импорт завершает UPSERT; уникальный индекс присутствует.
+
+## API (Next /api/*)
+
+GET /health
+GET /catalog/doors/models
+GET /catalog/doors/options
+POST /price/doors
+POST /cart/export/doors/kp
+POST /cart/export/doors/invoice
+POST /cart/export/doors/factory
+POST /admin/import/doors
+POST /admin/media/upload
+POST /auth/register
+POST /auth/login
