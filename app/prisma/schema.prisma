@@ -7,80 +7,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(ADMIN)
-  createdAt DateTime @default(now())
+model products {
+  id          Int     @id @default(autoincrement())
+  category    String? @default("doors")
+  model       String
+  style       String?
+  finish      String
+  color       String
+  type        String
+  width       Int
+  height      Int
+  rrc_price   Decimal @db.Decimal(12, 2)
+  model_photo String?
+
+  @@unique([category, model, finish, color, type, width, height], name: "ux_products_key")
+  @@map("products")
 }
 
-enum Role {
-  ADMIN
-  EDITOR
+model kits {
+  id        String   @id
+  name      String?
+  price_rrc Decimal? @db.Decimal(12, 2)
+  price_opt Decimal? @db.Decimal(12, 2)
+
+  @@map("kits")
 }
 
-model Category {
-  id          String       @id @default(cuid())
-  slug        String       @unique
-  title       String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  calculators Calculator[]
-  products    Product[]
-}
+model handles {
+  id                     String   @id
+  name_web               String?
+  price_opt              Decimal? @db.Decimal(12, 2)
+  price_group_multiplier Decimal? @db.Decimal(12, 2)
 
-model Calculator {
-  id         String      @id @default(cuid())
-  categoryId String
-  title      String
-  schemaJson Json
-  rulesJson  Json
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  Category   Category    @relation(fields: [categoryId], references: [id])
-  priceRules PriceRule[]
-  quotes     Quote[]
-}
-
-model Product {
-  id         String   @id @default(cuid())
-  categoryId String
-  sku        String   @unique
-  title      String
-  basePrice  Decimal
-  propsJson  Json
-  images     Image[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  Category   Category @relation(fields: [categoryId], references: [id])
-}
-
-model Image {
-  id        String  @id @default(cuid())
-  productId String
-  url       String
-  alt       String?
-  Product   Product @relation(fields: [productId], references: [id])
-}
-
-model PriceRule {
-  id           String     @id @default(cuid())
-  calculatorId String
-  name         String
-  ruleJson     Json
-  active       Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  Calculator   Calculator @relation(fields: [calculatorId], references: [id])
-}
-
-model Quote {
-  id           String     @id @default(cuid())
-  calculatorId String
-  itemsJson    Json
-  total        Decimal
-  metaJson     Json
-  createdAt    DateTime   @default(now())
-  Calculator   Calculator @relation(fields: [calculatorId], references: [id])
+  @@map("handles")
 }
