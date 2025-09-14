@@ -1,33 +1,41 @@
-Title: Domeo — Roadmap (Doors Pilot)
-Owner: @PM + @GPT
-Last updated (Europe/Paris): 2025-09-12
-Related: [Master Spec](./master_spec.md), [State](./state.md), [Admin Guide](./admin_guide.md),
-         [Data Import Guide Doors](./data_import_guide_doors.md), [Spec КП и формулы](./spec_kp_formulas.md), [Sync Guide](./sync_guide.md)
+# Roadmap — Domeo No-Code Calculators (Doors pilot)
 
-# Roadmap — Domeo No-Code Calculators (Pilot: Doors)
+> Источник истины. Дубли запрещены. Последнее обновление: 2025-09-14. MR: (TBD).
 
-## Milestones
-**M1 — Импорт Doors (DoD)**  
-- Прайс (RRC) и фото → импорт (валидация, отчёты), **разрешение конфликтов РРЦ**, **UPSERT**, smoke-тесты `/options`, `/price` (**auto-pricing**), экспорт **КП/Счёт/Заказ** → фиксация в `state.md`.
+## Milestones (Doors pilot)
+- [x] CI smoke v2 (guard-openapi, remote-smoke, prod-smoke)
+- [x] Admin API JWT guard (middleware 401)
+- [x] CSV import endpoint `/api/admin/import/doors`
+- [ ] Consolidate sources of truth (этот MR)
+- [ ] Import Guide: формат CSV, валидации, пример ответа, `IMPORT_TARGET_MODEL`
+- [ ] UI iteration: галерея/плашки по `model`/`sku_1c`, «Недавние конфигурации», обязательные поля
+- [ ] CI: smoke экспортов `/api/cart/export/doors/{kp,invoice,factory}`
+- [ ] Prod-Smoke усиление: артефакты логов, таймауты
 
-**M2 — CRUD калькуляторов + Pricing DSL**  
-Admin CRUD категорий/правил; Pricing v1 подключён; тесты проходят.
+## DoD / Acceptance
+Для каждого milestone определены измеримые критерии. Все изменения фиксируются в соответствующих .md в том же MR, согласно `sync_guide.md`.
 
-**M3 — Корзина + экспорты**  
-UI корзины + сохранение расчёта; КП/Счёт (PDF), Заказ (CSV/XLSX).
+### DoD: Consolidate sources of truth
+- Дубли `app/roadmap.md`, `app/state.md` удалены
+- Корневые `roadmap.md`, `state.md` содержат актуальные статусы/вехи
+- `sync_guide.md` обновлён разделом про истину Roadmap/State
+- Репозиторий не содержит ссылок на `app/roadmap.md`/`app/state.md`
 
-**M4 — Релиз**  
-CI/CD; systemd; PIT-бэкапы; демо «новая категория без кода».
+### DoD: Import Guide расширен
+- `data_import_guide_doors.md` описывает минимальный/расширенный CSV, допустимые значения, валидации, пример ответа
+- Описан `IMPORT_TARGET_MODEL` и соответствие Prisma-модели; примеры импорта и ошибок
 
-## Сроки (ориентир)
-- **M1:** до 2025-09-20 (эндпоинт `/options` + импорт/конфликты готовы; остаются медиа и финальный прайс).  
-- **M2:** до 2025-09-30.  
-- **M3:** до 2025-10-10.  
-- **M4:** до 2025-10-20.
+### DoD: UI iteration
+- На `/doors` отображаются превью из импортированных данных (связка `model`/`sku_1c`)
+- Реализованы «Недавние конфигурации»
+- Обязательные поля подсвечиваются; не даём оформить заказ, если не заполнены
 
+### DoD: CI — экспорт
+- В CI есть smoke на `/api/cart/export/doors/{kp,invoice,factory}`: 200 + базовая валидация содержимого
 
-<-- Доп. демо-SKU для витрины Doors ( идемпотентно merged from app/roadmap.md (CI Smoke v2) -->
-## CI Smoke v2
-- ✅ Token-200 check on /api/admin/ping
-- ✅ Prod-smoke (next build & start) in GitHub Actions
+### DoD: Prod-Smoke усиление
+- В workflow есть выгрузка логов как артефакт, настроены таймауты
 
+## Dependencies & Sync
+- Любые изменения логики/формул → `master_spec.md` + профильные гайды.
+- План/сроки/статусы → `roadmap.md`, `state.md` (в том же MR). См. `sync_guide.md`.

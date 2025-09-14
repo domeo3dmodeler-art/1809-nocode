@@ -1,30 +1,28 @@
-Title: Domeo — State (Doors Pilot)
-Owner: @Team Leads + @GPT
-Last updated (Europe/Paris): 2025-09-12
-Related: [Master Spec](./master_spec.md), [Roadmap](./roadmap.md), [Admin Guide](./admin_guide.md),
-         [Data Import Guide Doors](./data_import_guide_doors.md), [Spec КП и формулы](./spec_kp_formulas.md)
+# State — Domeo No-Code Calculators (Doors pilot)
 
-# STATE — Live (2025-09-12)
+> Источник истины. Дубли запрещены. Последнее обновление: 2025-09-14. MR: (TBD).
 
-## Готово ✅
-- Backend: `GET /catalog/doors/options` с **dependsOn** доменами.  
-- Admin Import: **CSV-отчёт конфликтов РРЦ** + **safe UPSERT**.  
-- Front: **auto-pricing**; экспорты: КП/Счёт (HTML), Заказ (CSV) — прототипы работают.
+## Готово
+- JWT guard для админ-API (middleware 401, матчер `/api/admin/:path*`)
+- OpenAPI guard (`scripts/spec_guard.py`) проходит по `app/openapi.yaml`
+- Smoke-тесты (API+UI) проходят: `/api/health`, `/api/admin/ping` (401/200), SSR-маркер `/doors`
+- CI v2: guard-openapi, remote-smoke (при наличии `DEV_BASE_URL`), prod-smoke (локальный билд+старт+smoke)
+- Импорт CSV `/api/admin/import/doors` работает (multipart/form-data, поле `file`)
 
-## В работе 🛠
-- Импорт пилота Doors (прайсы/свойства/фото) — завершаем загрузку медиа и smoke-тесты.
+## В работе
+- Сведение источников истины (этот MR)
 
-## Блокеры ⛔
-- Подтверждённые прайсы RRC (финальный срез) и стартовый медиа-набор.
+## Ближайшие задачи
+- Дописать `data_import_guide_doors.md` (формат CSV/валидации/пример ответа/`IMPORT_TARGET_MODEL`)
+- UI итерация: галерея, «Недавние конфигурации», обязательные поля
+- CI: smoke для экспортов; усиление prod-smoke (артефакты логов, таймауты)
 
-## Следующие шаги ▶
-- Smoke-тесты `/options`, `/price`, экспортов.  
-- Проверка UNIQUE INDEX по product key в БД.  
-- Обновление шаблонов КП/Счёт/Заказ.
+## Блокеры / Риски
+- Нет
 
-
-<-- Доп. демо-SKU для витрины Doors ( идемпотентно merged from app/state.md (CI Smoke v2) -->
-## CI Smoke v2 — 2025-09-14
-- token-200: OK
-- prod-smoke: added to workflow
-
+## Ссылки
+- `master_spec.md`
+- `admin_guide.md`
+- `data_import_guide_doors.md`
+- `spec_kp_formulas.md`
+- `sync_guide.md`
