@@ -32,5 +32,19 @@ body=$(curl -sS -L -m 10 "$BASE_URL/doors")
 if ! echo "$body" | grep -q 'data-smoke="compat-active"'; then
   echo "Smoke marker not found on /doors"; exit 1
 fi
+echo "[SMOKE] /api/cart/export/doors/{kp,invoice,factory}"
+for kind in kp invoice factory; do
+  code=$(curl -s -o "/tmp/export_${kind}.out" -w "%{http_code}" "$BASE_URL/api/cart/export/doors/$kind")
+  if [ "$code" != "200" ]; then
+    echo "❌ export/$kind HTTP $code"
+    exit 1
+  fi
+  # лёгкая валидация: не пусто и есть какой-то маркер документа
+  if ! grep -qi -E "(КП|Invoice|Счёт|Factory|Order|Domeo|Doors)" "/tmp/export_${kind}.out"; then
+    echo "❌ export/$kind content seems invalid"
+    exit 1
+  fi
+  echo "✅ export/$kind OK"
+done
 
 say "SMOKE OK"
