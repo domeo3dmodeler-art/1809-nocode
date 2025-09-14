@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Domeo API
+  version: '0.1.0'
+servers:
+  - url: http://localhost:3000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        '204':
+          description: No Content
+  /api/admin/ping:
+    get:
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      summary: Admin ping
+      responses:
+        '200':
+          description: Pong
+        '401':
+          description: Unauthorized
