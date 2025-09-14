@@ -19,11 +19,18 @@ if [[ "$code" != "401" ]]; then
   echo "Expected 401, got $code"; exit 1
 fi
 
-# 3) UI: /doors содержит бейдж совместимости
+# 2b) Admin endpoint: с токеном должен вернуть 200
+say "GET /api/admin/ping (with token)"
+code=$(curl -sS -m 10 -H "Authorization: Bearer test-smoke-token" -o /dev/null -w "%{http_code}" "$BASE_URL/api/admin/ping")
+if [[ "$code" != "200" ]]; then
+  echo "Expected 200 with Bearer, got $code"; exit 1
+fi
+
+# 3) UI: /doors содержит SSR-маркер
 say "GET /doors"
-body=$(curl -sS -m 10 "$BASE_URL/doors")
+body=$(curl -sS -L -m 10 "$BASE_URL/doors")
 if ! echo "$body" | grep -q 'data-smoke="compat-active"'; then
-  echo "Badge text not found on /doors"; exit 1
+  echo "Smoke marker not found on /doors"; exit 1
 fi
 
 say "SMOKE OK"
