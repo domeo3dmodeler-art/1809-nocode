@@ -21,3 +21,10 @@ Related: [Master Spec](./master_spec.md), [Roadmap](./roadmap.md), [Admin Guide]
 - Smoke-тесты `/options`, `/price`, экспортов.  
 - Проверка UNIQUE INDEX по product key в БД.  
 - Обновление шаблонов КП/Счёт/Заказ.
+
+
+<-- Доп. демо-SKU для витрины Doors ( идемпотентно merged from app/state.md (CI Smoke v2) -->
+## CI Smoke v2 — 2025-09-14
+- token-200: OK
+- prod-smoke: added to workflow
+

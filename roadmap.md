@@ -24,3 +24,10 @@ CI/CD; systemd; PIT-бэкапы; демо «новая категория бе�
 - **M2:** до 2025-09-30.  
 - **M3:** до 2025-10-10.  
 - **M4:** до 2025-10-20.
+
+
+<-- Доп. демо-SKU для витрины Doors ( идемпотентно merged from app/roadmap.md (CI Smoke v2) -->
+## CI Smoke v2
+- ✅ Token-200 check on /api/admin/ping
+- ✅ Prod-smoke (next build & start) in GitHub Actions
+
