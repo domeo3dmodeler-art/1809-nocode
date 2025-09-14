@@ -1,72 +1,62 @@
-import { prisma } from '@/lib/db'
-import { Prisma } from '@prisma/client'
-
-const FIELDS = ['style','model','finish','color','type','width','height'] as const
-type Field = typeof FIELDS[number]
-
-function buildWhere(selected: Partial<Record<Field, string|number>>) {
-  const parts: any[] = []
-  if (selected.style   !== undefined && selected.style   !== '') parts.push(Prisma.sql`AND style  = ${selected.style}`)
-  if (selected.model   !== undefined && selected.model   !== '') parts.push(Prisma.sql`AND model  = ${selected.model}`)
-  if (selected.finish  !== undefined && selected.finish  !== '') parts.push(Prisma.sql`AND finish = ${selected.finish}`)
-  if (selected.color   !== undefined && selected.color   !== '') parts.push(Prisma.sql`AND color  = ${selected.color}`)
-  if (selected.type    !== undefined && selected.type    !== '') parts.push(Prisma.sql`AND type   = ${selected.type}`)
-  if (selected.width   !== undefined && selected.width   !== '') parts.push(Prisma.sql`AND width  = ${Number(selected.width)}`)
-  if (selected.height  !== undefined && selected.height  !== '') parts.push(Prisma.sql`AND height = ${Number(selected.height)}`)
-  return parts.length ? Prisma.sql`${Prisma.join(parts, Prisma.sql` `)}` : Prisma.sql``
-}
-
-async function distinctOf(col: Field, where: any) {
-  const order = (col === 'width' || col === 'height')
-    ? Prisma.sql`ORDER BY ${Prisma.raw(col)}::int`
-    : Prisma.sql`ORDER BY ${Prisma.raw(col)}`
-  const rows = await prisma.$queryRaw<{ v: any }[]>(Prisma.sql`
-    SELECT DISTINCT ${Prisma.raw(col)} AS v FROM products
-    WHERE 1=1 ${where} ${order}
-  `)
-  return rows.map(r => r.v).filter((x:any)=> x!==null && x!=='')
-}
+// app/api/catalog/doors/options/route.ts
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma'; // если у тебя иной хелпер — скажи, адаптирую
 
 export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const selected: Partial<Record<Field, string|number>> = {}
-  FIELDS.forEach(k => {
-    const v = url.searchParams.get(k)
-    if (v !== null && v !== '') (selected as any)[k] = (k==='width'||k==='height') ? Number(v) : v
-  })
+  const { searchParams } = new URL(req.url);
+  const model  = searchParams.get('model');
+  const finish = searchParams.get('finish');
+  const type   = searchParams.get('type');
+  const width  = searchParams.get('width')  ? Number(searchParams.get('width'))  : null;
+  const height = searchParams.get('height') ? Number(searchParams.get('height')) : null;
 
-  const where = buildWhere(selected)
+  // Домены конфигуратора
+  const domains = await prisma.$queryRawUnsafe(`
+    SELECT DISTINCT model, finish, color, type, width, height
+    FROM doors_catalog
+    ORDER BY model, finish, color, type, width, height
+    LIMIT 10000
+  `);
 
-  // домены
-  const styleRows = await prisma.$queryRaw<{v:string}[]>(Prisma.sql`
-    SELECT DISTINCT style AS v FROM products
-    WHERE 1=1 ${selected.style? Prisma.sql`AND style = ${selected.style}` : Prisma.sql``}
-    ORDER BY style
-  `)
-  const style  = styleRows.map(r=>r.v).filter(Boolean)
-  const model  = await distinctOf('model',  where)
-  const finish = await distinctOf('finish', where)
-  const color  = await distinctOf('color',  where)
-  const type   = await distinctOf('type',   where)
-  const width  = await distinctOf('width',  where)
-  const height = await distinctOf('height', where)
+  const hasAnyFilter = !!(model || finish || type || width || height);
 
-  // доп. домены
-  let kits:any[] = []; let handles:any[] = []
-  try {
-    kits = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT id, COALESCE(name,'') AS name, COALESCE(price_rrc,0)::numeric AS price_rrc
-      FROM kits ORDER BY name
-    `)
-  } catch {}
-  try {
-    handles = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT id, COALESCE(name_web,'') AS name_web,
-             COALESCE(price_opt,0)::numeric AS price_opt,
-             COALESCE(price_group_multiplier,1)::numeric AS price_group_multiplier
-      FROM handles ORDER BY name_web
-    `)
-  } catch {}
+  // KITS
+  const kits = hasAnyFilter
+    ? await prisma.$queryRaw`
+        SELECT k.*
+        FROM kits k
+        LEFT JOIN kit_suiting s ON s.kit_id = k.id
+        WHERE
+          ( ${model}::text  IS NULL OR s.model  IS NULL OR s.model  = ${model}::text ) AND
+          ( ${finish}::text IS NULL OR s.finish IS NULL OR s.finish = ${finish}::text ) AND
+          ( ${type}::text   IS NULL OR s.type   IS NULL OR s.type   = ${type}::text )   AND
+          ( ${width}::int   IS NULL OR s.width_min  IS NULL OR s.width_min  <= ${width}::int ) AND
+          ( ${width}::int   IS NULL OR s.width_max  IS NULL OR s.width_max  >= ${width}::int ) AND
+          ( ${height}::int  IS NULL OR s.height_min IS NULL OR s.height_min <= ${height}::int ) AND
+          ( ${height}::int  IS NULL OR s.height_max IS NULL OR s.height_max >= ${height}::int )
+        GROUP BY k.id
+        ORDER BY k.id
+      `
+    : await prisma.$queryRaw`SELECT * FROM kits ORDER BY id`;
 
-  return Response.json({ style, model, finish, color, type, width, height, kits, handles })
+  // HANDLES
+  const handles = hasAnyFilter
+    ? await prisma.$queryRaw`
+        SELECT h.*
+        FROM handles h
+        LEFT JOIN handle_suiting s ON s.handle_id = h.id
+        WHERE
+          ( ${model}::text  IS NULL OR s.model  IS NULL OR s.model  = ${model}::text ) AND
+          ( ${finish}::text IS NULL OR s.finish IS NULL OR s.finish = ${finish}::text ) AND
+          ( ${type}::text   IS NULL OR s.type   IS NULL OR s.type   = ${type}::text )   AND
+          ( ${width}::int   IS NULL OR s.width_min  IS NULL OR s.width_min  <= ${width}::int ) AND
+          ( ${width}::int   IS NULL OR s.width_max  IS NULL OR s.width_max  >= ${width}::int ) AND
+          ( ${height}::int  IS NULL OR s.height_min IS NULL OR s.height_min <= ${height}::int ) AND
+          ( ${height}::int  IS NULL OR s.height_max IS NULL OR s.height_max >= ${height}::int )
+        GROUP BY h.id
+        ORDER BY h.id
+      `
+    : await prisma.$queryRaw`SELECT * FROM handles ORDER BY id`;
+
+  return NextResponse.json({ domains, kits, handles });
 }

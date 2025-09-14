@@ -1,46 +1,63 @@
-import { prisma } from '@/lib/db'
-import { Prisma } from '@prisma/client'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 
-export async function POST(req: Request) {
-  const { selection } = await req.json()
-  const need = ['model','finish','color','type','width','height'] as const
-  if (!selection || !need.every(k => selection[k] !== undefined && selection[k] !== null)) {
-    return new Response(JSON.stringify({ error: 'selection incomplete' }), { status: 400 })
+type Sel = {
+  model?: string; finish?: string; color?: string; type?: string;
+  width?: number; height?: number;
+  hardware_kit?: { id: string } | undefined;
+  handle?: { id: string } | undefined;
+};
+
+export async function POST(req: NextRequest) {
+  const { selection } = await req.json().catch(()=>({ selection: {} as Sel }));
+  const s: Sel = selection || {};
+  if(!s.model || !s.finish || !s.color || !s.type || !s.width || !s.height){
+    return NextResponse.json({ ok:false, error:"incomplete selection" }, { status: 400 });
   }
 
-  const baseRow = await prisma.$queryRaw<any[]>(Prisma.sql`
-    SELECT COALESCE(rrc_price,0)::numeric AS rrc_price
-    FROM products
-    WHERE model=${selection.model} AND finish=${selection.finish} AND color=${selection.color}
-      AND type=${selection.type} AND width=${Number(selection.width)} AND height=${Number(selection.height)}
+  const prod = (await prisma.$queryRaw<any[]>`
+    SELECT rrc_price, sku_1c
+    FROM doors_catalog
+    WHERE model=${s.model} AND finish=${s.finish} AND color=${s.color}
+      AND type=${s.type} AND width=${s.width} AND height=${s.height}
     LIMIT 1
-  `)
-  const base = Number(baseRow?.[0]?.rrc_price || 0)
+  `)[0];
 
-  let addKit = 0
-  if (selection?.hardware_kit?.id) {
-    const k = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT COALESCE(price_rrc,0)::numeric AS price_rrc FROM kits WHERE id=${selection.hardware_kit.id} LIMIT 1
-    `)
-    addKit = Number(k?.[0]?.price_rrc || 0)
+  if(!prod) return NextResponse.json({ ok:false, error:"not found" }, { status: 404 });
+
+  const base = Number(prod.rrc_price||0);
+  const breakdown: { label:string; amount:number }[] = [];
+  let total = base;
+
+  if(s.hardware_kit?.id){
+    const kit = (await prisma.$queryRaw<any[]>`
+      SELECT name, price_rrc FROM doors_kits WHERE id=${s.hardware_kit.id} LIMIT 1
+    `)[0];
+    if(kit){
+      const add = Number(kit.price_rrc||0);
+      breakdown.push({ label: `Комплект: ${kit.name}`, amount: add });
+      total += add;
+    }
   }
 
-  let addHandle = 0
-  if (selection?.handle?.id) {
-    const h = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT COALESCE(price_opt,0)::numeric AS price_opt,
-             COALESCE(price_group_multiplier,1)::numeric AS mul
-      FROM handles WHERE id=${selection.handle.id} LIMIT 1
-    `)
-    addHandle = Number(h?.[0]?.price_opt || 0) * Number(h?.[0]?.mul || 1)
+  if(s.handle?.id){
+    const h = (await prisma.$queryRaw<any[]>`
+      SELECT name, price_opt, COALESCE(price_group_multiplier,1.0) AS mul
+      FROM doors_handles WHERE id=${s.handle.id} LIMIT 1
+    `)[0];
+    if(h){
+      const add = Math.round(Number(h.price_opt||0) * Number(h.mul||1));
+      breakdown.push({ label: `Ручка: ${h.name}`, amount: add });
+      total += add;
+    }
   }
 
-  const breakdown = [
-    { label: 'Полотно (РРЦ)', amount: base },
-    ...(addKit    ? [{ label: 'Комплект фурнитуры', amount: addKit }] : []),
-    ...(addHandle ? [{ label: 'Ручка', amount: Math.round(addHandle) }] : []),
-  ]
-  const total = Math.round(base + addKit + addHandle)
-
-  return Response.json({ ok: true, currency: 'RUB', base, breakdown, total })
+  return NextResponse.json({
+    ok: true,
+    currency: "RUB",
+    base,
+    breakdown,
+    total,
+    sku_1c: prod.sku_1c || null,
+  });
 }
