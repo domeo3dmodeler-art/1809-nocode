@@ -40,4 +40,21 @@ check_export "/api/cart/export/doors/kp" kp
 check_export "/api/cart/export/doors/invoice" invoice
 check_export "/api/cart/export/doors/factory" factory
 
+echo "[SMOKE] Import Doors CSV"
+resp=$(curl -sS -H "Authorization: Bearer smoke" \
+  -F "file=@/etc/hosts;filename=test.csv;type=text/csv" \
+  "$BASE_URL/api/admin/import/doors" || true)
+echo "$resp" | jq -e ".ok == true" >/dev/null 2>&1 \
+  && printf "✅ OK POST /api/admin/import/doors (ok:true)\n" \
+  || { printf "❌ FAIL import/doors — unexpected body: %s\n" "$resp"; exit 1; }
+
+echo "[SMOKE] Media Upload (Doors)"
+resp=$(curl -sS -H "Authorization: Bearer smoke" \
+  -F "model=PO Base 1/1" \
+  -F "file=@/etc/hosts;filename=example.jpg;type=image/jpeg" \
+  "$BASE_URL/api/admin/media/upload" || true)
+echo "$resp" | jq -e ".files[0].url | contains(\"PO%20Base%201%2F1\")" >/dev/null 2>&1 \
+  && printf "✅ OK POST /api/admin/media/upload (file saved)\n" \
+  || { printf "❌ FAIL media/upload — unexpected body: %s\n" "$resp"; exit 1; }
+
 echo "SMOKE OK"

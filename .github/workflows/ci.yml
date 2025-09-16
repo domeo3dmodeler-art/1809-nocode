@@ -1,8 +1,10 @@
 name: CI
+
 on:
   push:
     branches: [ "**" ]
   pull_request:
+
 jobs:
   build-and-smoke:
     runs-on: ubuntu-latest
@@ -45,9 +47,32 @@ jobs:
         working-directory: app
         run: npm run build
 
-      - name: Start server & smoke
+      - name: Start server & smoke (local)
         working-directory: .
         run: |
           (cd app && PORT=3000 npm run start &) 
           sleep 5
-          bash scripts/smoke.sh "http://localhost:3000"
+          BASE_URL="http://localhost:3000" bash scripts/smoke.sh
+
+  remote-smoke:
+    name: Remote Smoke (Doors)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' # только на пушах, не на PR
+    env:
+      DEV_BASE_URL: ${{ secrets.DEV_BASE_URL }}
+      SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install curl & jq
+        run: sudo apt-get update && sudo apt-get install -y curl jq
+
+      - name: Debug secrets (masked)
+        run: |
+          echo "DEV_BASE_URL=${DEV_BASE_URL}"
+          echo "SMOKE_TOKEN is set? $([ -n "$SMOKE_TOKEN" ] && echo yes || echo no)"
+
+      - name: Run remote smoke tests
+        run: |
+          chmod +x scripts/smoke.sh
+          BASE_URL="$DEV_BASE_URL" SMOKE_TOKEN="$SMOKE_TOKEN" bash scripts/smoke.sh
