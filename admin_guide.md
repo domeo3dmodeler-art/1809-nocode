@@ -26,3 +26,19 @@ Upload → `media_id` → выдача `/media/:id` и `/media/:id/fit?w=&h=`.
 - **/catalog/doors/options** — dependsOn-домены.  
 - **/price/doors** — **auto-pricing**.  
 - **Экспорты:** КП/Счёт (HTML→PDF), Заказ (CSV/XLSX).
+
+## Экспорты (Doors)
+
+Для проверки интеграции доступны заглушки v1:
+
+    # КП
+    curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/kp" | jq .
+
+    # Счёт
+    curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/invoice" | jq .
+
+    # Заказ на фабрику
+    curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/factory" | jq .
+
+Ожидаемый ответ:
+    {"ok": true, "type": "kp|invoice|factory", "received": {}}
