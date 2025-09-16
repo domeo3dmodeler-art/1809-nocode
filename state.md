@@ -26,3 +26,11 @@
 - `data_import_guide_doors.md`
 - `spec_kp_formulas.md`
 - `sync_guide.md`
+
+## Экспорты Doors — состояние
+
+- Экспорты Doors: реализован v1 stub, эндпоинты /api/cart/export/doors/{kp,invoice,factory}.
+- Smoke: strict OK (проверка JSON ответа).
+- OpenAPI: обновлён (ExportRequest, ExportResponse).
+
+Обновлено: 2025-09-16
