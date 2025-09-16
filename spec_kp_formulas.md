@@ -25,3 +25,22 @@ Related: [Master Spec](./master_spec.md), [Admin Guide](./admin_guide.md), [Data
 
 # Общие правила
 Округление денежных; строки ручек не увеличивают счётчик «№». Экспорт: КП/Счёт — HTML (печать PDF), Заказ — CSV/XLSX.
+
+## Экспорты Doors — контракт v1 (stub)
+
+Эндпоинты (временные заглушки v1):
+
+- POST /api/cart/export/doors/kp
+- POST /api/cart/export/doors/invoice
+- POST /api/cart/export/doors/factory
+
+Запрос: application/json, поля произвольные (временно).
+Ответ 200 (JSON):
+    { "ok": true, "type": "kp|invoice|factory", "received": {} }
+
+Примечания:
+- Контракт зафиксирован в app/openapi.yaml (schemas: ExportRequest, ExportResponse).
+- Цель v1 — стабильный маркер для интеграций и smoke (strict проверка ok==true и корректного type).
+- Миграция без ломающего изменения: v1.1 — введём строгую схему ExportDoorsRequest/ExportDoorsResponse; v1.2 — генерация PDF/номер документа.
+
+Обновлено: 2025-09-16
