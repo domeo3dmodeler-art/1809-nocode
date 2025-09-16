@@ -39,3 +39,15 @@
 ## Dependencies & Sync
 - Любые изменения логики/формул → `master_spec.md` + профильные гайды.
 - План/сроки/статусы → `roadmap.md`, `state.md` (в том же MR). См. `sync_guide.md`.
+
+## Milestone: Doors MVP — Exports
+
+Статус:
+- ✅ v1 stub контракт зафиксирован (OpenAPI paths + schemas).
+- ✅ smoke переведён на strict JSON (ok:true, корректный type).
+
+Next:
+- v1.1: формализовать payload (cart_id, items[], totals, meta).
+- v1.2: генерация PDF/нумерация документов, сохранение и аудит.
+
+Обновлено: 2025-09-16
