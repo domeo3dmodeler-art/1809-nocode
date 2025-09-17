@@ -16,12 +16,50 @@ type BasicState = {
   type?: string;
   width?: number;
   height?: number;
+  edge?: string;
+  edge_note?: string;
+  hardware_kit?: { id: string };
+  handle?: { id: string };
 };
 
 type ProductLike = {
   sku_1c?: string | number | null;
   model?: string | null;
 };
+
+type CartItem = {
+  id: string;
+  style?: string;
+  model?: string;
+  finish?: string;
+  type?: string;
+  width?: number;
+  height?: number;
+  color?: string;
+  qty: number;
+  unitPrice: number;
+  handleId?: string;
+  sku_1c?: string | number | null;
+  edge?: string;
+  edge_note?: string;
+  hardwareKitId?: string;
+  baseAtAdd: number;
+};
+
+type DomainKits = { id: string; name: string; group?: number; price_rrc?: number }[];
+type DomainHandles = { id: string; name: string; supplier_name?: string; supplier_sku?: string; price_opt?: number; price_rrc?: number; price_group_multiplier?: number }[];
+
+type Domain = {
+  style?: string[];
+  model?: string[];
+  finish?: string[];
+  color?: string[];
+  type?: string[];
+  width?: number[];
+  height?: number[];
+  kits?: DomainKits;
+  handles?: DomainHandles;
+} | null;
 
 // ===================== Helpers (typed) =====================
 const fmtInt = (n: number): string =>
@@ -51,7 +89,7 @@ const imageCandidates = (obj: ProductLike): string[] => {
   const sku = obj?.sku_1c != null ? String(obj.sku_1c).trim() : "";
   const enc = obj?.model ? encodeURIComponent(obj.model) : "";
   const slug = obj?.model ? slugify(obj.model) : "";
-  const stems = [sku, enc, slug].filter(Boolean);
+  const stems = [sku, enc, slug].filter(Boolean) as string[];
   const out: string[] = [];
   for (const stem of stems) {
     out.push(`/assets/doors/${stem}.jpg`, `/assets/doors/${stem}.png`);
@@ -86,33 +124,33 @@ const mockData = {
 }
 
 const mockApi = {
-  async getOptions(query) {
+  async getOptions(query: URLSearchParams): Promise<{ ok: true; domain: any }> {
     const q = Object.fromEntries(query.entries())
-    const filtered = mockData.products.filter(p => Object.entries(q).every(([k, v]) => !v || String(p[k]) === String(v)))
+    const filtered = mockData.products.filter(p => Object.entries(q).every(([k, v]) => !v || String((p as any)[k]) === String(v)))
     // dependsOn-style domains
-    const order = ['style','model','finish','color','type','width','height']
-    const domain = {}
+    const order = ['style','model','finish','color','type','width','height'] as const
+    const domain: any = {}
     for(const key of order){
       const upstream = order.slice(0, order.indexOf(key))
-      const subset = mockData.products.filter(p => upstream.every(u => !q[u] || String(p[u])===String(q[u])))
-      domain[key] = Array.from(new Set(subset.map(p => p[key]).filter(v=>v!==undefined && v!==''))).sort((a,b)=> a>b?1:a<b?-1:0)
+      const subset = mockData.products.filter(p => upstream.every(u => !(q as any)[u] || String((p as any)[u])===String((q as any)[u])))
+      domain[key] = Array.from(new Set(subset.map(p => (p as any)[key]).filter((v: any)=>v!==undefined && v!==''))).sort((a:any,b:any)=> a>b?1:a<b?-1:0)
     }
     domain.kits = mockData.kits
     domain.handles = mockData.handles
-    for(const k of ['model','finish','color','type','width','height']){
-      if(q.style || q.model) domain[k] = Array.from(new Set(filtered.map(p=>p[k]).filter(Boolean))).sort((a,b)=> a>b?1:a<b?-1:0)
+    for(const k of ['model','finish','color','type','width','height'] as const){
+      if((q as any).style || (q as any).model) domain[k] = Array.from(new Set(filtered.map(p=>(p as any)[k]).filter(Boolean))).sort((a:any,b:any)=> a>b?1:a<b?-1:0)
     }
-    domain.style = Array.from(new Set((q.style ? filtered : mockData.products).map(p => p.style))).sort()
+    domain.style = Array.from(new Set(((q as any).style ? filtered : mockData.products).map(p => p.style))).sort()
     return { ok:true, domain }
   },
-  async listModelsByStyle(style){
+  async listModelsByStyle(style?: string): Promise<{ model: string; style: string }[]>{
     const rows = mockData.products.filter(p => !style || p.style === style)
-    const seen = new Set()
+    const seen = new Set<string>()
     const models = rows.filter(p => { if (seen.has(p.model)) return false; seen.add(p.model); return true })
     // возвращаем без photo — UI сам построит путь из кандидатов
     return models.map(p => ({ model: p.model, style: p.style }))
   },
-  async price(selection){
+  async price(selection: any): Promise<any>{
     const p = mockData.products.find(x => x.model === selection.model && x.style===selection.style && x.finish === selection.finish && x.color === selection.color && x.type === selection.type && x.width === selection.width && x.height === selection.height)
     if (!p) throw new Error('Combination not found')
     const kit = selection.hardware_kit && selection.hardware_kit.id ? mockData.kits.find(k => k.id === selection.hardware_kit.id) : undefined
@@ -127,11 +165,11 @@ const mockApi = {
       ...(handle ? [{ label: `Ручка: ${handle.name}`, amount: handle.price_rrc }] : []),
     ], total, sku_1c: p.sku_1c }
   },
-  async kp(cart){
-    const rows = []
+  async kp(cart: { items: CartItem[] }): Promise<string>{
+    const rows: string[] = []
     let n = 1
     for (const it of cart.items) {
-      const parts = []
+      const parts: string[] = []
       if (it.width && it.height) parts.push(`${it.width}×${it.height}`)
       if (it.color) parts.push(it.color)
       if (it.edge === 'да') parts.push(`Кромка${it.edge_note ? `: ${it.edge_note}` : ''}`)
@@ -141,7 +179,7 @@ const mockApi = {
       if (it.handleId) {
         const h = mockData.handles.find(h => h.id === it.handleId)
         if (h) {
-          const handleRetail = Math.round(h.price_opt * h.price_group_multiplier)
+          const handleRetail = Math.round(h.price_opt! * h.price_group_multiplier!)
           const hSum = handleRetail * it.qty
           rows.push(`<tr class="sub"><td></td><td>Ручка: ${h.name} — ${fmtInt(handleRetail)} × ${it.qty} = ${fmtInt(hSum)}</td><td class="num">${fmtInt(handleRetail)}</td><td class="num">${it.qty}</td><td class="num">${fmtInt(hSum)}</td></tr>`)
         }
@@ -160,7 +198,7 @@ const mockApi = {
       <table><thead><tr><th>№</th><th>Наименование</th><th>Цена РРЦ, руб</th><th>Количество</th><th>Сумма, руб</th></tr></thead>
       <tbody>${rows.join('')}</tbody></table></body></html>`
   },
-  async invoice(cart){
+  async invoice(cart: { items: CartItem[] }): Promise<string>{
     const total = cart.items.reduce((s, i) => s + i.unitPrice * i.qty, 0)
     const rows = cart.items.flatMap((i, idx) => {
       const baseRow = `<tr>
@@ -172,7 +210,7 @@ const mockApi = {
         <td class="num">${fmtInt(i.unitPrice*i.qty)}</td>
       </tr>`
       const handle = i.handleId ? mockData.handles.find(h=>h.id===i.handleId) : undefined
-      const handleRetail = handle ? Math.round(handle.price_opt * handle.price_group_multiplier) : 0
+      const handleRetail = handle ? Math.round(handle.price_opt! * handle.price_group_multiplier!) : 0
       const handleRow = handle ? `<tr class="sub">
         <td></td>
         <td>${handle.supplier_sku || '—'}</td>
@@ -201,7 +239,7 @@ const mockApi = {
       <h3>Итого: ${fmtInt(total)} ₽</h3>
     </body></html>`
   },
-  async factory(cart){
+  async factory(cart: { items: CartItem[] }): Promise<string>{
     const header = [
       'N','Supplier','Collection','SupplierItemName','SupplierColorFinish',
       'Width','Height','HardwareKit','OptPrice','RetailPrice','Qty','SumOpt','SumRetail'
@@ -213,17 +251,17 @@ const mockApi = {
       n++
       const prod = mockData.products.find(p => p.model===i.model && p.width===i.width && p.height===i.height && p.color===i.color)
       const kit = i.hardwareKitId ? mockData.kits.find(k=>k.id===i.hardwareKitId) : undefined
-      const opt = prod && prod.price_opt ? prod.price_opt : Math.round((prod && prod.rrc_price ? prod.rrc_price : 0) * 0.65)
-      const retail = (prod && prod.rrc_price ? prod.rrc_price : 0) + (kit ? kit.price_rrc : 0)
+      const opt = prod && (prod as any).price_opt ? (prod as any).price_opt : Math.round((prod && prod.rrc_price ? prod.rrc_price : 0) * 0.65)
+      const retail = (prod && prod.rrc_price ? prod.rrc_price : 0) + (kit ? kit.price_rrc! : 0)
       const sumOpt = opt * i.qty
       const sumRetail = retail * i.qty
 
       lines.push([
         String(n),
-        (prod && prod.supplier) || '',
-        (prod && prod.collection) || '',
-        (prod && (prod.supplier_item_name || prod.model)) || '',
-        (prod && prod.supplier_color_finish) || '',
+        (prod && (prod as any).supplier) || '',
+        (prod && (prod as any).collection) || '',
+        (prod && ((prod as any).supplier_item_name || prod.model)) || '',
+        (prod && (prod as any).supplier_color_finish) || '',
         String(i.width||''),
         String(i.height||''),
         (kit ? `${kit.name} (гр. ${kit.group})` : ''),
@@ -235,17 +273,17 @@ const mockApi = {
       if (i.handleId) {
         const h = mockData.handles.find(h=>h.id===i.handleId)
         if (h) {
-          const hSumOpt = h.price_opt * i.qty
-          const hRetail = h.price_opt * h.price_group_multiplier
+          const hSumOpt = h.price_opt! * i.qty
+          const hRetail = h.price_opt! * h.price_group_multiplier!
           const hSumRetail = hRetail * i.qty
           lines.push([
             '',
-            h.supplier_name,
+            h.supplier_name || '',
             '',
             `Ручка: ${h.name}`,
-            h.supplier_sku,
+            h.supplier_sku || '',
             '', '', '',
-            fmt2(h.price_opt), fmt2(hRetail),
+            fmt2(h.price_opt!), fmt2(hRetail),
             String(i.qty),
             fmt2(hSumOpt), fmt2(hSumRetail),
           ].join(','))
@@ -257,56 +295,56 @@ const mockApi = {
 }
 
 const realApi = {
-  async getOptions(query){
+  async getOptions(query: URLSearchParams): Promise<any>{
     const r = await fetch(`${API}/catalog/doors/options?${query.toString()}`)
     if (!r.ok) throw new Error(`options HTTP ${r.status}`)
     return r.json()
   },
-  async listModelsByStyle(style){
+  async listModelsByStyle(style?: string): Promise<any>{
     const r = await fetch(`${API}/catalog/doors/models?style=${encodeURIComponent(style||'')}`)
     if (!r.ok) throw new Error(`models HTTP ${r.status}`)
     return r.json()
   },
-  async price(selection){
+  async price(selection: any): Promise<any>{
     const r = await fetch(`${API}/price/doors`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ selection }) })
     if (!r.ok) throw new Error(`price HTTP ${r.status}`)
     return r.json()
   },
-  async kp(cart){
+  async kp(cart: { items: CartItem[] }): Promise<string>{
     const r = await fetch(`${API}/cart/export/doors/kp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) })
     if (!r.ok) throw new Error(`kp HTTP ${r.status}`)
     return r.text()
   },
-  async invoice(cart){
+  async invoice(cart: { items: CartItem[] }): Promise<string>{
     const r = await fetch(`${API}/cart/export/doors/invoice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) })
     if (!r.ok) throw new Error(`invoice HTTP ${r.status}`)
     return r.text()
   },
-  async factory(cart){
+  async factory(cart: { items: CartItem[] }): Promise<string>{
     const r = await fetch(`${API}/cart/export/doors/factory`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cart }) })
     if (!r.ok) throw new Error(`factory HTTP ${r.status}`)
     return r.text()
   },
-  async register(email, password){
+  async register(email: string, password: string): Promise<{ ok: boolean; status: number; text: string }>{
     const r = await fetch(`${API}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
-  async login(email, password){
+  async login(email: string, password: string): Promise<{ ok: boolean; status: number; text: string; token: string }>{
     const r = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
     const text = await r.text(); let token = ''; try{ const j = JSON.parse(text); token = j.token||'' }catch{}
     return { ok: r.ok, status: r.status, text, token }
   },
-  async importPrice(token, category, file, mappingJsonStr){
+  async importPrice(token: string, category: string, file: File, mappingJsonStr?: string): Promise<{ ok: boolean; status: number; text: string }>{
     const fd = new FormData();
     fd.append('file', file);
     if (mappingJsonStr) fd.append('mapping', mappingJsonStr);
     const r = await fetch(`${API}/admin/import/${category}`, { method: 'POST', headers: token?{ Authorization: `Bearer ${token}` }:undefined, body: fd })
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
-  async uploadMedia(token, model, files){
+  async uploadMedia(token: string, model: string, files: FileList | File[]): Promise<{ ok: boolean; status: number; text: string }>{
     const fd = new FormData();
     if (model) fd.append('model', model);
-    Array.from(files).forEach(f=> fd.append('file', f));
+    Array.from(files as any).forEach((f: File)=> fd.append('file', f));
     const r = await fetch(`${API}/admin/media/upload`, { method: 'POST', headers: token?{ Authorization: `Bearer ${token}` }:undefined, body: fd })
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
@@ -316,46 +354,89 @@ const api = API ? realApi : mockApi
 
 // ===================== App =====================
 export default function App(){
-  const [tab,setTab] = useState('config') // 'config' | 'admin'
+  const [tab,setTab] = useState<'config'|'admin'>('config')
 
   // configurator state
-  const [sel,setSel] = useState({})
-  const [domain,setDomain] = useState(null)
-  const [models,setModels] = useState([])
-  const [price,setPrice] = useState(null)
-  const [cart,setCart] = useState([])
-  const [kpHtml,setKpHtml] = useState('')
-  const [err,setErr] = useState(null)
-  const [editingId,setEditingId] = useState(null)
-  const [itemDomains, setItemDomains] = useState({})
+  const [sel,setSel] = useState<Partial<BasicState>>({})
+  const [domain,setDomain] = useState<Domain>(null)
+  const [models,setModels] = useState<{ model: string; style: string }[]>([])
+  const [price,setPrice] = useState<any>(null)
+  const [cart,setCart] = useState<CartItem[]>([])
+  const [kpHtml,setKpHtml] = useState<string>('')
+  const [err,setErr] = useState<string|null>(null)
+  const [editingId,setEditingId] = useState<string|null>(null)
+  const [itemDomains, setItemDomains] = useState<Record<string, Domain>>({})
 
   const selectedModelCard = useMemo(()=> models.find(m=>m.model===sel.model) || null, [models, sel.model])
 
-  const query = useMemo(()=>{ const q = new URLSearchParams(); ['style','model','finish','color','type','width','height'].forEach(k=>{ const v = sel[k]; if(v!==undefined&&v!=='') q.set(k,String(v)) }); return q },[sel])
-  useEffect(()=>{ let c=false; (async()=>{ try{ const r = await api.getOptions(query); if(!c) setDomain(r.domain) }catch(e){ if(!c) setErr(e && e.message ? e.message : 'Ошибка доменов') } })(); return ()=>{c=true} },[query])
-  useEffect(()=>{ let c=false; (async()=>{ try{ const rows = (api.listModelsByStyle ? await api.listModelsByStyle(sel.style) : await mockApi.listModelsByStyle(sel.style)); if(!c) setModels(rows) }catch{} })(); return ()=>{c=true} },[sel.style])
-  useEffect(()=>{ let c=false; (async()=>{ if(!hasBasic(sel)) { setPrice(null); return } try{ const p = await api.price(sel); if(!c) setPrice(p) }catch(e){ if(!c) setErr(e && e.message ? e.message : 'Ошибка расчёта') } })(); return ()=>{c=true} },[sel])
+  const query = useMemo(()=>{
+    const q = new URLSearchParams();
+    (['style','model','finish','color','type','width','height'] as const).forEach(k=>{
+      const v = (sel as any)[k];
+      if(v!==undefined && v!=='') q.set(k,String(v))
+    });
+    return q
+  },[sel])
 
-  const addToCart = ()=>{ if(!price) return; const item = { id: uid(), style: sel.style, model: sel.model, finish: sel.finish, type: sel.type, width: sel.width, height: sel.height, color: sel.color, qty: 1, unitPrice: price.total, handleId: sel.handle && sel.handle.id, sku_1c: price.sku_1c, edge: sel.edge, edge_note: sel.edge_note, hardwareKitId: sel.hardware_kit && sel.hardware_kit.id, baseAtAdd: price.total }; setCart(c=>[...c,item]) }
-  const removeFromCart = (id)=> setCart(c=>c.filter(i=>i.id!==id))
-  const changeQty = (id,qty)=> setCart(c=>c.map(i=>i.id===id?{...i, qty: Math.max(1, qty)}:i))
+  useEffect(()=>{ let c=false; (async()=>{
+    try{ const r = await api.getOptions(query); if(!c) setDomain(r.domain) }
+    catch(e:any){ if(!c) setErr(e?.message ?? 'Ошибка доменов') }
+  })(); return ()=>{c=true} },[query])
 
-  const ensureItemDomain = async (item)=>{
+  useEffect(()=>{ let c=false; (async()=>{
+    try{
+      const rows = (api.listModelsByStyle ? await api.listModelsByStyle(sel.style) : await mockApi.listModelsByStyle(sel.style))
+      if(!c) setModels(rows)
+    }catch{/* noop */}
+  })(); return ()=>{c=true} },[sel.style])
+
+  useEffect(()=>{ let c=false; (async()=>{
+    if(!hasBasic(sel)) { setPrice(null); return }
+    try{ const p = await api.price(sel); if(!c) setPrice(p) }
+    catch(e:any){ if(!c) setErr(e?.message ?? 'Ошибка расчёта') }
+  })(); return ()=>{c=true} },[sel])
+
+  const addToCart = ()=>{
+    if(!price) return;
+    const item: CartItem = {
+      id: uid(),
+      style: sel.style, model: sel.model, finish: sel.finish, type: sel.type,
+      width: sel.width, height: sel.height, color: sel.color,
+      qty: 1, unitPrice: price.total, handleId: sel.handle && sel.handle.id || undefined,
+      sku_1c: price.sku_1c, edge: sel.edge, edge_note: sel.edge_note,
+      hardwareKitId: sel.hardware_kit && sel.hardware_kit.id || undefined,
+      baseAtAdd: price.total
+    };
+    setCart(c=>[...c,item])
+  }
+  const removeFromCart = (id: string)=> setCart(c=>c.filter(i=>i.id!==id))
+  const changeQty = (id: string,qty: number)=> setCart(c=>c.map(i=>i.id===id?{...i, qty: Math.max(1, qty)}:i))
+
+  const ensureItemDomain = async (item: { model: string; style?: string })=>{
     if(itemDomains[item.model]) return itemDomains[item.model]
     const q = new URLSearchParams(); q.set('model', item.model); if(item.style) q.set('style', item.style)
     try{ const r = await api.getOptions(q); setItemDomains(m=>({...m, [item.model]: r.domain })); return r.domain }catch{ return null }
   }
 
-  const recalcItem = async (id)=>{
+  const recalcItem = async (id: string)=>{
     const it = cart.find(x=>x.id===id)
     if(!it) return
-    const selection = { style: it.style, model: it.model, finish: it.finish, color: it.color, type: it.type, width: it.width, height: it.height, hardware_kit: it.hardwareKitId?{id:it.hardwareKitId}:undefined, handle: it.handleId?{id:it.handleId}:undefined }
-    try{ const p = await api.price(selection); setCart(c=>c.map(x=>x.id===id?{...x, unitPrice: p.total, sku_1c: p.sku_1c }:x)) }catch(e){ /* keep old price */ }
+    const selection: any = {
+      style: it.style, model: it.model, finish: it.finish, color: it.color,
+      type: it.type, width: it.width, height: it.height,
+      hardware_kit: it.hardwareKitId?{id:it.hardwareKitId}:undefined,
+      handle: it.handleId?{id:it.handleId}:undefined
+    }
+    try{ const p = await api.price(selection); setCart(c=>c.map(x=>x.id===id?{...x, unitPrice: p.total, sku_1c: p.sku_1c }:x)) }catch{/* keep old price */}
   }
 
-  const changeItem = (id, patch)=>{ setCart(c=>c.map(i=> i.id===id? { ...i, ...patch } : i )) }
+  const changeItem = (id: string, patch: Partial<CartItem>)=>{ setCart(c=>c.map(i=> i.id===id? { ...i, ...patch } : i )) }
 
-  const download = (filename,mime,content)=>{ const blob = new Blob([content],{type:mime}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url) }
+  const download = (filename:string,mime:string,content:string)=>{
+    const blob = new Blob([content],{type:mime});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+  }
   const exportKP = async()=>{ const html = await api.kp({ items: cart }); download('kp.html','text/html;charset=utf-8',html); setKpHtml(html) }
   const exportInvoice = async()=>{ const html = await api.invoice({ items: cart }); download('invoice.html','text/html;charset=utf-8',html) }
   const exportFactory = async()=>{ const csv = await api.factory({ items: cart }); download('factory.csv','text/csv;charset=utf-8',csv) }
@@ -384,37 +465,41 @@ export default function App(){
   "sheet": "Каталог",
   "startRow": 2
 }`
-  const [mappingText, setMappingText] = useState(DEFAULT_MAPPING)
-  const [importInfo, setImportInfo] = useState(null as null | { ok: boolean; status: number; body?: any; })
+  const [mappingText, setMappingText] = useState<string>(DEFAULT_MAPPING)
+  const [importInfo, setImportInfo] = useState<null | { ok: boolean; status: number; body?: any; }>(null)
 
   // NEW: медиа — форма и статус
   const [modelForPhoto, setModelForPhoto] = useState('')
-  const [mediaInfo, setMediaInfo] = useState(null as null | { ok: boolean; status: number; body?: any; })
+  const [mediaInfo, setMediaInfo] = useState<null | { ok: boolean; status: number; body?: any; }>(null)
 
   const reg = async()=>{ if(!API){ setOut('MOCK: registration skipped (set window.__API_URL__)'); return } const r = await realApi.register(email,password); setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`) }
   const login = async()=>{ if(!API){ setToken('mock-token'); setOut('MOCK: logged in'); return } const r = await realApi.login(email,password); setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`); if(r.token) setToken(r.token) }
 
-  const importPrice = async(e)=>{ 
-    e.preventDefault(); 
-    const file = e.target.elements.price.files?.[0]; 
-    if(!file){ setOut('Выберите файл'); return } 
-    if(!API){ setOut('MOCK: import skipped'); return } 
+  const importPrice = async(e: React.FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const fileInput = form.elements.namedItem('price') as HTMLInputElement | null;
+    const file = fileInput?.files?.[0];
+    if(!file){ setOut('Выберите файл'); return }
+    if(!API){ setOut('MOCK: import skipped'); return }
     const mappingStr = mappingText && mappingText.trim() ? mappingText : undefined
-    const r = await realApi.importPrice(token, category, file, mappingStr); 
+    const r = await realApi.importPrice(token, category, file, mappingStr);
     setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`)
-    let body = {}; try{ body = JSON.parse(r.text) }catch{}
+    let body: any = {}; try{ body = JSON.parse(r.text) }catch{}
     setImportInfo({ ok: r.ok, status: r.status, body })
   }
 
   // NEW: upload media
-  const uploadMedia = async(e)=> {
+  const uploadMedia = async(e: React.FormEvent<HTMLFormElement>)=> {
     e.preventDefault()
-    const files = e.target.elements.media?.files
+    const form = e.currentTarget as HTMLFormElement;
+    const filesInput = form.elements.namedItem('media') as HTMLInputElement | null;
+    const files = filesInput?.files
     if(!files || !files.length){ setOut('Выберите файл(ы)'); return }
     if(!API){ setOut('MOCK: media upload skipped'); return }
     const r = await realApi.uploadMedia(token, modelForPhoto, files)
     setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`)
-    let body = {}; try{ body = JSON.parse(r.text) }catch{}
+    let body: any = {}; try{ body = JSON.parse(r.text) }catch{}
     setMediaInfo({ ok: r.ok, status: r.status, body })
   }
 
@@ -466,22 +551,22 @@ export default function App(){
             {sel.model && (
               <section className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
-                  <Select label="Покрытие" value={sel.finish||''} onChange={v=>setSel(s=>({...s, finish:v}))} options={domain?.finish||[]} />
-                  <Select label="Цвет" value={sel.color||''} onChange={v=>setSel(s=>({...s, color:v}))} options={domain?.color||[]} />
-                  <Select label="Тип" value={sel.type||''} onChange={v=>setSel(s=>({...s, type:v}))} options={domain?.type||[]} />
-                  <Select label="Ширина" value={sel.width?.toString()||''} onChange={v=>setSel(s=>({...s, width:Number(v)}))} options={(domain?.width||[]).map(String)} />
-                  <Select label="Высота" value={sel.height?.toString()||''} onChange={v=>setSel(s=>({...s, height:Number(v)}))} options={(domain?.height||[]).map(String)} />
-                  <Select label="Кромка" value={sel.edge||''} onChange={v=>setSel(s=>({...s, edge:v}))} options={['да','нет']} allowEmpty />
+                  <Select label="Покрытие" value={sel.finish||''} onChange={(v:string)=>setSel(s=>({...s, finish:v}))} options={(domain?.finish||[]) as string[]} />
+                  <Select label="Цвет" value={sel.color||''} onChange={(v:string)=>setSel(s=>({...s, color:v}))} options={(domain?.color||[]) as string[]} />
+                  <Select label="Тип" value={sel.type||''} onChange={(v:string)=>setSel(s=>({...s, type:v}))} options={(domain?.type||[]) as string[]} />
+                  <Select label="Ширина" value={sel.width?.toString()||''} onChange={(v:string)=>setSel(s=>({...s, width:Number(v)}))} options={((domain?.width||[]) as number[]).map(String)} />
+                  <Select label="Высота" value={sel.height?.toString()||''} onChange={(v:string)=>setSel(s=>({...s, height:Number(v)}))} options={((domain?.height||[]) as number[]).map(String)} />
+                  <Select label="Кромка" value={sel.edge||''} onChange={(v:string)=>setSel(s=>({...s, edge:v}))} options={['да','нет']} allowEmpty />
                   {sel.edge === 'да' && (
-                    <label className="text-sm space-y-1"><div className="text-gray-600">Примечание к кромке</div><input value={sel.edge_note||''} onChange={e=>setSel(s=>({...s, edge_note:e.target.value}))} className="w-full border rounded-xl px-3 py-2" placeholder="например: ABS BLACK" /></label>
+                    <label className="text-sm space-y-1"><div className="text-gray-600">Примечание к кромке</div><input value={sel.edge_note||''} onChange={e=>setSel(s=>({...s, edge_note:(e.target as HTMLInputElement).value}))} className="w-full border rounded-xl px-3 py-2" placeholder="например: ABS BLACK" /></label>
                   )}
                 </div>
 
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-4">
                   <h3 className="font-semibold">Выбор фурнитуры и ручек</h3>
                   <div className="grid md:grid-cols-2 gap-4">
-                    <div><Select label="Комплект фурнитуры" value={(sel.hardware_kit && sel.hardware_kit.id) || ''} onChange={v=>setSel(s=>({...s, hardware_kit: v?{id:v}:undefined}))} options={(domain?.kits||[]).map(k=>k.id)} allowEmpty /></div>
-                    <div><Select label="Ручка" value={(sel.handle && sel.handle.id) || ''} onChange={v=>setSel(s=>({...s, handle: v?{id:v}:undefined}))} options={(domain?.handles||[]).map(h=>h.id)} allowEmpty /></div>
+                    <div><Select label="Комплект фурнитуры" value={(sel.hardware_kit && sel.hardware_kit.id) || ''} onChange={(v:string)=>setSel(s=>({...s, hardware_kit: v?{id:v}:undefined}))} options={((domain?.kits||[]) as DomainKits).map(k=>k.id)} allowEmpty /></div>
+                    <div><Select label="Ручка" value={(sel.handle && sel.handle.id) || ''} onChange={(v:string)=>setSel(s=>({...s, handle: v?{id:v}:undefined}))} options={((domain?.handles||[]) as DomainHandles).map(h=>h.id)} allowEmpty /></div>
                   </div>
                 </div>
 
@@ -536,7 +621,7 @@ export default function App(){
                           {i.hardwareKitId ? `, Комплект: ${mockData.kits.find(k=>k.id===i.hardwareKitId)?.name}`: ''}
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <input type="number" min={1} value={i.qty} className="w-16 border rounded px-2 py-1" onChange={e=>changeQty(i.id, Number(e.target.value)||1)} />
+                          <input type="number" min={1} value={i.qty} className="w-16 border rounded px-2 py-1" onChange={e=>changeQty(i.id, Number((e.target as HTMLInputElement).value)||1)} />
                           <div className="text-xs text-gray-500">Δ {fmtInt(i.unitPrice - i.baseAtAdd)} ₽</div>
                           <div className="flex gap-2">
                             <button className="text-sm underline" onClick={async()=>{ setEditingId(editingId===i.id?null:i.id); if(editingId!==i.id) await ensureItemDomain(i) }}>Изменить</button>
@@ -545,11 +630,11 @@ export default function App(){
                         </div>
                         {editingId===i.id && (
                           <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-2">
-                            <SelectMini label="Покрытие" value={i.finish||''} options={(itemDomains[i.model]?.finish)||[]} onChange={async v=>{ changeItem(i.id,{ finish:v }); await recalcItem(i.id) }} />
-                            <SelectMini label="Цвет" value={i.color||''} options={(itemDomains[i.model]?.color)||[]} onChange={async v=>{ changeItem(i.id,{ color:v }); await recalcItem(i.id) }} />
-                            <SelectMini label="Тип" value={i.type||''} options={(itemDomains[i.model]?.type)||[]} onChange={async v=>{ changeItem(i.id,{ type:v }); await recalcItem(i.id) }} />
-                            <SelectMini label="Ширина" value={i.width?.toString()||''} options={((itemDomains[i.model]?.width)||[]).map(String)} onChange={async v=>{ changeItem(i.id,{ width:Number(v) }); await recalcItem(i.id) }} />
-                            <SelectMini label="Высота" value={i.height?.toString()||''} options={((itemDomains[i.model]?.height)||[]).map(String)} onChange={async v=>{ changeItem(i.id,{ height:Number(v) }); await recalcItem(i.id) }} />
+                            <SelectMini label="Покрытие" value={i.finish||''} options={(itemDomains[i.model!]?.finish||[]) as string[]} onChange={async (v:string)=>{ changeItem(i.id,{ finish:v }); await recalcItem(i.id) }} />
+                            <SelectMini label="Цвет" value={i.color||''} options={(itemDomains[i.model!]?.color||[]) as string[]} onChange={async (v:string)=>{ changeItem(i.id,{ color:v }); await recalcItem(i.id) }} />
+                            <SelectMini label="Тип" value={i.type||''} options={(itemDomains[i.model!]?.type||[]) as string[]} onChange={async (v:string)=>{ changeItem(i.id,{ type:v }); await recalcItem(i.id) }} />
+                            <SelectMini label="Ширина" value={i.width?.toString()||''} options={((itemDomains[i.model!]?.width)||[] as number[]).map(String)} onChange={async (v:string)=>{ changeItem(i.id,{ width:Number(v) }); await recalcItem(i.id) }} />
+                            <SelectMini label="Высота" value={i.height?.toString()||''} options={((itemDomains[i.model!]?.height)||[] as number[]).map(String)} onChange={async (v:string)=>{ changeItem(i.id,{ height:Number(v) }); await recalcItem(i.id) }} />
                           </div>
                         )}
                       </div>
@@ -668,10 +753,14 @@ export default function App(){
   )
 }
 
-function DoorCard({ item, selected, onSelect }){
-  const [src, setSrc] = useState(null)
+function DoorCard({ item, selected, onSelect }:{
+  item: { model: string; style?: string };
+  selected: boolean;
+  onSelect: () => void;
+}){
+  const [src, setSrc] = useState<string|null>(null)
   const [cands, setCands] = useState<string[]>([])
-  const [idx, setIdx] = useState(0)
+  const [idx, setIdx] = useState<number>(0)
 
   useEffect(()=>{
     const list = imageCandidates({ model: item.model })
@@ -680,14 +769,14 @@ function DoorCard({ item, selected, onSelect }){
     setSrc(list[0] || null)
   }, [item?.model])
 
-  const handleError = (e) => {
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const next = idx + 1
     if (next < cands.length) {
       setIdx(next)
       setSrc(cands[next])
       return
     }
-    e.currentTarget.src = "/assets/doors/_placeholder.png"
+    ;(e.currentTarget as HTMLImageElement).src = "/assets/doors/_placeholder.png"
   }
 
   return (
@@ -719,10 +808,10 @@ function DoorCard({ item, selected, onSelect }){
   )
 }
 
-function StickyPreview({ item }) {
-  const [src, setSrc] = useState(null)
+function StickyPreview({ item }:{ item: { model: string; sku_1c?: any } | null }) {
+  const [src, setSrc] = useState<string|null>(null)
   const [cands, setCands] = useState<string[]>([])
-  const [idx, setIdx] = useState(0)
+  const [idx, setIdx] = useState<number>(0)
 
   useEffect(()=>{
     if (!item) { setSrc(null); setCands([]); setIdx(0); return }
@@ -732,14 +821,14 @@ function StickyPreview({ item }) {
     setSrc(list[0] || null)
   }, [item?.sku_1c, item?.model])
 
-  const handleError = (e) => {
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const next = idx + 1
     if (next < cands.length) {
       setIdx(next)
       setSrc(cands[next])
       return
     }
-    e.currentTarget.src = "/assets/doors/_placeholder.png"
+    ;(e.currentTarget as HTMLImageElement).src = "/assets/doors/_placeholder.png"
   }
 
   if (!item) return null
@@ -757,11 +846,17 @@ function StickyPreview({ item }) {
   )
 }
 
-function Select({ label, value, onChange, options, allowEmpty=false }){
+function Select({ label, value, onChange, options, allowEmpty=false }:{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  allowEmpty?: boolean;
+}){
   return (
     <label className="text-sm space-y-1">
       <div className="text-gray-600">{label}</div>
-      <select value={value} onChange={e=>onChange(e.target.value)} className="w-full border rounded-xl px-3 py-2">
+      <select value={value} onChange={e=>onChange((e.target as HTMLSelectElement).value)} className="w-full border rounded-xl px-3 py-2">
         {allowEmpty && <option value="">—</option>}
         {options.map(o=> <option key={o} value={o}>{o}</option>)}
       </select>
@@ -769,11 +864,17 @@ function Select({ label, value, onChange, options, allowEmpty=false }){
   )
 }
 
-function SelectMini({ label, value, onChange, options, allowEmpty=false }){
+function SelectMini({ label, value, onChange, options, allowEmpty=false }:{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  allowEmpty?: boolean;
+}){
   return (
     <label className="text-xs space-y-1">
       <div className="text-gray-600">{label}</div>
-      <select value={value} onChange={e=>onChange(e.target.value)} className="w-full border rounded-lg px-2 py-1 text-xs">
+      <select value={value} onChange={e=>onChange((e.target as HTMLSelectElement).value)} className="w-full border rounded-lg px-2 py-1 text-xs">
         {allowEmpty && <option value="">—</option>}
         {options.map(o=> <option key={o} value={o}>{o}</option>)}
       </select>
