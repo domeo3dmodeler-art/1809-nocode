@@ -1,6 +1,9 @@
 "use client";
-// @ts-nocheck
-if (typeof window !== "undefined" && !window.__API_URL__) window.__API_URL__ = "/api";
+
+// безопасная инициализация кастомного поля на window без ts-ошибок
+if (typeof window !== "undefined") {
+  (window as any).__API_URL__ = (window as any).__API_URL__ ?? "/api";
+}
 
 // Domeo • Doors — Single Canonical App (Configurator + Admin)
 // CLEAN JS VERSION — 3-column configurator + Admin; inline cart editing + dependsOn-ready
@@ -11,7 +14,7 @@ const fmtInt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, 
 const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2)
 const uid = () => Math.random().toString(36).slice(2, 9)
 const hasBasic = (s) => !!(s.style && s.model && s.finish && s.color && s.type && s.width && s.height)
-const API = (typeof window !== 'undefined' && window.__API_URL__) || null
+const API = typeof window !== 'undefined' ? (window as any).__API_URL__ : null
 
 // images priority: /assets/doors/<SKU|encodeURIComponent(model)|slug(model)>.{jpg|png}
 const slugify = (s) => s.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "")
@@ -26,6 +29,7 @@ const imageCandidates = (obj) => {
   }
   return out
 }
+
 
 // ===================== Mock Data =====================
 const styleTiles = [
