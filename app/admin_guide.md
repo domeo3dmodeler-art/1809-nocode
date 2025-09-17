@@ -1,100 +1,11 @@
-Title: Domeo — Admin Guide (Doors Pilot)
-Owner: @Analyst (админка)
-Last updated (Europe/Paris): 2025-09-11
-Related: [Master Spec](./master_spec.md), [Roadmap](./roadmap.md), [State](./state.md),
-         [Data Import Guide Doors](./data_import_guide_doors.md), [Spec КП и формулы](./spec_kp_formulas.md)
+## Загрузка фото (Doors)
+- Эндпоинт: `POST /api/admin/media/upload` (JWT).
+- Форма: `multipart/form-data` с `model` (string) и `file` (array of binary).
+- Имя файла на диске: `encodeURIComponent(model).ext` (jpg/png).
+- Путь: `public/assets/doors/`.
 
-# Domeo No-Code Admin — Руководство администратора
-
-**Цель:** дать админам пошаговый способ работать без кода: категории, импорт, медиа, публикации, откаты.
-
----
-
-## 1) Роли и доступ
-- **Admin:** полный доступ.  
-- **Manager:** импорт прайсов, fixtures.  
-- **Viewer:** только просмотр.  
-
----
-
-## 2) Быстрый старт: «Новая категория за 15 минут»
-
-1. **Wizard → New Category**: введите `key`, `title`, иконку.  
-2. **Attributes:** добавьте поля (enum/entity/number/boolean/string), настройте `dependsOn`, источники (`db:`, `fixture:`, `search:`).  
-3. **UI Flow:** шаги, виджеты, секции.  
-4. **Pricing DSL:** настройка базовой цены (`db:products.rrc_price` + `by[]`) и правил (см. [Spec КП и формулы](./spec_kp_formulas.md)).  
-5. **Export Templates:** загрузите `kp.html`, `factory.csv/xlsx`.  
-6. **Fixtures:** (опционально) добавьте наборы (`kits`, `handles` и т.д.).  
-7. **Import Mapping:** настройте поля XLSX/CSV.  
-8. **Preview:** протестируйте `/options`, `/price`, экспорт.  
-9. **Publish:** добавьте комментарий к релизу, опубликуйте. Вкладка появится на сайте.  
-
----
-
-## 3) Импорт прайсов (XLSX/CSV)
-
-1. Зайдите в **Import** категории.  
-2. Загрузите файл, сопоставьте колонки по маппингу.  
-3. Проверьте **валидацию** (обязательные поля).  
-4. Изучите **отчёт по конфликтам РРЦ** (одинаковый ключ — разные РРЦ).  
-5. Выберите **каноническую РРЦ** (по умолчанию — минимальная) либо задайте вручную.  
-6. Подтвердите **UPSERT** в БД.  
-7. Скачайте **CSV-отчёт** в `/static/import_reports/<category>/…` при необходимости.  
-
-**Советы:**  
-- Для полей, начинающихся с `=`, `+`, `-`, добавляйте префикс `'` (анти CSV-инъекции).  
-- Храните **photo** либо по URL, либо через **Media Manager** (`photo_id`).  
-
----
-
-## 4) UI Flow и корзина
-
-- `ui.flow`: шаги (`style → model → options → price`).  
-- `ui.cart`: конфигурация заголовка строки (`lineTitle`) и колонок (`columns[]`).  
-> Корзина может отличаться у разных категорий — задаётся в конфиге, без кода.  
-
----
-
-## 5) Медиа-менеджер
-
-- **Upload** изображения → получите `media_id`.  
-- Ссылки: `/media/:id` и `/media/:id/fit?w=…&h=…`.  
-
----
-
-## 6) Публикации и откаты
-
-- Все правки в конфиге сохраняются как **Draft**.  
-- Кнопка **Publish**: создаётся **снапшот** и обновляется активная версия.  
-- **Rollback:** вернуться к любой прошлой версии; перед откатом система создаёт PIT-бэкап БД.  
-
----
-
-## 7) Предпросмотр и тесты
-
-В окне категории доступны:  
-- **Options Test:** вводите `selection`, смотрите домены значений.  
-- **Price Test:** вводите `selection`, получаете `base + breakdown + total`.  
-- **Export Test:** формируете КП/Заказ для тестовой корзины.  
-
-> Дежурные **curl** примеры лежат в `docs/`.  
-
----
-
-## 8) Типичные проблемы и решения
-
-- **Пустые домены значений** → вероятно, неверный `dependsOn` или в БД нет подходящих комбинаций.  
-- **Неверная цена** → проверьте `basePrice.by[]`, правила `mul/add`, округление `round(to)`.  
-- **Не показывается фото** → проверьте `productModel.media.pathTemplate` и `slugFrom` либо `media_id`.  
-
----
-
-## 9) Чеклист категории перед публикацией
-
-- [ ] Attributes заданы, `dependsOn` проверен.  
-- [ ] Импорт выполнен, ошибок/конфликтов РРЦ нет.  
-- [ ] Pricing DSL покрывает ключевые кейсы (см. [Spec КП и формулы](./spec_kp_formulas.md)).  
-- [ ] UI Flow/Cart настроены; предпросмотр пройден.  
-- [ ] Шаблоны экспорта загружены.  
-- [ ] Smoke-тесты `/options`, `/price`, экспорт — ОК.  
-- [ ] Версия опубликована с комментарием.  
+Пример:
+curl -sS -H "Authorization: Bearer smoke" \
+  -F "model=PO Base 1/1" \
+  -F "file=@/path/pic.jpg;type=image/jpeg" \
+  http://localhost:3000/api/admin/media/upload

@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: Domeo API
+  version: '0.1.0'
+servers:
+  - url: http://localhost:3000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        '204':
+          description: No Content
+
+  /api/admin/ping:
+    get:
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      summary: Admin ping
+      responses:
+        '200':
+          description: Pong
+        '401':
+          description: Unauthorized
+
+  /api/admin/media/upload:
+    post:
+      tags: [admin, media]
+      operationId: adminUploadMedia
+      summary: Upload door photos (admin)
+      description: >
+        Принимает одно или несколько изображений двери. Требует JWT (`Bearer`).
+        Сервер сохраняет файлы как `encodeURIComponent(model).ext` в
+        `app/public/assets/doors/`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [model, file]
+              properties:
+                model:
+                  type: string
+                  description: |
+                    Точное имя модели. Используется для имени файла:
+                    encodeURIComponent(model) + оригинальное расширение.
+                  example: "PO Base 1/1"
+                file:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+              additionalProperties: false
+            encoding:
+              file:
+                contentType:
+                  - image/jpeg
+                  - image/png
+      responses:
+        '200':
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        filename:
+                          type: string
+                          example: "PO%20Base%201%2F1.jpg"
+                        url:
+                          type: string
+                          example: "/assets/doors/PO%20Base%201%2F1.jpg"
+                required: [files]
+        '400':
+          description: Bad request (missing model or files)
+        '401':
+          description: Unauthorized
+        '415':
+          description: Unsupported media type
