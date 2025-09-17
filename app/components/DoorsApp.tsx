@@ -38,7 +38,7 @@ const mockData = {
 const mockApi = {
   async getOptions(query: URLSearchParams) {
     const q = Object.fromEntries(query.entries())
-    const filtered = mockData.products.filter(p => Object.entries(q).every(([k, v]) => !v || String(p[k]) === String(v)))
+    const filtered = mockData.products.filter(p => Object.entries(q).every(([k, v]) => !v || String((p as any)[k]) === String(v)))
     // dependsOn-style domains
     const order = ['style','model','finish','color','type','width','height']
     const domain = {}
