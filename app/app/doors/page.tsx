@@ -344,8 +344,18 @@ const realApi = {
   async uploadMedia(token: string, model: string, files: FileList | File[]): Promise<{ ok: boolean; status: number; text: string }>{
     const fd = new FormData();
     if (model) fd.append('model', model);
-    Array.from(files as any).forEach((f: File)=> fd.append('file', f));
-    const r = await fetch(`${API}/admin/media/upload`, { method: 'POST', headers: token?{ Authorization: `Bearer ${token}` }:undefined, body: fd })
+
+    // ✅ Надёжная итерация по FileList | File[]
+    const list: File[] = Array.isArray(files) ? files as File[] : Array.from(files as FileList);
+    for (const f of list) {
+      fd.append('file', f);
+    }
+
+    const r = await fetch(`${API}/admin/media/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd
+    });
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
 }
@@ -624,7 +634,7 @@ export default function App(){
                           <input type="number" min={1} value={i.qty} className="w-16 border rounded px-2 py-1" onChange={e=>changeQty(i.id, Number((e.target as HTMLInputElement).value)||1)} />
                           <div className="text-xs text-gray-500">Δ {fmtInt(i.unitPrice - i.baseAtAdd)} ₽</div>
                           <div className="flex gap-2">
-                            <button className="text-sm underline" onClick={async()=>{ setEditingId(editingId===i.id?null:i.id); if(editingId!==i.id) await ensureItemDomain(i) }}>Изменить</button>
+                            <button className="text-sm underline" onClick={async()=>{ setEditingId(editingId===i.id?null:i.id); if(editingId!==i.id) await ensureItemDomain({ model: i.model as string, style: i.style }) }}>Изменить</button>
                             <button className="text-red-600 text-sm" onClick={()=>removeFromCart(i.id)}>Удалить</button>
                           </div>
                         </div>

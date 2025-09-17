@@ -4,10 +4,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
 // ===================== Helpers =====================
-const fmtInt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2)
-const uid = () => Math.random().toString(36).slice(2, 9)
-const hasBasic = (s) => !!(s.style && s.model && s.finish && s.color && s.type && s.width && s.height)
+const fmtInt = (n: number): string => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+const fmt2 = (n: number): string => (Math.round(n * 100) / 100).toFixed(2)
+const uid = (): string => Math.random().toString(36).slice(2, 9)
+const hasBasic = (s: { style?: string; model?: string; finish?: string; color?: string; type?: string; width?: number; height?: number; }): boolean => !!(s.style && s.model && s.finish && s.color && s.type && s.width && s.height)
 const API = (typeof window !== 'undefined' && "") || null
 
 // ===================== Mock Data =====================
@@ -36,7 +36,7 @@ const mockData = {
 }
 
 const mockApi = {
-  async getOptions(query) {
+  async getOptions(query: URLSearchParams) {
     const q = Object.fromEntries(query.entries())
     const filtered = mockData.products.filter(p => Object.entries(q).every(([k, v]) => !v || String(p[k]) === String(v)))
     // dependsOn-style domains
@@ -206,7 +206,7 @@ const mockApi = {
 }
 
 const realApi = {
-  async getOptions(query){
+  async getOptions(query: URLSearchParams){
     const r = await fetch(`${API}/catalog/doors/options?${query.toString()}`)
     if (!r.ok) throw new Error(`options HTTP ${r.status}`)
     return r.json()
