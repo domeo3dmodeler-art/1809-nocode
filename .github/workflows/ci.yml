@@ -50,8 +50,21 @@ jobs:
         working-directory: app
         run: |
           npx prisma migrate deploy || { echo "::warning::migrate failed (soft)"; true; }
-          [ -f ./sql/dev_bootstrap_doors.sql ] && npx prisma db execute --file ./sql/dev_bootstrap_doors.sql --schema prisma/schema.prisma || echo "skip dev_bootstrap_doors.sql"
-          [ -f ./sql/create_products_index.sql ] && npx prisma db execute --file ./sql/create_products_index.sql --schema prisma/schema.prisma || echo "skip create_products_index.sql"
+
+          if [ -f ./sql/dev_bootstrap_doors.sql ]; then
+            npx prisma db execute --file ./sql/dev_bootstrap_doors.sql --schema prisma/schema.prisma \
+              || echo "::warning::dev_bootstrap_doors.sql failed (soft)"
+          else
+            echo "skip dev_bootstrap_doors.sql"
+          fi
+
+          if [ -f ./sql/create_products_index.sql ]; then
+            npx prisma db execute --file ./sql/create_products_index.sql --schema prisma/schema.prisma \
+              || echo "::warning::create_products_index.sql failed (soft)"
+          else
+            echo "skip create_products_index.sql"
+          fi
+
 
       - name: Build Next
         working-directory: app
