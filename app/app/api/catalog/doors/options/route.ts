@@ -1,6 +1,6 @@
 // app/api/catalog/doors/options/route.ts
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // если у тебя иной хелпер — скажи, адаптирую
+import prisma from '@/lib/prisma'; // если у тебя иной хелпер — скажи, адаптирую
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
