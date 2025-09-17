@@ -13,7 +13,7 @@ export async function GET() {
     });
 
     const items = groups
-      .filter(g => g.type !== null && g.type !== '')
+      .filter(g => (g.type as string) !== '')
       .map(g => ({ type: g.type as string, count: (g as any)._count._all as number }));
 
     return NextResponse.json({ ok: true, total: items.length, items });
@@ -21,9 +21,7 @@ export async function GET() {
     // Фолбэк: distinct + последующий count
     try {
       const rows = await prisma.products.findMany({
-        where: {
-          AND: [{ type: { not: null } }, { type: { not: '' } }],
-        },
+        where: { type: { not: '' } },     // без not: null — поле не nullable
         distinct: ['type'],
         select: { type: true },
         orderBy: { type: 'asc' },
@@ -32,9 +30,7 @@ export async function GET() {
       const items = await Promise.all(
         rows.map(async r => ({
           type: r.type as string,
-          count: await prisma.products.count({
-            where: { type: r.type as string },
-          }),
+          count: await prisma.products.count({ where: { type: r.type as string } }),
         }))
       );
 
