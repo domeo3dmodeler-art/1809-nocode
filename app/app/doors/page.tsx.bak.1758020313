@@ -13,20 +13,6 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 const hasBasic = (s) => !!(s.style && s.model && s.finish && s.color && s.type && s.width && s.height)
 const API = (typeof window !== 'undefined' && window.__API_URL__) || null
 
-// images priority: /assets/doors/<SKU|encodeURIComponent(model)|slug(model)>.{jpg|png}
-const slugify = (s) => s.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "")
-const imageCandidates = (obj) => {
-  const sku = obj?.sku_1c && String(obj.sku_1c).trim()
-  const enc = obj?.model ? encodeURIComponent(obj.model) : null
-  const slug = obj?.model ? slugify(obj.model) : null
-  const stems = [sku, enc, slug].filter(Boolean)
-  const out = []
-  for (const stem of stems) {
-    out.push(`/assets/doors/${stem}.jpg`, `/assets/doors/${stem}.png`)
-  }
-  return out
-}
-
 // ===================== Mock Data =====================
 const styleTiles = [
   { key: 'Скрытая', bg: 'linear-gradient(135deg,#f3f4f6 0%,#e5e7eb 100%)' },
@@ -76,8 +62,7 @@ const mockApi = {
     const rows = mockData.products.filter(p => !style || p.style === style)
     const seen = new Set()
     const models = rows.filter(p => { if (seen.has(p.model)) return false; seen.add(p.model); return true })
-    // возвращаем без photo — UI сам построит путь из кандидатов
-    return models.map(p => ({ model: p.model, style: p.style }))
+    return models.map(p => ({ model: p.model, style: p.style, photo: p.modelPhoto }))
   },
   async price(selection){
     const p = mockData.products.find(x => x.model === selection.model && x.style===selection.style && x.finish === selection.finish && x.color === selection.color && x.type === selection.type && x.width === selection.width && x.height === selection.height)
@@ -263,17 +248,13 @@ const realApi = {
     const text = await r.text(); let token = ''; try{ const j = JSON.parse(text); token = j.token||'' }catch{}
     return { ok: r.ok, status: r.status, text, token }
   },
-  async importPrice(token, category, file, mappingJsonStr){
-    const fd = new FormData();
-    fd.append('file', file);
-    if (mappingJsonStr) fd.append('mapping', mappingJsonStr);
+  async importPrice(token, category, file){
+    const fd = new FormData(); fd.append('file', file)
     const r = await fetch(`${API}/admin/import/${category}`, { method: 'POST', headers: token?{ Authorization: `Bearer ${token}` }:undefined, body: fd })
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
-  async uploadMedia(token, model, files){
-    const fd = new FormData();
-    if (model) fd.append('model', model);
-    Array.from(files).forEach(f=> fd.append('file', f));
+  async uploadMedia(token, files){
+    const fd = new FormData(); Array.from(files).forEach(f=> fd.append('file', f))
     const r = await fetch(`${API}/admin/media/upload`, { method: 'POST', headers: token?{ Authorization: `Bearer ${token}` }:undefined, body: fd })
     return { ok: r.ok, status: r.status, text: await r.text() }
   },
@@ -333,57 +314,9 @@ export default function App(){
   const [token,setToken] = useState('')
   const [category,setCategory] = useState('doors')
   const [out,setOut] = useState('')
-
-  // NEW: импорт — маппинг и статус
-  const DEFAULT_MAPPING = `{
-  "mapping": {
-    "model": "Модель",
-    "style": "Стиль",
-    "finish": "Покрытие",
-    "domeo_color": "Цвет",
-    "type": "Тип",
-    "width": "Ширина",
-    "height": "Высота",
-    "rrc_price": "РРЦ",
-    "photo_url": "Фото"
-  },
-  "uniqueBy": ["model","finish","domeo_color","type","width","height"],
-  "sheet": "Каталог",
-  "startRow": 2
-}`
-  const [mappingText, setMappingText] = useState(DEFAULT_MAPPING)
-  const [importInfo, setImportInfo] = useState(null as null | { ok: boolean; status: number; body?: any; })
-
-  // NEW: медиа — форма и статус
-  const [modelForPhoto, setModelForPhoto] = useState('')
-  const [mediaInfo, setMediaInfo] = useState(null as null | { ok: boolean; status: number; body?: any; })
-
   const reg = async()=>{ if(!API){ setOut('MOCK: registration skipped (set window.__API_URL__)'); return } const r = await realApi.register(email,password); setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`) }
   const login = async()=>{ if(!API){ setToken('mock-token'); setOut('MOCK: logged in'); return } const r = await realApi.login(email,password); setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`); if(r.token) setToken(r.token) }
-
-  const importPrice = async(e)=>{ 
-    e.preventDefault(); 
-    const file = e.target.elements.price.files?.[0]; 
-    if(!file){ setOut('Выберите файл'); return } 
-    if(!API){ setOut('MOCK: import skipped'); return } 
-    const mappingStr = mappingText && mappingText.trim() ? mappingText : undefined
-    const r = await realApi.importPrice(token, category, file, mappingStr); 
-    setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`)
-    let body = {}; try{ body = JSON.parse(r.text) }catch{}
-    setImportInfo({ ok: r.ok, status: r.status, body })
-  }
-
-  // NEW: upload media
-  const uploadMedia = async(e)=> {
-    e.preventDefault()
-    const files = e.target.elements.media?.files
-    if(!files || !files.length){ setOut('Выберите файл(ы)'); return }
-    if(!API){ setOut('MOCK: media upload skipped'); return }
-    const r = await realApi.uploadMedia(token, modelForPhoto, files)
-    setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`)
-    let body = {}; try{ body = JSON.parse(r.text) }catch{}
-    setMediaInfo({ ok: r.ok, status: r.status, body })
-  }
+  const importPrice = async(e)=>{ e.preventDefault(); const file = e.target.elements.price.files?.[0]; if(!file){ setOut('Выберите файл'); return } if(!API){ setOut('MOCK: import skipped'); return } const r = await realApi.importPrice(token, category, file); setOut(`${r.ok?'OK':'ERR'} ${r.status}: ${r.text}`) }
 
   return (
     <div className="min-h-screen bg-white">
@@ -404,7 +337,7 @@ export default function App(){
               <h2 className="text-xl font-semibold mb-3">Полотно</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {styleTiles.map(s=> (
-                  <button key={s.key} onClick={()=>setSel(v=>({...v, style: s.key }))} className={`group overflow-hidden rounded-2xl shadow hover:shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2 ${sel.style===s.key?'ring-2 ring-indigo-500':''}`} aria-label={`Выбрать стиль ${s.key}`}>
+                  <button key={s.key} onClick={()=>setSel(v=>({...v, style: s.key }))} className={`group overflow-hidden rounded-2xl shadow hover:shadow-lg transition ${sel.style===s.key?'ring-2 ring-black':''}`}>
                     <div className="aspect-[4/3] flex items-center justify-center" style={{ background: s.bg }}>
                       <div className="w-16 h-28 bg-white rounded-sm shadow-inner border border-black/10 relative"><div className="absolute right-1/4 top-1/2 w-4 h-1 bg-black/30"/></div>
                     </div>
@@ -421,9 +354,12 @@ export default function App(){
                   <button className="text-sm underline" onClick={()=>setSel(v=>({...v, style:''}))}>Сбросить стиль</button>
                 </div>
                 {models.length ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {models.map(m=> (
-                      <DoorCard key={m.model} item={m} selected={sel.model===m.model} onSelect={()=>setSel(v=>({...v, model: m.model }))} />
+                      <button key={m.model} onClick={()=>setSel(v=>({...v, model: m.model }))} className={`group rounded-2xl overflow-hidden shadow hover:shadow-lg transition ${sel.model===m.model?'ring-2 ring-black':''}`}>
+                        <div className="aspect-[4/3] bg-gray-100" style={{ backgroundImage:`url(${m.photo})`, backgroundSize:'cover', backgroundPosition:'center' }} />
+                        <div className="p-3 text-left"><div className="font-medium">{m.model}</div><div className="text-xs text-gray-500">{m.style}</div></div>
+                      </button>
                     ))}
                   </div>
                 ) : (<div className="text-gray-500">Нет моделей для выбранного стиля</div>)}
@@ -464,7 +400,13 @@ export default function App(){
 
           <section className="lg:col-span-1">
             <div className="sticky top-6">
-              <StickyPreview item={sel.model ? { model: sel.model, sku_1c: price?.sku_1c } : null} />
+              <div className="bg-white rounded-2xl shadow overflow-hidden max-w-sm mx-auto">
+                <div className="aspect-[2/3] bg-gray-100" style={{ backgroundImage: (models.find(m=>m.model===sel.model)?.photo) ? `url(${models.find(m=>m.model===sel.model).photo})` : 'none', backgroundSize:'cover', backgroundPosition:'center' }}>
+                  {!models.find(m=>m.model===sel.model)?.photo && (
+                    <div className="w-full h-full flex items-center justify-center"><div className="w-24 h-48 bg-white rounded-sm shadow-inner border border-black/10 relative"><div className="absolute right-1/4 top-1/2 w-6 h-1 bg-black/30"/></div></div>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -559,70 +501,8 @@ export default function App(){
                 </select>
               </label>
               <input type="file" name="price" accept=".xlsx,.csv" className="block" />
-              <label className="text-sm block">Mapping JSON (опционально)
-                <textarea value={mappingText} onChange={e=>setMappingText(e.target.value)} className="w-full border rounded px-3 py-2 font-mono text-sm min-h-[160px]" />
-              </label>
               <button className="px-4 py-2 rounded-xl bg-black text-white" type="submit">Импортировать</button>
             </form>
-
-            {/* Статус импорта */}
-            {importInfo && (
-              <div className="mt-3 text-sm">
-                {importInfo.ok && importInfo.status===200 && (
-                  <div className="rounded-lg border p-3 bg-green-50">
-                    <div className="font-medium">✅ База загружена</div>
-                    <pre className="bg-white border mt-2 p-2 rounded overflow-auto">{JSON.stringify(importInfo.body, null, 2)}</pre>
-                  </div>
-                )}
-                {!importInfo.ok && importInfo.status===409 && (
-                  <div className="rounded-lg border p-3 bg-yellow-50">
-                    <div className="font-medium">⚠️ Конфликты РРЦ</div>
-                    <pre className="bg-white border mt-2 p-2 rounded overflow-auto">{JSON.stringify(importInfo.body, null, 2)}</pre>
-                    {(importInfo.body?.report_csv || importInfo.body?.conflicts_report) && (
-                      <a className="underline" href={importInfo.body.report_csv || importInfo.body.conflicts_report} target="_blank">Открыть CSV-отчёт</a>
-                    )}
-                  </div>
-                )}
-                {!importInfo.ok && importInfo.status!==409 && (
-                  <div className="rounded-lg border p-3 bg-red-50">
-                    <div className="font-medium">❌ Ошибка импорта</div>
-                    <pre className="bg-white border mt-2 p-2 rounded overflow-auto">{JSON.stringify(importInfo.body, null, 2)}</pre>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-
-          <section className="bg-white rounded-2xl shadow p-4">
-            <h2 className="font-semibold mb-3">Загрузка фото (Doors)</h2>
-            <form onSubmit={uploadMedia} className="space-y-3">
-              <label className="text-sm block">Model
-                <input value={modelForPhoto} onChange={e=>setModelForPhoto(e.target.value)} placeholder="например: PO Base 1/1" className="w-full border rounded px-3 py-2" />
-              </label>
-              <input type="file" name="media" accept="image/jpeg,image/png,image/webp" multiple className="block" />
-              <div className="text-xs text-gray-500">Имя файла: <code>encodeURIComponent(model).ext</code>; папка: <code>public/assets/doors/</code></div>
-              <button className="px-4 py-2 rounded-xl bg-black text-white" type="submit">Загрузить</button>
-            </form>
-
-            {/* Статус медиа */}
-            {mediaInfo && (
-              <div className="mt-3 text-sm">
-                {mediaInfo.ok ? (
-                  <div className="rounded-lg border p-3 bg-green-50">
-                    <div className="font-medium">✅ Файл(ы) сохранены</div>
-                    <pre className="bg-white border mt-2 p-2 rounded overflow-auto">{JSON.stringify(mediaInfo.body, null, 2)}</pre>
-                    {mediaInfo.body?.files?.[0]?.url && (
-                      <a className="underline" href={mediaInfo.body.files[0].url} target="_blank">Открыть {mediaInfo.body.files[0].filename}</a>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border p-3 bg-red-50">
-                    <div className="font-medium">❌ Ошибка загрузки</div>
-                    <pre className="bg-white border mt-2 p-2 rounded overflow-auto">{JSON.stringify(mediaInfo.body, null, 2)}</pre>
-                  </div>
-                )}
-              </div>
-            )}
           </section>
 
           <pre className="bg-gray-50 rounded-xl p-3 text-xs whitespace-pre-wrap">{out}</pre>
@@ -632,95 +512,6 @@ export default function App(){
       {/* SSR smoke marker for CI */}
       <div data-smoke="compat-active" hidden />
     </div>
-  )
-}
-
-function DoorCard({ item, selected, onSelect }){
-  const [src, setSrc] = useState(null)
-  const [cands, setCands] = useState<string[]>([])
-  const [idx, setIdx] = useState(0)
-
-  useEffect(()=>{
-    const list = imageCandidates({ model: item.model })
-    setCands(list)
-    setIdx(0)
-    setSrc(list[0] || null)
-  }, [item?.model])
-
-  const handleError = (e) => {
-    const next = idx + 1
-    if (next < cands.length) {
-      setIdx(next)
-      setSrc(cands[next])
-      return
-    }
-    e.currentTarget.src = "/assets/doors/_placeholder.png"
-  }
-
-  return (
-    <button
-      onClick={onSelect}
-      aria-label={`Выбрать модель ${item.model}`}
-      className={[
-        "group w-full text-left rounded-2xl border bg-white shadow-sm",
-        "hover:shadow-md transition",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2",
-        selected ? "border-indigo-500 shadow-md" : "border-gray-200"
-      ].join(" ")}
-    >
-      <div className="p-4 flex flex-col gap-3">
-        <div className="aspect-[3/4] w-full overflow-hidden rounded-xl bg-gray-50">
-          {src ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={src} alt={item.model} className="h-full w-full object-cover" onError={handleError} />
-          ) : (
-            <div className="h-full w-full animate-pulse bg-gray-200" />
-          )}
-        </div>
-        <div className="flex flex-col">
-          <div className="text-lg font-semibold text-gray-900">{item.model}</div>
-          <div className="text-sm text-gray-500">{item.style || '—'}</div>
-        </div>
-      </div>
-    </button>
-  )
-}
-
-function StickyPreview({ item }) {
-  const [src, setSrc] = useState(null)
-  const [cands, setCands] = useState<string[]>([])
-  const [idx, setIdx] = useState(0)
-
-  useEffect(()=>{
-    if (!item) { setSrc(null); setCands([]); setIdx(0); return }
-    const list = imageCandidates(item)
-    setCands(list)
-    setIdx(0)
-    setSrc(list[0] || null)
-  }, [item?.sku_1c, item?.model])
-
-  const handleError = (e) => {
-    const next = idx + 1
-    if (next < cands.length) {
-      setIdx(next)
-      setSrc(cands[next])
-      return
-    }
-    e.currentTarget.src = "/assets/doors/_placeholder.png"
-  }
-
-  if (!item) return null
-  return (
-    <aside className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 text-xl font-semibold">{item.model}</div>
-      <div className="aspect-[3/4] w-full overflow-hidden rounded-xl bg-gray-50">
-        {src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={item.model} className="h-full w-full object-cover" onError={handleError} />
-        ) : <div className="h-full w-full animate-pulse bg-gray-200" />}
-      </div>
-      {/* можно добавить свойства */}
-    </aside>
   )
 }
 
