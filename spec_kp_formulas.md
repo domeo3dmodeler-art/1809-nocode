@@ -107,3 +107,13 @@ Related: [Master Spec](./master_spec.md), [Admin Guide](./admin_guide.md), [Data
 # Версионирование
 - v1.1 (2025-09-13): добавлена формула расчёта Doors и уточнён экспорт.  
 - v1.0 (2025-09-11): стартовая версия для пилота Doors.
+
+## Применение формул в экспортных документах
+
+- **KP/Invoice**: суммирование по позициям и подпозициям (ручки, комплекты), округление до рублей.
+- **Factory CSV**: колонки:
+  1) N, 2) Supplier, 3) Collection, 4) SupplierItemName, 5) SupplierColorFinish,
+  6) Width, 7) Height, 8) HardwareKit, 9) OptPrice, 10) RetailPrice,
+  11) Qty, 12) SumOpt, 13) SumRetail
+- Розничная цена позиции = `base_rrc + kit_rrc (+ handle_rrc, если есть)`.
+- Оптовая цена: `price_opt` (если задан) иначе `round(rrc * 0.65)`.
