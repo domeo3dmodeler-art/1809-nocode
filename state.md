@@ -1,6 +1,6 @@
 \# State — текущее состояние (Doors)
 
-Обновлено: 2025-09-18
+Обновлено: 2025-09-19
 
 
 
@@ -22,13 +22,15 @@
 
 
 
-+## UI `/doors`
-+
-+- Вкладки: Конфигуратор/Админ — есть
-+- Импорт: форма + Mapping JSON — есть
-+- Загрузка медиа: форма (model + files[]) — есть
-+- Кнопки экспорта: **КП/Счёт/Фабрика** — интегрированы (КП/Счёт: HTML/PDF; Фабрика: XLSX)
-+- Маркер SSR для CI: есть
+- UI `/doors`: вкладки «Конфигуратор» и «Админ».
+- Экспорты Doors: ✅ v1 готово и проверено (Replit + YC):
+  - `/api/cart/export/doors/kp` → HTML/PDF
+  - `/api/cart/export/doors/invoice` → HTML/PDF
+  - `/api/cart/export/doors/factory` → CSV (XLSX в M7)
+- PDF-рендер: `puppeteer-core` + `@sparticuz/chromium`, runtime nodejs.
+- Build: зелёный (Next.js 14.2.5). Typecheck OK.
+- Админ: импорт прайса (CSV/XLSX) + загрузка медиа (сохр. в `public/assets/doors/`).
+- Health (YC 130.193.40.35): `GET /api/health` → **200 OK** через nginx.
 
 
 
@@ -74,8 +76,7 @@
 \- Нужны реальные изображения в `public/assets/doors/`.
 
 
-
-+## To-Do (минимум)
-+1) Завершить настройку `remote-smoke` (GitHub Secrets: `DEV_BASE_URL`, `SMOKE_TOKEN`).  
-+2) Проверить импорт CSV/XLSX с реальными данными; убедиться в корректности экспортов.  
-+3) Подготовить Replit окружение.
+### Блокеры / To-Do
+- [ ] GitHub Secrets для remote-smoke: `DEV_BASE_URL`, `SMOKE_TOKEN`.
+- [ ] Наполнить `public/assets/doors/` реальными изображениями.
+- [ ] Автодеплой из GitHub на YC (workflow) или скрипт `deploy_yc.sh`.

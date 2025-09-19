@@ -109,11 +109,38 @@
   Расчёт v0: `total = rrc_price + kit.price_rrc + handle.price_rrc` (см. `spec_kp_formulas.md`)  
   Ответ: `{ ok: true, currency: "RUB", base, breakdown[], total, sku_1c }`
 
-### Экспорты (v1)
-- `POST /api/cart/export/doors/kp` → HTML-таблица по spec_kp_formulas.md
-- `POST /api/cart/export/doors/invoice` → HTML-таблица по spec_kp_formulas.md
-- `POST /api/cart/export/doors/factory` → CSV по spec_kp_formulas.md
-- Реализованы в API; проходят smoke-тесты (curl, Replit).
+## Экспорты Doors (v1)
+
+### Контракт корзины
+`cart: { items: CartItem[] }`
+
+`CartItem` (минимум):
+- `model: string`
+- `width: number`
+- `height: number`
+- `color?: string`
+- `qty: number`
+- `unitPrice?: number` (если не задан — рассчитывается на сервере по текущим правилам)
+- Дополнительно: `type?`, `finish?`, `hardwareKitId?`, `handleId?`, `edge?`, `edge_note?`, `sku_1c?`
+
+### KP
+`POST /api/cart/export/doors/kp?format=html|pdf`  
+Body: `{ "cart": { "items": [...] } }`  
+Response:
+- `format=html` → `text/html; charset=utf-8`
+- `format=pdf` → `application/pdf`
+
+### Invoice
+`POST /api/cart/export/doors/invoice?format=html|pdf`  
+Контракт и типы — как у KP.
+
+### Factory (v1)
+`POST /api/cart/export/doors/factory`  
+Response: `text/csv; charset=utf-8` (XLSX — в M7)
+
+### Замечания по рантайму
+Роуты KP/Invoice используют `runtime = 'nodejs'` для Puppeteer.
+
 
 ## Безопасность
 - Guard JWT на `/api/admin/**`. Для smoke допускается токен `smoke`.
