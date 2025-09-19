@@ -7,9 +7,6 @@ if (typeof window !== "undefined") {
 import ExportButtons from "./components/ExportButtons";
 import React, { useEffect, useMemo, useState } from 'react'
 
-
-
-
 // ===================== Types =====================
 type BasicState = {
   style?: string;
@@ -99,7 +96,6 @@ const imageCandidates = (obj: ProductLike): string[] => {
   }
   return out;
 };
-
 
 // ===================== Mock Data =====================
 const styleTiles = [
@@ -516,6 +512,23 @@ export default function App(){
     setMediaInfo({ ok: r.ok, status: r.status, body })
   }
 
+  // ✅ Хелпер для ExportButtons — устраняет конфликт типов CartItem
+  const getExportCart = React.useCallback((): any[] => {
+    return cart.map((c) => ({
+      model: c.model as string,
+      width: c.width as number,
+      height: c.height as number,
+      color: c.color as string | undefined,
+      qty: c.qty as number,
+      finish: (c as any).finish as string | undefined,
+      type: (c as any).type as string | undefined,
+      // обязательный стаб для совместимости с типом ExportButtons
+      productId:
+        (c as any).productId ??
+        `${c.model}-${c.width}x${c.height}-${c.color ?? ""}`,
+    }));
+  }, [cart]);
+
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b">
@@ -611,7 +624,7 @@ export default function App(){
                 </div>
                 <div className="mt-3 text-3xl font-bold">{price? `${fmtInt(price.total)} ₽` : '—'}</div>
                 <div className="mt-3">
-                  <ExportButtons getCart={() => cart} />
+                  <ExportButtons getCart={getExportCart} />
                 </div>
               </div>
 

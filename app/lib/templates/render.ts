@@ -1,24 +1,17 @@
-import Handlebars from "handlebars";
-import fs from "node:fs/promises";
-import path from "node:path";
+// lib/templates/render.ts
+import Handlebars from 'handlebars';
 
-type Dict = Record<string, unknown>;
-let cache: Record<string, Handlebars.TemplateDelegate> = {};
-
-Handlebars.registerHelper("formatRub", (n: number) =>
-  new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(n)
-);
-
-async function load(name: string) {
-  if (cache[name]) return cache[name];
-  const file = path.join(process.cwd(), "lib", "templates", `${name}.hbs`);
-  const src = await fs.readFile(file, "utf8");
-  const tpl = Handlebars.compile(src);
-  cache[name] = tpl;
-  return tpl;
+/**
+ * Рендер строки-шаблона Handlebars с данными.
+ * Используем noEscape: true, чтобы не ломать HTML-шаблоны экспортов.
+ */
+export function renderTemplate<T extends object>(tpl: string, data: T): string {
+  const compile = Handlebars.compile(tpl, { noEscape: true });
+  return compile(data);
 }
 
-export async function renderTemplate(name: "kp" | "invoice", ctx: Dict) {
-  const tpl = await load(name);
-  return tpl(ctx);
-}
+/**
+ * На всякий случай — дефолт-экспорт тем же именем,
+ * чтобы импорт через default тоже работал.
+ */
+export default renderTemplate;
