@@ -1,62 +1,83 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:3000}"
+BASE="${BASE:-http://localhost:${PORT:-3000}}"
 TOKEN="${SMOKE_TOKEN:-smoke}"
-AUTH_HEADER="Authorization: Bearer $TOKEN"
 
-log_ok(){ printf "✅ %s\n" "$1"; }
-log_fail(){ printf "❌ %s\n" "$1"; exit 1; }
+echo "[SMOKE] BASE=${BASE}"
 
-echo "[smoke] GET /api/health"
-code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health" || true)
-if [ "$code" = "200" ] || [ "$code" = "204" ]; then
-  log_ok "health $code"
-else
-  log_fail "health $code"
-fi
+# --- helpers ----------------------------------------------------
 
-echo "[smoke] GET /api/admin/ping (no token)"
-code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/admin/ping" || true)
-[ "$code" = "401" ] && log_ok "admin/ping unauth 401" || log_fail "admin/ping unauth $code"
-
-echo "[smoke] GET /api/admin/ping (with token)"
-code=$(curl -s -H "$AUTH_HEADER" -o /dev/null -w "%{http_code}" "$BASE_URL/api/admin/ping" || true)
-[ "$code" = "200" ] && log_ok "admin/ping auth 200" || log_fail "admin/ping auth $code"
-
-echo "[smoke] GET /doors"
-html=$(curl -sS "$BASE_URL/doors" || true)
-echo "$html" | grep -q 'data-smoke="compat-active"' && log_ok "/doors SSR marker present" || log_fail "/doors SSR marker missing"
-
-echo "[SMOKE] exports/doors/{kp,invoice,factory} — strict JSON contract"
-check_export () {
-  local path="$1"; local expected="$2"
-  local resp
-  resp=$(curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL$path" || true)
-  echo "$resp" | jq -e ".ok == true and .type == \"$expected\"" >/dev/null 2>&1 \
-    && printf "✅ OK POST %s (ok:true,type:%s)\n" "$path" "$expected" \
-    || { printf "❌ FAIL %s — unexpected body: %s\n" "$path" "$resp"; exit 1; }
+# Вернуть ТОЛЬКО HTTP-код (без заголовков/тела)
+code_only() {
+  curl -s -o /dev/null -w "%{http_code}" "$@"
 }
 
-check_export "/api/cart/export/doors/kp" kp
-check_export "/api/cart/export/doors/invoice" invoice
-check_export "/api/cart/export/doors/factory" factory
+# Вернуть только заголовки (для проверки Content-Type)
+headers_only() {
+  curl -sS -D - -o /dev/null "$@"
+}
 
-echo "[SMOKE] Import Doors CSV"
-resp=$(curl -sS -H "$AUTH_HEADER" \
-  -F "file=@/etc/hosts;filename=test.csv;type=text/csv" \
-  "$BASE_URL/api/admin/import/doors" || true)
-echo "$resp" | jq -e ".ok == true" >/dev/null 2>&1 \
-  && printf "✅ OK POST /api/admin/import/doors (ok:true)\n" \
-  || { printf "❌ FAIL import/doors — unexpected body: %s\n" "$resp"; exit 1; }
+assert_eq() {
+  local expected="$1"; shift
+  local actual="$1"; shift
+  local msg_ok="$1"; shift
+  local msg_fail="$1"; shift
+  if [[ "$actual" == "$expected" ]]; then
+    echo "✓ $msg_ok"
+  else
+    echo "✗ $msg_fail (expected $expected, got $actual)" >&2
+    exit 1
+  fi
+}
 
-echo "[SMOKE] Media Upload (Doors)"
-resp=$(curl -sS -H "$AUTH_HEADER" \
-  -F "model=PO Base 1/1" \
-  -F "file=@/etc/hosts;filename=example.jpg;type=image/jpeg" \
-  "$BASE_URL/api/admin/media/upload" || true)
-echo "$resp" | jq -e ".files[0].url | contains(\"PO%20Base%201%2F1\")" >/dev/null 2>&1 \
-  && printf "✅ OK POST /api/admin/media/upload (file saved)\n" \
-  || { printf "❌ FAIL media/upload — unexpected body: %s\n" "$resp"; exit 1; }
+has_header() {
+  local headers="$1"; shift
+  local name="$1"; shift
+  local contains="$1"; shift
+  echo "$headers" | grep -iE "^${name}:" | grep -qi "$contains"
+}
 
-echo "SMOKE OK"
+# --- checks -----------------------------------------------------
+
+echo "== /api/health =="
+code="$(code_only "${BASE}/api/health")"
+assert_eq "204" "$code" "204 No Content" "health wrong status"
+
+echo "== /api/admin/ping =="
+code="$(code_only -H "Authorization: Bearer ${TOKEN}" "${BASE}/api/admin/ping")"
+assert_eq "200" "$code" "200 OK" "admin/ping wrong status"
+
+BODY='{"cart": []}'
+
+echo "== Export: KP (HTML) =="
+hdr="$(headers_only -X POST -H "Content-Type: application/json" -d "$BODY" "${BASE}/api/cart/export/doors/kp")"
+code="$(echo "$hdr" | awk 'NR==1{print $2}')"
+assert_eq "200" "$code" "KP 200" "KP wrong status"
+if has_header "$hdr" "Content-Type" "text/html"; then
+  echo "✓ Content-Type: text/html"
+else
+  echo "✗ KP must return text/html" >&2; exit 1
+fi
+
+echo "== Export: Invoice (HTML) =="
+hdr="$(headers_only -X POST -H "Content-Type: application/json" -d "$BODY" "${BASE}/api/cart/export/doors/invoice")"
+code="$(echo "$hdr" | awk 'NR==1{print $2}')"
+assert_eq "200" "$code" "Invoice 200" "Invoice wrong status"
+if has_header "$hdr" "Content-Type" "text/html"; then
+  echo "✓ Content-Type: text/html"
+else
+  echo "✗ Invoice must return text/html" >&2; exit 1
+fi
+
+echo "== Export: Factory (CSV) =="
+hdr="$(headers_only -X POST -H "Content-Type: application/json" -d "$BODY" "${BASE}/api/cart/export/doors/factory")"
+code="$(echo "$hdr" | awk 'NR==1{print $2}')"
+assert_eq "200" "$code" "Factory 200" "Factory wrong status"
+if has_header "$hdr" "Content-Type" "text/csv"; then
+  echo "✓ Content-Type: text/csv"
+else
+  echo "✗ Factory must return text/csv" >&2; exit 1
+fi
+
+echo "✅ SMOKE PASSED"

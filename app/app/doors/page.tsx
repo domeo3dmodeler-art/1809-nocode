@@ -4,8 +4,11 @@
 if (typeof window !== "undefined") {
   (window as any).__API_URL__ = (window as any).__API_URL__ ?? "/api";
 }
-
+import ExportButtons from "./components/ExportButtons";
 import React, { useEffect, useMemo, useState } from 'react'
+
+
+
 
 // ===================== Types =====================
 type BasicState = {
@@ -607,9 +610,8 @@ export default function App(){
                   <div><span className="text-gray-500">Кромка:</span> {sel.edge==='да' ? (sel.edge_note? `Кромка: ${sel.edge_note}` : 'Кромка') : 'Отсутствует'}</div>
                 </div>
                 <div className="mt-3 text-3xl font-bold">{price? `${fmtInt(price.total)} ₽` : '—'}</div>
-                <div className="flex gap-3 mt-3">
-                  <button disabled={!price} onClick={addToCart} className="px-4 py-2 rounded-xl bg-black text-white disabled:opacity-50">В корзину</button>
-                  <button disabled={!cart.length} onClick={exportKP} className="px-4 py-2 rounded-xl border disabled:opacity-50">КП</button>
+                <div className="mt-3">
+                  <ExportButtons getCart={() => cart} />
                 </div>
               </div>
 

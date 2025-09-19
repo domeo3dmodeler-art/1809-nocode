@@ -1,4 +1,5 @@
-modules = ["bash", "nodejs-20", "web", "postgresql-16"]
+run = "bash -lc 'cd app && (npm ci || npm install) && npx prisma generate && npx prisma migrate deploy && npm run dev:replit'"
+entrypoint = "index.js"
 
 [nix]
 channel = "stable-25_05"
@@ -6,39 +7,6 @@ channel = "stable-25_05"
 [agent]
 expertMode = true
 
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Next.js Development Server"
-
-[[workflows.workflow]]
-name = "Next.js Development Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd app && npm run dev -- --hostname 0.0.0.0 --port 5000"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
 [[ports]]
-localPort = 5000
+localPort = 3000
 externalPort = 80
-
-[[ports]]
-localPort = 41567
-externalPort = 3000
-
-[deployment]
-deploymentTarget = "autoscale"
-run = ["bash", "-c", "cd app && npm start"]
-build = ["bash", "-c", "cd app && npm run build"]

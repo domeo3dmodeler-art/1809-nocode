@@ -1,86 +1,172 @@
-Руководство по импорту данных (Пилот: Doors)
-
-Last updated (Europe/Paris): 2025-09-12
-
-1) Подготовка файла
-
-XLSX/CSV, UTF-8. Анти-CSV инъекции: поля, начинающиеся с =,+,-, экранировать '.
-
-2) Маппинг (пример)
-{
-  "mapping": {
-    "model": "Модель",
-    "style": "Стиль",
-    "finish": "Покрытие",
-    "domeo_color": "Цвет",
-    "type": "Тип",
-    "width": "Ширина",
-    "height": "Высота",
-    "rrc_price": "РРЦ",
-    "photo_url": "Фото"
-  },
-  "uniqueBy": ["model","finish","domeo_color","type","width","height"],
-  "sheet": "Каталог",
-  "startRow": 2
-}
+\# Import Guide (Doors)
 
 
-Обязательные поля: model, finish, color|domeo_color, type, width, height, rrc_price.
 
-3) Ключ витрины и индекс
+\## Назначение
 
-Ключ: (model, finish, color|domeo_color, type, width, height) — одна комбинация.
-БД: обязателен UNIQUE INDEX (детект конфликтов и корректный UPSERT).
+Пошаговая инструкция импорта каталога дверей (CSV/XLSX) в таблицу `products`.
 
-4) Конфликты РРЦ и UPSERT
 
-Импорт помечает конфликт (одинаковый ключ, разные РРЦ).
 
-Формируется CSV-отчёт: /static/import_reports/doors/*.csv.
+\## Конечная точка
 
-Канон РРЦ: по умолчанию — минимальная, можно вручную переопределить.
+`POST /api/admin/import/doors` (JWT; `Authorization: Bearer <token>`)
 
-safe UPSERT (INSERT ON CONFLICT … DO UPDATE).
 
-5) Smoke-тесты
 
-GET /catalog/doors/options, POST /price/doors, экспорт КП/Счёт/Заказ.
+\## Формат запроса (multipart/form-data)
 
-Конфликты РРЦ (409)
+\- `file`: CSV или XLSX с листом каталога.
 
-Если в импорте для одинакового ключа (model, finish, color, type, width, height) встречаются разные rrc_price (или расходятся с ценой в БД),
-эндпоинт возвращает 409 и CSV-отчёт со столбцами:
-model,finish,color,type,width,height,rrc_price_existing,rrc_price_import,resolution.
-Рекомендуемая стратегия resolution: выровнять цены и повторить импорт.
+\- `mapping` (опционально): строка JSON:
 
-6) Фото (Doors) — правила именования и хранения
+&nbsp; ```json
 
-Назначение: обеспечить предсказуемую подстановку превью на странице /doors.
+&nbsp; {
 
-Правила:
+&nbsp;   "mapping": {
 
-Имя файла: encodeURIComponent(model).ext
-Пример: PO Base 1/1 → PO%20Base%201%2F1.jpg
+&nbsp;     "model": "Модель",
 
-Каталог хранения: public/assets/doors/
+&nbsp;     "style": "Стиль",
 
-Поддерживаемые форматы: jpg, png, webp (рекомендовано: jpg или webp).
+&nbsp;     "finish": "Покрытие",
 
-Регистр и пробелы: используйте точное значение model; пробелы/слэши/спецсимволы кодируются encodeURIComponent.
+&nbsp;     "domeo\_color": "Цвет",
 
-Поиск изображения в UI (приоритет):
+&nbsp;     "type": "Тип",
 
-по SKU (если задан),
+&nbsp;     "width": "Ширина",
 
-по encodeURIComponent(model),
+&nbsp;     "height": "Высота",
 
-по slug(model).
+&nbsp;     "rrc\_price": "РРЦ",
 
-Проверка:
+&nbsp;     "photo\_url": "Фото"
 
-После загрузки фото убедитесь, что файл доступен по пути /assets/doors/{encodeURIComponent(model)}.ext.
+&nbsp;   },
 
-Для быстрой валидации можно выполнить листинг каталога проекта:
-ls -l ~/domeo-mvp/app/public/assets/doors/ | head
+&nbsp;   "uniqueBy": \["model","finish","domeo\_color","type","width","height"],
 
-Примечание: Логика приоритета отображения согласована с UI /doors и зафиксирована как часть контракта категории Doors.
+&nbsp;   "sheet": "Каталог",
+
+&nbsp;   "startRow": 2
+
+&nbsp; }
+
+Требования к данным
+
+
+
+Лист: Каталог (если XLSX) или соответствующий CSV.
+
+
+
+Заголовки колонок соответствуют mapping.
+
+
+
+Типы:
+
+
+
+width, height → целые числа (мм)
+
+
+
+rrc\_price → число (RUB)
+
+
+
+Уникальность строки: (model, finish, domeo\_color, type, width, height).
+
+
+
+Валидации
+
+
+
+Отсутствие обязательных колонок → 400.
+
+
+
+Некорректные типы → 400 с перечислением строк.
+
+
+
+Конфликты РРЦ (изменение цены на существующем уникальном ключе) → 409 + отчёт.
+
+
+
+Ответы
+
+
+
+200 OK:
+
+{ "ok": true, "inserted": 10, "updated": 5, "skipped": 0, "report\_csv": "/static/import\_reports/import\_2025-09-17T05-20.csv" }
+
+
+
+
+
+409 Conflict (РРЦ):
+
+
+
+{ "ok": false, "conflicts": \[ { "key": {...}, "old\_rrc": 22900, "new\_rrc": 21280 } ], "conflicts\_report": "/static/import\_reports/conflicts\_2025-09-17.csv" }
+
+
+
+Иные ошибки: { "ok": false, "error": "..." } + статус 4xx/5xx.
+
+
+
+Примеры
+
+CSV (минимум)
+
+
+
+Модель,Стиль,Покрытие,Цвет,Тип,Ширина,Высота,РРЦ,Фото
+
+PO Base 1/1,Современная,Нанотекс,Белый,Распашная,800,2000,22900,
+
+PG Base 1,Современная,Нанотекс,Белый,Распашная,800,2000,21280,
+
+
+
+cURL (локально)
+
+
+
+CSV="/tmp/doors.csv"
+
+TOKEN="smoke"
+
+
+
+curl -sS -H "Authorization: Bearer $TOKEN" \\
+
+&nbsp; -F "file=@${CSV};type=text/csv" \\
+
+&nbsp; --form-string 'mapping={"mapping":{"model":"Модель","style":"Стиль","finish":"Покрытие","domeo\_color":"Цвет","type":"Тип","width":"Ширина","height":"Высота","rrc\_price":"РРЦ","photo\_url":"Фото"},"uniqueBy":\["model","finish","domeo\_color","type","width","height"],"sheet":"Каталог","startRow":2}' \\
+
+&nbsp; http://localhost:3000/api/admin/import/doors
+
+Где смотреть отчёты
+
+
+
+Путь: app/public/static/import\_reports/ (отдаётся как /static/import\_reports/...).
+
+
+
+В UI /doors → вкладка «Админ» → после импорта отображается статус и ссылка на CSV-отчёт (если есть).
+
+
+
+
+
+
+

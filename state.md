@@ -1,57 +1,81 @@
-State — Domeo No-Code Calculators (Doors pilot)
+\# State — текущее состояние (Doors)
 
-Источник истины. Дубли запрещены. Последнее обновление: 2025-09-14. MR: (TBD).
+Обновлено: 2025-09-18
 
-Готово
 
-JWT guard для админ-API (middleware 401, матчер /api/admin/:path*)
 
-OpenAPI guard (scripts/spec_guard.py) проходит по app/openapi.yaml
+\## Репозиторий / ветки
 
-Smoke-тесты (API+UI) проходят: /api/health, /api/admin/ping (401/200), SSR-маркер /doors
+\- Repo: `1209-nocode`
 
-CI v2: guard-openapi, remote-smoke (при наличии DEV_BASE_URL), prod-smoke (локальный билд+старт+smoke)
+\- Рабочая ветка: `develop` (ранее `feature/doors-next-api`)
 
-Импорт CSV /api/admin/import/doors работает (multipart/form-data, поле file)
 
-Медиа upload /api/admin/media/upload реализован (multipart model + file[]), сохраняет в public/assets/doors/encodeURIComponent(model).ext; smoke OK
 
-UI /doors: добавлена вкладка «Админ» (Login/Register), формы «Импорт CSV» и «Загрузка фото»; логика поиска фото: SKU → encodeURIComponent(model) → slug(model)
+\## Сервер / локальный dev
 
-В работе
+\- Next 14 dev: `http://localhost:3000` — ОК
 
-Сведение источников истины (этот MR)
+\- Health: `GET /api/health` → 204 — ОК
 
-Ближайшие задачи
+\- Admin ping: `GET /api/admin/ping` с токеном `smoke` → 200 — ОК
 
-Дописать data_import_guide_doors.md (формат CSV/валидации/пример ответа/IMPORT_TARGET_MODEL)
 
-UI итерация: галерея, «Недавние конфигурации», обязательные поля
 
-CI: smoke для экспортов; усиление prod-smoke (артефакты логов, таймауты)
++## UI `/doors`
++
++- Вкладки: Конфигуратор/Админ — есть
++- Импорт: форма + Mapping JSON — есть
++- Загрузка медиа: форма (model + files[]) — есть
++- Кнопки экспорта: **КП/Счёт/Фабрика** — интегрированы (КП/Счёт: HTML/PDF; Фабрика: XLSX)
++- Маркер SSR для CI: есть
 
-Блокеры / Риски
 
-Нет
 
-Ссылки
+\## API
 
-master_spec.md
+\- `/api/admin/media/upload` — \*\*реализовано\*\*, сохраняет файлы в `public/assets/doors/` (ОК)
 
-admin_guide.md
+\- `/api/admin/import/doors` — контракт зафиксирован; валидации/409 — \*\*описано\*\*, реализация в процессе стабилизации
 
-data_import_guide_doors.md
+\- `/api/catalog/doors/options` — работает
 
-spec_kp_formulas.md
+\- `/api/catalog/doors/models` — работает
 
-sync_guide.md
+\- `/api/categories` — работает (groupBy/или distinct)
 
-Экспорты Doors — состояние
++- `/api/price/doors` — v1 логика по спецификации — **готово**
++- Экспорты `/api/cart/export/doors/{kp,invoice,factory}` — **готово (v1)**:
++  - `kp`, `invoice`: HTML + `?format=pdf`
++  - `factory`: XLSX
 
-Экспорты Doors: реализован v1 stub, эндпоинты /api/cart/export/doors/{kp,invoice,factory}.
 
-Smoke: strict OK (проверка JSON ответа).
 
-OpenAPI: обновлён (ExportRequest, ExportResponse).
+\## Медиа
 
-Обновлено: 2025-09-16
+\- Контракт и поведение проверены curl (ОК)
+
+\- Логика поиска превью: SKU → encodeURIComponent(model) → slug(model) (ОК)
+
+
+
+\## CI
+
+\- Workflow `CI` обновлён, лог сборки пишется; health-ожидание 120s; показ хвоста лога при падении — ОК
+
+\- `remote-smoke` с guard по secrets — ОК (нужно задать `DEV\_BASE\_URL`, `SMOKE\_TOKEN`)
+
+
+
+\## Блокеры / риски
+
+\- Требуется реализовать экспорты в API (вместо стабов).
+
+\- Нужны реальные изображения в `public/assets/doors/`.
+
+
+
++## To-Do (минимум)
++1) Завершить настройку `remote-smoke` (GitHub Secrets: `DEV_BASE_URL`, `SMOKE_TOKEN`).  
++2) Проверить импорт CSV/XLSX с реальными данными; убедиться в корректности экспортов.  
++3) Подготовить Replit окружение.

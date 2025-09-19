@@ -37,7 +37,7 @@ Upload → media_id → выдача /media/:id и /media/:id/fit?w=&h=.
 
 /price/doors — auto-pricing.
 
-Экспорты: КП/Счёт (HTML→PDF), Заказ (CSV/XLSX).
+Экспорты: КП/Счёт (HTML→PDF), Заказ (XLSX).
 
 6) Загрузка фото (Doors) — прямой аплоад
 
@@ -88,20 +88,33 @@ SKU → 2) encodeURIComponent(model) → 3) slug(model).
 
 Примечание: Раздел «Медиа-менеджер» продолжает работать для общего кейса (/media/:id), а данный эндпоинт — специализирован под Doors.
 
-Экспорты (Doors)
-
-Для проверки интеграции доступны заглушки v1:
-
-# КП
-curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/kp" | jq .
-
-# Счёт
-curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/invoice" | jq .
-
-# Заказ на фабрику
-curl -sS -X POST -H 'Content-Type: application/json' -d '{}' "$BASE_URL/api/cart/export/doors/factory" | jq .
-
-
-Ожидаемый ответ:
-
-{"ok": true, "type": "kp|invoice|factory", "received": {}}
++Экспорты (Doors) — v1
++
++Формируются на стороне API по `spec_kp_formulas.md` и возвращают готовый контент для открытия/скачивания.
++
++Примеры smoke-проверок (локально):
++
++## КП (HTML)
++cart='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}'
++curl -fsSI -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/kp" | grep -i 'text/html'
++curl -fsS -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/kp" > /tmp/kp.html && echo "saved: /tmp/kp.html"
++
++## КП (PDF)
++curl -fsSI -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/kp?format=pdf" | grep -i 'application/pdf'
++
++## Счёт (HTML)
++curl -fsSI -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/invoice" | grep -i 'text/html'
++curl -fsS -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/invoice" > /tmp/invoice.html && echo "saved: /tmp/invoice.html"
++
++## Счёт (PDF)
++curl -fsSI -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" | grep -i 'application/pdf'
++
++## Заказ на фабрику (XLSX)
++curl -fsSI -X POST -H 'Content-Type: application/json' \
++  -d "$cart" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" | grep -i 'spreadsheetml'
