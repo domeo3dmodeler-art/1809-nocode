@@ -81,5 +81,8 @@
 - [ ] Наполнить `public/assets/doors/` реальными изображениями.
 - [ ] Автодеплой из GitHub на YC (workflow) или скрипт `deploy_yc.sh`.
 ## Сборка / Prisma (2025-09-19)
+- Health на YC возвращает 204 (устранён 500): фикс route.ts (force-dynamic, runtime=nodejs).
 - Build чистый: Prisma не выполняется на SSG; добавлены client-маркировки на страницах админ/конфигуратор.
 - API routes каталога/категорий принудительно динамические (runtime).
+
+- Health на YC: 204 (фикс подтверждён 2025-09-20)
