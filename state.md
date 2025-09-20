@@ -80,3 +80,6 @@
 - [ ] GitHub Secrets для remote-smoke: `DEV_BASE_URL`, `SMOKE_TOKEN`.
 - [ ] Наполнить `public/assets/doors/` реальными изображениями.
 - [ ] Автодеплой из GitHub на YC (workflow) или скрипт `deploy_yc.sh`.
+## Сборка / Prisma (2025-09-19)
+- Build чистый: Prisma не выполняется на SSG; добавлены client-маркировки на страницах админ/конфигуратор.
+- API routes каталога/категорий принудительно динамические (runtime).

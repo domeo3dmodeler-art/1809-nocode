@@ -1,8 +1,5 @@
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+'use client';
 
-"use client";
 
 // безопасная инициализация кастомного поля на window
 if (typeof window !== "undefined") {

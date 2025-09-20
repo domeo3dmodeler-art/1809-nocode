@@ -1,8 +1,5 @@
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+'use client';
 
-'use client'
 import { useEffect, useState } from 'react'
 
 type Category = { id: string; slug: string; title: string }

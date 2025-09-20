@@ -155,3 +155,8 @@ Response: `text/csv; charset=utf-8` (XLSX — в M7)
 ## Ограничения/риски (текущая итерация)
 - Нужны реальные фото в `public/assets/doors/` по правилу имени.
 - CI `remote-smoke` требует secrets `DEV_BASE_URL`, `SMOKE_TOKEN`.
+
+### Замечания по рантайму • 2025-09-19
+- Страницы `app/app/admin/page.tsx` и `app/app/doors/page.tsx` — Client Components (`'use client'` первой строкой).
+- API маршруты каталога/категорий помечены `export const dynamic = 'force-dynamic'`.
+- Цель: исключить вызовы Prisma на этапе SSG; build не требует `DATABASE_URL`.

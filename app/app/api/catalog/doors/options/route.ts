@@ -1,3 +1,7 @@
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 // app/api/catalog/doors/options/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; // если у тебя иной хелпер — скажи, адаптирую
