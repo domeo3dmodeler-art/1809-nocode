@@ -1,7 +1,1 @@
-modules = ["bash", "nodejs-20", "web"]
-
-[nix]
-channel = "stable-25_05"
-
-[agent]
-expertMode = true
+run = "bash -lc 'cd app && ([ -d node_modules ] || npm ci) && npm run build && npm run start -- --port $PORT --hostname 0.0.0.0'"
