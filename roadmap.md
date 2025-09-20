@@ -49,8 +49,9 @@
 
 
 ### M8 — Replit окружение ⏳
-- Docker/Procfile/Secrets
-- **DoD**: сборка и запуск на Replit; smoke минимум: health/admin ping
++ **Status:** ✅ Done (2025-09-20)
++ **Scope:** .replit для Node runtime, запуск Next.js в Replit agent; curl health/admin проходят.
++ **DoD:** Run зелёный, build OK, curl → 204/200.
 
 ## Ближайшие задачи (Next)
 1) Доделать экспорт v1 в API (по спецификации).  

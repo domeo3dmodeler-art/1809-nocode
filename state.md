@@ -1,6 +1,6 @@
 \# State — текущее состояние (Doors)
 
-Обновлено: 2025-09-19
+Обновлено: 2025-09-20
 
 
 
@@ -28,7 +28,7 @@
   - `/api/cart/export/doors/invoice` → HTML/PDF
   - `/api/cart/export/doors/factory` → CSV (XLSX в M7)
 - PDF-рендер: `puppeteer-core` + `@sparticuz/chromium`, runtime nodejs.
-- Build: зелёный (Next.js 14.2.5). Typecheck OK.
+- Build: зелёный (Next.js 14.2.5). Typecheck OK. Run в Replit agent — OK.
 - Админ: импорт прайса (CSV/XLSX) + загрузка медиа (сохр. в `public/assets/doors/`).
 - Health (YC 130.193.40.35): `GET /api/health` → **200 OK** через nginx.
 
@@ -65,7 +65,7 @@
 
 \- Workflow `CI` обновлён, лог сборки пишется; health-ожидание 120s; показ хвоста лога при падении — ОК
 
-\- `remote-smoke` с guard по secrets — ОК (нужно задать `DEV\_BASE\_URL`, `SMOKE\_TOKEN`)
+\`remote-smoke` workflow готов. Требуется задать secrets (`DEV_BASE_URL`, `SMOKE_TOKEN`) и запустить проверку.
 
 
 
