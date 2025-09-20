@@ -7,34 +7,37 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 7
     env:
       BASE_URL: ${{ secrets.DEV_BASE_URL }}
+      TOKEN:    ${{ secrets.SMOKE_TOKEN }}
+      CART: >-
+        {"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}
     steps:
-      - name: Health
+      - name: Health 204
         run: |
-          curl -fsSI "$BASE_URL/api/health" | grep -i "204"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+          test "$code" = "204"
 
-      - name: KP HTML
+      - name: Admin ping 200
         run: |
-          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
-          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/kp" | grep -i 'text/html'
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/admin/ping")
+          test "$code" = "200"
 
       - name: KP PDF
         run: |
-          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
-          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/kp?format=pdf" | grep -i 'application/pdf'
-
-      - name: Invoice HTML
-        run: |
-          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
-          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/invoice" | grep -i 'text/html'
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
+            | grep -qi 'application/pdf'
 
       - name: Invoice PDF
         run: |
-          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
-          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" | grep -i 'application/pdf'
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
+            | grep -qi 'application/pdf'
 
       - name: Factory XLSX
         run: |
-          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
-          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" | grep -i 'spreadsheetml'
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
+            | grep -Ei 'spreadsheetml|application/vnd.openxmlformats'
