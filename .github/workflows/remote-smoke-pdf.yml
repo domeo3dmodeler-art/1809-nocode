@@ -1,4 +1,4 @@
-name: remote-smoke
+name: remote-smoke-pdf
 on:
   workflow_dispatch: {}
   push:
