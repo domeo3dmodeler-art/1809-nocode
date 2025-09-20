@@ -1,162 +1,106 @@
-# Domeo No-Code Calculators • Doors — Master Spec (каноническая спецификация)
+# Domeo No-Code Calculators — Master Spec (Doors)
 
-## Версия
-- Документ: `master_spec.md`
-- Статус: актуализировано на 2025-09-17
-- Область: пилот «Doors» (импорт → расчёты → админка → экспорт)
+Owner: @Product + @TechLead  
+Last updated: 2025-09-20  
+Related: [Admin Guide](./admin_guide.md), [Data Import Guide Doors](./data_import_guide_doors.md), [Spec КП Formulas](./spec_kp_formulas.md), [Roadmap](./roadmap.md), [State](./state.md), [Sync Guide](./sync_guide.md)
 
-## Цели пилота
-1) Довести категорию Doors до релиза: импорт каталога и медиа, конфигуратор, формирование КП/Счёта/Заказа.  
-2) Зафиксировать контракты API и UX, синхронизировать документацию и CI.
+---
 
-## Архитектура (обзор)
-- **Next.js 14 (App Router)**, TypeScript strict.
-- **БД**: PostgreSQL, Prisma.
-- **API**:
-  - Публичные: `GET /api/health`, каталог, цены, экспорт.
-  - Админ: `POST /api/admin/import/doors`, `POST /api/admin/media/upload`, `GET /api/admin/ping` — под JWT guard.
-- **UI**: `/doors` — 2 вкладки: «Конфигуратор» и «Админ».
-- **Медиа**: публичная папка `app/public/assets/doors/` с предсказуемыми именами файлов.
-- **CI**: GitHub Actions (`build-and-smoke`, `remote-smoke`).
+## Архитектура
+- Next.js 14.2.5, App Router.
+- Prisma ORM (PostgreSQL).
+- Хранилище: `public/assets/doors/` (фото).
+- PDF: `puppeteer-core` + `@sparticuz/chromium`.
+- CI: GitHub Actions (`ci.yml`, `remote-smoke.yml`).
 
-## Доменная модель (минимум для Doors)
-Таблица `products` (Prisma модель `products`):
-- `id` (pk)
-- `style` (строка)
-- `model` (строка)
-- `finish` (строка)
-- `domeo_color` (строка) — в UI «Цвет»
-- `type` (строка)
-- `width` (число)
-- `height` (число)
-- `rrc_price` (число, RUB) — РРЦ
-- Доп. атрибуты для экспорта/фабрики: `sku_1c`, `supplier`, `collection`, `supplier_item_name`, `supplier_color_finish`, `price_opt`
-- **Уникальность** (импорт): `(model, finish, domeo_color, type, width, height)`
+---
 
-Индексы (см. `app/sql/create_products_index.sql`):
-- По ключевым полям и композитный индекс по unique-ключу.
+## Бизнес-область: Doors
 
-## Правила для изображений
-- Папка: `app/public/assets/doors/`
-- Имя файла: `encodeURIComponent(model).ext` (например, `"PO Base 1/1" → "PO%20Base%201%2F1.jpg"`).
-- Логика поиска превью (приоритет): **`SKU` → `encodeURIComponent(model)` → `slug(model)`**.
-- Допустимые расширения для UI: `.jpg`/`.png` (по умолчанию).
+### Сущности
+- **Каталог**: поставщики, коллекции, модели, цвета, отделки.
+- **Корзина**: позиции (модель + размеры + цвет + qty + опции).
+- **КП/Invoice**: таблицы с подсчётами по правилам (`spec_kp_formulas.md`).
+- **Фабрика**: заказ в CSV/XLSX.
 
-## Контракты API
+---
 
-### Health / Ping
-- `GET /api/health` → `204 No Content`
-- `GET /api/admin/ping` (JWT) → `200 OK` или `401`
+## API контракты
 
-### Админ — медиа (контракт зафиксирован)
-- `POST /api/admin/media/upload`  
-  Guard: JWT (`Authorization: Bearer <token>`)  
-  **multipart/form-data**:
-  - `model`: строка (обяз.)
-  - `file`: один или несколько файлов (обяз.)
-  **Поведение**:
-  - Сохраняет в `public/assets/doors/` как `encodeURIComponent(model).ext`
-  - Возвращает JSON:
-    ```json
-    { "files": [ { "filename": "PO%20Base%201%2F1.jpg", "url": "/assets/doors/PO%20Base%201%2F1.jpg" } ] }
-    ```
+### Health / Admin
+- `GET /api/health` → `204 No Content`.
+- `GET /api/admin/ping` (JWT Bearer) → `200 OK`.
 
-### Админ — импорт Doors
-- `POST /api/admin/import/doors` (JWT)  
-  **multipart/form-data**:
-  - `file`: CSV/XLSX
-  - `mapping`: строка JSON (опц.):  
-    ```json
-    {
-      "mapping": {
-        "model": "Модель",
-        "style": "Стиль",
-        "finish": "Покрытие",
-        "domeo_color": "Цвет",
-        "type": "Тип",
-        "width": "Ширина",
-        "height": "Высота",
-        "rrc_price": "РРЦ",
-        "photo_url": "Фото"
-      },
-      "uniqueBy": ["model","finish","domeo_color","type","width","height"],
-      "sheet": "Каталог",
-      "startRow": 2
-    }
-    ```
-  **Валидаторы**:
-  - Наличие колонок по `mapping`.
-  - Преобразование типов (`width/height` → number, `rrc_price` → number).
-  - Уникальность по `uniqueBy`.
-  **Ответы**:
-  - `200 OK` → `{ ok: true, inserted: N, updated: M, skipped: K, report_csv?: "/static/import_reports/..." }`
-  - `409 Conflict` при конфликте РРЦ → `{ ok: false, conflicts: [...], conflicts_report: "/static/import_reports/conflicts_*.csv" }`
-  - Иные ошибки → `4xx/5xx` с `message`.
+### Media
+- `POST /api/admin/media/upload` → загружает в `public/assets/doors/`.
 
-### Каталог / домены
-- `GET /api/catalog/doors/options`  
-  Query: `style?`, `model?`, `finish?`, `color?`, `type?`, `width?`, `height?`  
-  Ответ: `{ ok: true, domain: { style[], model[], finish[], color[], type[], width[], height[], kits[], handles[] } }`
-- `GET /api/catalog/doors/models?style=...`  
-  Ответ: `[ { model, style } ]`
-- `GET /api/categories`  
-  Ответ: `{ ok: true, items: [ { type, count } ], total }`  
-  (реализация: `products.groupBy('type')` с фолбэком на `distinct`).
+### Import
+- `POST /api/admin/import/doors` → см. [Data Import Guide Doors](./data_import_guide_doors.md).
 
-### Цена
+### Catalog
+- `GET /api/catalog/doors/options` → стили/фильтры.
+- `GET /api/catalog/doors/models?style=…`.
+- `GET /api/categories` → distinct по type.
+
+### Pricing
 - `POST /api/price/doors`  
-  Вход: `{ selection: { style, model, finish, color, type, width, height, hardware_kit?:{id}, handle?:{id} } }`  
-  Расчёт v0: `total = rrc_price + kit.price_rrc + handle.price_rrc` (см. `spec_kp_formulas.md`)  
-  Ответ: `{ ok: true, currency: "RUB", base, breakdown[], total, sku_1c }`
+  Body: `{ model, width, height, color, qty, options }`  
+  Response: `{ unitPrice, total }`.
+
+---
 
 ## Экспорты Doors (v1)
 
 ### Контракт корзины
 `cart: { items: CartItem[] }`
 
-`CartItem` (минимум):
+`CartItem`:
 - `model: string`
 - `width: number`
 - `height: number`
 - `color?: string`
 - `qty: number`
-- `unitPrice?: number` (если не задан — рассчитывается на сервере по текущим правилам)
+- `unitPrice?: number`
 - Дополнительно: `type?`, `finish?`, `hardwareKitId?`, `handleId?`, `edge?`, `edge_note?`, `sku_1c?`
 
+---
+
 ### KP
-`POST /api/cart/export/doors/kp?format=html|pdf`  
+`POST /api/cart/export/doors/kp?format=pdf`  
 Body: `{ "cart": { "items": [...] } }`  
-Response:
-- `format=html` → `text/html; charset=utf-8`
-- `format=pdf` → `application/pdf`
+Response: `application/pdf`
 
 ### Invoice
-`POST /api/cart/export/doors/invoice?format=html|pdf`  
-Контракт и типы — как у KP.
+`POST /api/cart/export/doors/invoice?format=pdf`  
+Body: аналогично KP.  
+Response: `application/pdf`
 
 ### Factory (v1)
 `POST /api/cart/export/doors/factory`  
-Response: `text/csv; charset=utf-8` (XLSX — в M7)
+Response: `text/csv; charset=utf-8` (XLSX в M7)
 
-### Замечания по рантайму
-Роуты KP/Invoice используют `runtime = 'nodejs'` для Puppeteer.
+---
 
+## Админка
+Сценарии UI описаны в [Admin Guide](./admin_guide.md).
 
-## Безопасность
-- Guard JWT на `/api/admin/**`. Для smoke допускается токен `smoke`.
-- OpenAPI-guard — зелёный (проверка схем и контрактов; см. CI).
+---
 
-## UX • `/doors`
-- Вкладки: «Конфигуратор», «Админ».
-- Конфигуратор: выбор стиля → модели → покрытие/цвет/тип/ширина/высота → комплект/ручка → цена → корзина → экспорт.
-- Админ: регистрация/вход, импорт (файл + mapping JSON), загрузка фото (model + файлы), статус по итогам действий.
-- SSR-маркер для CI: `<div data-smoke="compat-active" hidden />`.
+## UX
+- Страницы:
+  - `/doors` — конфигуратор.
+  - `/admin` — импорт + медиа.
+- Флоу:
+  1. Импорт прайса.
+  2. Настройка моделей.
+  3. Конфигуратор → корзина.
+  4. Экспорт КП/Invoice (PDF).
+  5. Экспорт заказа на фабрику (CSV/XLSX).
 
-## Ограничения/риски (текущая итерация)
-- Нужны реальные фото в `public/assets/doors/` по правилу имени.
-- CI `remote-smoke` требует secrets `DEV_BASE_URL`, `SMOKE_TOKEN`.
+---
 
-### Замечания по рантайму • 2025-09-19
-- Страницы `app/app/admin/page.tsx` и `app/app/doors/page.tsx` — Client Components (`'use client'` первой строкой).
-- API маршруты каталога/категорий помечены `export const dynamic = 'force-dynamic'`.
-- Цель: исключить вызовы Prisma на этапе SSG; build не требует `DATABASE_URL`.
+## Версионирование
+- v1.3 (2025-09-20): убран HTML-экспорт (оставлен только PDF/XLSX).
+- v1.2 (2025-09-18): добавлен Invoice.
+- v1.1 (2025-09-15): Factory CSV.
+- v1.0 (2025-09-10): базовый контракт.
