@@ -1,4 +1,5 @@
-"use client";
+'use client';
+
 
 // безопасная инициализация кастомного поля на window
 if (typeof window !== "undefined") {
