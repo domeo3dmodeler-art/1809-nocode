@@ -1,12 +1,6 @@
-
----
-
-# roadmap.md
-
-```md
 # Roadmap — Domeo No-Code Calculators (Doors)
 
-Обновлено: 2025-09-18
+Обновлено: 2025-09-20
 
 ## Milestones
 
@@ -32,11 +26,9 @@
 - UI референсная реализация
 - **DoD**: `POST /api/price/doors` возвращает корректный расчет
 
-## Milestones
-
 ### M5 — Экспорты (Doors)
-**Status:** ✅ Done (2025-09-19)  
-**Scope:** KP/Invoice HTML/PDF; Factory CSV; node runtime для PDF; smoke-тесты (curl).  
+**Status:** ✅ Done (2025-09-20)  
+**Scope:** KP/Invoice PDF; Factory CSV; node runtime для PDF; smoke-тесты (curl).  
 **DoD:** зелёный build; curl-проверки типов контента; SSR-маркер для CI.
 
 ### M6 — Деплой на YC + Remote Smoke
@@ -47,7 +39,6 @@
 **Status:** Planned  
 **DoD:** экспорт XLSX; заполненная медиатека `public/assets/doors/`.
 
-
 ### M8 — Replit окружение ⏳
 - Docker/Procfile/Secrets
 - **DoD**: сборка и запуск на Replit; smoke минимум: health/admin ping
@@ -57,4 +48,3 @@
 2) Настроить GitHub Secrets: `DEV_BASE_URL`, `SMOKE_TOKEN`; включить `remote-smoke`.  
 3) Положить реальные фото в `public/assets/doors/` по правилам имени.  
 4) Завести реплику окружения в Replit.
-
