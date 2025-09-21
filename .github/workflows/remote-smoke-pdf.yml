@@ -10,9 +10,9 @@ jobs:
     timeout-minutes: 7
     env:
       BASE_URL: ${{ secrets.DEV_BASE_URL }}   # напр. http://89.169.189.66
-      TOKEN:    ${{ secrets.SMOKE_TOKEN }}    # smoke
+      TOKEN:    ${{ secrets.SMOKE_TOKEN }}    # smoke (для /api/admin/ping)
       CART: >-
-        {"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}
+        {"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}
     steps:
       - name: Health 204
         run: |
@@ -26,46 +26,35 @@ jobs:
           echo "admin/ping: $code"
           test "$code" = "200"
 
-      # ---------- Диагностические шаги для экспорта ----------
       - name: KP PDF
         run: |
           curl -sS -X POST \
                -H 'Content-Type: application/json' \
-               -H "Authorization: Bearer $TOKEN" \
                -d "$CART" \
                "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
-               -D /tmp/headers -o /tmp/body || true
-          echo "---- KP status ----"
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print $1; for(i=2;i<=NF;i++) print $i}' /tmp/headers
-          echo "-------------------"
-          # Убедимся, что 200 и pdf в заголовках
-          grep -qi '^HTTP/1\.[01] 200' /tmp/headers
-          grep -qi 'content-type:.*application/pdf' /tmp/headers
+               -D /tmp/h -o /tmp/b || true
+          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[KP] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
+          grep -qi '^HTTP/1\.[01] 200' /tmp/h
+          grep -qi 'content-type:.*application/pdf' /tmp/h
 
       - name: Invoice PDF
         run: |
           curl -sS -X POST \
                -H 'Content-Type: application/json' \
-               -H "Authorization: Bearer $TOKEN" \
                -d "$CART" \
                "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
-               -D /tmp/headers -o /tmp/body || true
-          echo "---- Invoice status ----"
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print $1; for(i=2;i<=NF;i++) print $i}' /tmp/headers
-          echo "------------------------"
-          grep -qi '^HTTP/1\.[01] 200' /tmp/headers
-          grep -qi 'content-type:.*application/pdf' /tmp/headers
+               -D /tmp/h -o /tmp/b || true
+          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[INVOICE] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
+          grep -qi '^HTTP/1\.[01] 200' /tmp/h
+          grep -qi 'content-type:.*application/pdf' /tmp/h
 
       - name: Factory XLSX
         run: |
           curl -sS -X POST \
                -H 'Content-Type: application/json' \
-               -H "Authorization: Bearer $TOKEN" \
                -d "$CART" \
                "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
-               -D /tmp/headers -o /tmp/body || true
-          echo "---- Factory status ----"
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print $1; for(i=2;i<=NF;i++) print $i}' /tmp/headers
-          echo "------------------------"
-          grep -qi '^HTTP/1\.[01] 200' /tmp/headers
-          grep -Eqi 'content-type:.*(spreadsheetml|application/vnd.openxmlformats)' /tmp/headers
+               -D /tmp/h -o /tmp/b || true
+          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[FACTORY] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
+          grep -qi '^HTTP/1\.[01] 200' /tmp/h
+          grep -Eqi 'content-type:.*(spreadsheetml|application/vnd.openxmlformats)' /tmp/h
