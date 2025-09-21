@@ -9,31 +9,47 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 7
     env:
-      BASE_URL: ${{ secrets.DEV_BASE_URL }}
-      TOKEN:    ${{ secrets.SMOKE_TOKEN }}
+      BASE_URL: ${{ secrets.DEV_BASE_URL }}   # напр. http://89.169.189.66
+      TOKEN:    ${{ secrets.SMOKE_TOKEN }}    # smoke
     steps:
       - name: Health 204
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+          echo "health: $code"
           test "$code" = "204"
+
+      - name: Admin ping 200
+        run: |
+          code=$(curl -sS -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}" "$BASE_URL/api/admin/ping")
+          echo "admin/ping: $code"
+          test "$code" = "200"
+
+      # ---------- Экспорты Doors (PDF/XLSX) ----------
+      # Важно: API ждёт body строго { "cart": { "items": [...] } }
 
       - name: KP PDF
         run: |
           payload='{"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}'
-          curl -sS -X POST -H 'Content-Type: application/json' \
-               -d "$payload" "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
+          curl -sS -X POST \
+               -H 'Content-Type: application/json' \
+               -d "$payload" \
+               "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
                -D - -o /dev/null | grep -qi 'application/pdf'
 
       - name: Invoice PDF
         run: |
           payload='{"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}'
-          curl -sS -X POST -H 'Content-Type: application/json' \
-               -d "$payload" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
+          curl -sS -X POST \
+               -H 'Content-Type: application/json' \
+               -d "$payload" \
+               "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
                -D - -o /dev/null | grep -qi 'application/pdf'
 
       - name: Factory XLSX
         run: |
           payload='{"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}'
-          curl -sS -X POST -H 'Content-Type: application/json' \
-               -d "$payload" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
+          curl -sS -X POST \
+               -H 'Content-Type: application/json' \
+               -d "$payload" \
+               "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
                -D - -o /dev/null | grep -Ei 'spreadsheetml|application/vnd.openxmlformats'
