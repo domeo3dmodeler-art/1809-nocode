@@ -1,0 +1,30 @@
+name: remote-smoke-pdf
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ develop ]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ secrets.DEV_BASE_URL }}
+    steps:
+      - name: Health
+        run: |
+          curl -fsSI "$BASE_URL/api/health" | grep -i "204"
+
+      - name: KP PDF
+        run: |
+          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
+          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/kp?format=pdf" | grep -i 'application/pdf'
+
+      - name: Invoice PDF
+        run: |
+          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
+          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" | grep -i 'application/pdf'
+
+      - name: Factory XLSX
+        run: |
+          payload='{"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}'
+          curl -fsSI -X POST -H 'Content-Type: application/json' -d "$payload" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" | grep -i 'spreadsheetml'
