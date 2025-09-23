@@ -976,30 +976,47 @@ export default function DoorsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="border-b">
-        <div className="max-w-7xl mx-auto p-4 flex items-center justify-between">
-          <div className="text-lg font-semibold">Domeo • Doors</div>
-          <nav className="flex gap-2">
-            <Link href="/" className="px-3 py-1.5 rounded-xl border">
+      <header className="bg-white border-b border-black/10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline space-x-3">
+              <Link href="/" className="text-2xl font-bold text-black">
+                Domeo
+              </Link>
+              <span className="text-black text-lg font-bold">•</span>
+              <span className="text-lg font-semibold text-black">Doors</span>
+            </div>
+            <nav className="flex items-center space-x-4">
+              <Link 
+                href="/" 
+                className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm"
+              >
               ← Категории
             </Link>
             <button
               onClick={() => setTab("config")}
-              className={`px-3 py-1.5 rounded-xl border ${
-                tab === "config" ? "bg-black text-white" : ""
+              className={`px-3 py-1 border transition-all duration-200 text-sm ${
+                tab === "config" 
+                  ? "bg-black text-white border-black" 
+                  : "border-black text-black hover:bg-black hover:text-white"
               }`}
             >
               Конфигуратор
             </button>
-            <button
-              onClick={() => setTab("admin")}
-              className={`px-3 py-1.5 rounded-xl border ${
-                tab === "admin" ? "bg-black text-white" : ""
-              }`}
-            >
-              Админ
-            </button>
+            {tab === "admin" && (
+              <button
+                onClick={() => setTab("admin")}
+                className={`px-3 py-1 border transition-all duration-200 text-sm ${
+                  tab === "admin" 
+                    ? "bg-black text-white border-black" 
+                    : "border-black text-black hover:bg-black hover:text-white"
+                }`}
+              >
+                Админ
+              </button>
+            )}
           </nav>
+          </div>
         </div>
       </header>
 
@@ -1007,28 +1024,65 @@ export default function DoorsPage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 p-6">
           <main className="lg:col-span-1 space-y-8">
             <section>
-              <h2 className="text-xl font-semibold mb-3">Полотно</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <h2 className="text-xl font-semibold text-black mb-3">Стиль</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {styleTiles.map((s) => (
                   <button
                     key={s.key}
                     onClick={() => setSel((v) => ({ ...v, style: s.key }))}
-                    className={`group overflow-hidden rounded-2xl shadow hover:shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ring-offset-2 ${
-                      sel.style === s.key ? "ring-2 ring-indigo-500" : ""
+                    className={`group overflow-hidden border border-gray-200 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
+                      sel.style === s.key 
+                        ? "bg-gray-50 border-gray-400" 
+                        : "hover:bg-gray-50 hover:border-gray-300"
                     }`}
                     aria-label={`Выбрать стиль ${s.key}`}
                   >
-                    <div
-                      className="aspect-[4/3] flex items-center justify-center"
-                      style={{ background: s.bg }}
-                    >
-                      <div className="w-16 h-28 bg-white rounded-sm shadow-inner border border-black/10 relative">
-                        <div className="absolute right-1/4 top-1/2 w-4 h-1 bg-black/30" />
-                      </div>
+                    <div className="aspect-[1/2] flex items-center justify-center bg-white p-2">
+                      {s.key === 'Скрытая' && (
+                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Скрытая дверь - только контур */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          {/* Минимальная ручка - горизонтальная линия */}
+                          <line x1="13" y1="18" x2="15" y2="18"/>
+                        </svg>
+                      )}
+                      {s.key === 'Современная' && (
+                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Современная дверь - контур + вертикальная панель */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          <rect x="5" y="4" width="8" height="28" rx="0.3"/>
+                          {/* Простая ручка - горизонтальная линия */}
+                          <line x1="13" y1="18" x2="15" y2="18"/>
+                        </svg>
+                      )}
+                      {s.key === 'Неоклассика' && (
+                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Неоклассика - контур + две панели */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          <rect x="4" y="4" width="10" height="14" rx="0.3"/> {/* Верхняя панель */}
+                          <rect x="4" y="20" width="10" height="8" rx="0.3"/> {/* Нижняя панель */}
+                          {/* Круглая ручка */}
+                          <circle cx="13" cy="18" r="0.8"/>
+                        </svg>
+                      )}
+                      {s.key === 'Классика' && (
+                        <svg className="w-[54px] h-[108px] text-gray-400" viewBox="0 0 18 36" fill="none" stroke="currentColor" strokeWidth="0.3">
+                          {/* Классика - контур + две панели с молдингами */}
+                          <rect x="2" y="2" width="14" height="32" rx="0.5"/>
+                          {/* Верхняя панель с молдингом */}
+                          <rect x="4" y="4" width="10" height="14" rx="0.3"/>
+                          <rect x="5" y="5" width="8" height="12" rx="0.2"/>
+                          {/* Нижняя панель с молдингом */}
+                          <rect x="4" y="20" width="10" height="8" rx="0.3"/>
+                          <rect x="5" y="21" width="8" height="6" rx="0.2"/>
+                          {/* Классическая ручка - рычаг */}
+                          <line x1="13" y1="17" x2="13" y2="19"/>
+                          <line x1="13" y1="17" x2="12" y2="17"/>
+                        </svg>
+                      )}
                     </div>
-                    <div className="p-3 text-left">
-                      <div className="font-medium">{s.key}</div>
-                      <div className="text-xs text-gray-500">Выбрать стиль</div>
+                    <div className="p-2 text-center min-h-[2.5rem] flex items-center justify-center">
+                      <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
                     </div>
                   </button>
                 ))}
@@ -1038,11 +1092,11 @@ export default function DoorsPage() {
             {sel.style && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-xl font-semibold">
-                    Покрытие и цвет — Модели ({models.length})
+                  <h2 className="text-xl font-semibold text-black">
+                    Модели ({models.length})
                   </h2>
                   <button
-                    className="text-sm underline"
+                    className="text-sm text-black hover:text-yellow-400 transition-colors duration-200"
                     onClick={() => setSel((v) => ({ ...v, style: "" }))}
                   >
                     Сбросить стиль
@@ -1060,7 +1114,7 @@ export default function DoorsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-500">Нет моделей для выбранного стиля</div>
+                  <div className="text-gray-600 text-center py-8">Нет моделей для выбранного стиля</div>
                 )}
               </section>
             )}
@@ -1116,15 +1170,15 @@ export default function DoorsPage() {
                             edge_note: (e.target as HTMLInputElement).value,
                           }))
                         }
-                        className="w-full border rounded-xl px-3 py-2"
+                        className="w-full border border-black/20 px-3 py-2 text-black"
                         placeholder="например: ABS BLACK"
                       />
                     </label>
                   )}
                 </div>
 
-                <div className="bg-gray-50 rounded-2xl p-4 space-y-4">
-                  <h3 className="font-semibold">Выбор фурнитуры и ручек</h3>
+                <div className="bg-black/5 border border-black/10 p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-black">Выбор фурнитуры и ручек</h3>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <Select
@@ -1155,27 +1209,24 @@ export default function DoorsPage() {
                   <button
                     disabled={!hasBasic(sel)}
                     onClick={addToCart}
-                    className="px-4 py-2 rounded-xl bg-black text-white disabled:opacity-50"
+                    className="px-6 py-3 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
                     В расчёт
                   </button>
                   {kpHtml && (
                     <button
-                      className="px-3 py-2 rounded-xl border"
+                      className="px-6 py-3 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-lg font-bold"
                       onClick={() => setKpHtml("")}
                     >
                       Скрыть КП
                     </button>
                   )}
-                  <button onClick={exportKP} className="px-3 py-2 rounded-xl border">
-                    КП (PDF)
-                  </button>
                 </div>
 
                 {kpHtml && (
-                  <div className="bg-white rounded-2xl shadow p-4">
-                    <h3 className="font-semibold mb-2">Предпросмотр КП</h3>
-                    <iframe className="w-full h-80 border rounded" srcDoc={kpHtml} />
+                  <div className="bg-white border border-black/10 p-6">
+                    <h3 className="text-lg font-semibold text-black mb-4">Предпросмотр КП</h3>
+                    <iframe className="w-full h-80 border border-black/10" srcDoc={kpHtml} />
                   </div>
                 )}
               </section>
@@ -1194,62 +1245,60 @@ export default function DoorsPage() {
 
           <aside className="lg:col-span-1">
             <div className="sticky top-6 space-y-6">
-              <div className="bg-white rounded-2xl shadow p-4">
-                <h2 className="font-semibold mb-2">Параметры</h2>
-                <div className="text-sm space-y-1">
-                  <div>
-                    <span className="text-gray-500">Стиль:</span>{" "}
-                    {sel.style || "—"}
+              <div className="bg-white border border-black/10 p-6">
+                <h2 className="text-xl font-semibold text-black mb-4">Параметры</h2>
+                <div className="text-sm space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Стиль:</span>
+                    <span className="text-black font-medium">{sel.style || "—"}</span>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Полотно:</span>{" "}
-                    {sel.model || "—"}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Покрытие и цвет:</span>{" "}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Покрытие и цвет:</span>
+                    <span className="text-black font-medium">
                     {sel.finish || "—"}
                     {sel.color ? `, ${sel.color}` : ""}
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Кромка:</span>{" "}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Кромка:</span>
+                    <span className="text-black font-medium">
                     {sel.edge === "да"
                       ? sel.edge_note
                         ? `Кромка: ${sel.edge_note}`
                         : "Кромка"
                       : "Отсутствует"}
+                    </span>
                   </div>
                 </div>
-                <div className="mt-3 text-3xl font-bold">
+                <div className="mt-6 text-3xl font-bold text-black">
                   {price ? `${fmtInt(price.total)} ₽` : "—"}
-                </div>
-                <div className="mt-3">
-                  <ExportButtons getCart={getExportCart} />
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-semibold">Корзина ({cart.length})</h2>
-                  <div className="text-sm text-gray-600">
+              <div className="bg-white border border-black/10 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold text-black">Корзина ({cart.length})</h2>
+                  <div className="text-xs text-gray-600">
                     Итого:{" "}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-black">
                       {fmtInt(cart.reduce((s, i) => s + i.unitPrice * i.qty, 0))} ₽
                     </span>
                   </div>
                 </div>
+                
                 {cart.length ? (
                   <div className="space-y-2">
                     {cart.map((i) => (
-                      <div key={i.id} className="border rounded-xl p-3 space-y-2">
+                      <div key={i.id} className="border border-black/10 p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="font-medium">
+                          <div className="font-medium text-black text-sm">
                             {i.model} — {i.type || "—"}
                           </div>
-                          <div className="text-sm">
+                          <div className="text-xs font-semibold text-black">
                             {fmtInt(i.unitPrice * i.qty)} ₽
                           </div>
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-600 leading-tight">
                           {i.color ? `${i.color}, ` : ""}
                           {i.width}×{i.height}
                           {i.edge === "да"
@@ -1261,12 +1310,12 @@ export default function DoorsPage() {
                               }`
                             : ""}
                         </div>
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-3">
                           <input
                             type="number"
                             min={1}
                             value={i.qty}
-                            className="w-16 border rounded px-2 py-1"
+                            className="w-16 border border-black/20 px-2 py-1 text-black"
                             onChange={(e) =>
                               changeQty(i.id, Number((e.target as HTMLInputElement).value) || 1)
                             }
@@ -1276,7 +1325,7 @@ export default function DoorsPage() {
                           </div>
                           <div className="flex gap-2">
                             <button
-                              className="text-sm underline"
+                              className="text-xs text-black hover:text-yellow-400 transition-colors duration-200"
                               onClick={async () => {
                                 setEditingId(editingId === i.id ? null : i.id);
                                 if (editingId !== i.id)
@@ -1289,7 +1338,7 @@ export default function DoorsPage() {
                               Изменить
                             </button>
                             <button
-                              className="text-red-600 text-sm"
+                              className="text-xs text-red-600 hover:text-red-800 transition-colors duration-200"
                               onClick={() => removeFromCart(i.id)}
                             >
                               Удалить
@@ -1297,7 +1346,7 @@ export default function DoorsPage() {
                           </div>
                         </div>
                         {editingId === i.id && (
-                          <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-2">
+                          <div className="bg-black/5 border border-black/10 p-2 grid grid-cols-2 gap-1">
                             <SelectMini
                               label="Покрытие"
                               value={i.finish || ""}
@@ -1353,24 +1402,34 @@ export default function DoorsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-500">Корзина пуста</div>
+                  <div className="text-gray-500 text-center py-6 text-sm">Корзина пуста</div>
                 )}
 
-                <div className="flex flex-wrap gap-2 mt-3">
+                {/* Кнопки экспорта в корзине */}
+                <div className="mt-4 pt-3 border-t border-black/10">
+                  <div className="flex flex-wrap gap-2">
+                  <button
+                    disabled={!cart.length}
+                    onClick={exportKP}
+                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    КП
+                  </button>
                   <button
                     disabled={!cart.length}
                     onClick={exportInvoice}
-                    className="px-3 py-2 rounded-xl border disabled:opacity-50"
+                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     Счет
                   </button>
                   <button
                     disabled={!cart.length}
                     onClick={exportFactory}
-                    className="px-3 py-2 rounded-xl border disabled:opacity-50"
+                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     Заказ на фабрику
                   </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1729,7 +1788,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        className="w-full border rounded-xl px-3 py-2"
+        className="w-full border border-black/20 px-3 py-2 text-black"
       >
         {allowEmpty && <option value="">—</option>}
         {options.map((o) => (
@@ -1761,7 +1820,7 @@ function SelectMini({
       <select
         value={value}
         onChange={(e) => onChange((e.target as HTMLSelectElement).value)}
-        className="w-full border rounded-lg px-2 py-1 text-xs"
+        className="w-full border border-black/20 px-2 py-1 text-xs text-black"
       >
         {allowEmpty && <option value="">—</option>}
         {options.map((o) => (

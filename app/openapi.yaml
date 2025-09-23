@@ -308,8 +308,8 @@ paths:
                 ok:
                   value:
                     files:
-                      - filename: "PO%20Base%201%2F1.jpg"
-                        url: "/assets/doors/PO%20Base%201%2F1.jpg"
+                      - filename: "door_base_1.jpg"
+                        url: "/assets/doors/door_base_1.jpg"
         "400":
           description: Ошибка валидации / формат файла не поддерживается
           content:
@@ -580,10 +580,10 @@ components:
             properties:
               filename:
                 type: string
-                example: PO%20Base%201%2F1.jpg
+                example: door_base_1.jpg
               url:
                 type: string
-                example: /assets/doors/PO%20Base%201%2F1.jpg
+                example: /assets/doors/door_base_1.jpg
             required: [filename, url]
       required: [files]
 

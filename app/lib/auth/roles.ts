@@ -1,22 +1,24 @@
 // lib/auth/roles.ts
-// Система ролей и прав доступа
+// Система ролей и прав доступа для Domeo No-Code
 
-export type Role = 'admin' | 'manager' | 'sales' | 'viewer';
+export type Role = 'admin' | 'complectator' | 'executor';
 
 export type Permission = 
-  | 'quotes.create'
-  | 'quotes.read'
-  | 'quotes.update'
-  | 'quotes.delete'
-  | 'quotes.export'
-  | 'quotes.change_status'
-  | 'templates.create'
-  | 'templates.read'
-  | 'templates.update'
-  | 'templates.delete'
-  | 'analytics.read'
-  | 'users.manage'
-  | 'settings.manage';
+  | 'products.import'           // Импорт прайсов
+  | 'products.manage'           // Управление товарами
+  | 'products.photos'           // Загрузка фото
+  | 'categories.create'         // Создание категорий
+  | 'categories.manage'         // Управление категориями
+  | 'catalog.view'              // Просмотр каталога
+  | 'catalog.search'            // Поиск товаров
+  | 'pricing.calculate'         // Расчет цен
+  | 'quotes.create'             // Создание КП
+  | 'quotes.read'               // Просмотр КП
+  | 'quotes.update'             // Редактирование КП
+  | 'quotes.export'             // Экспорт КП
+  | 'factory.order'             // Заказ на фабрику
+  | 'analytics.view'            // Просмотр аналитики
+  | 'users.manage';             // Управление пользователями
 
 export type UserRole = {
   id: string;
@@ -33,6 +35,8 @@ export type RoleDefinition = {
   description: string;
   permissions: Permission[];
   level: number; // Уровень доступа (чем выше, тем больше прав)
+  color: string; // Цвет для UI
+  icon: string;  // Иконка для UI
 };
 
 class RoleService {
@@ -40,64 +44,63 @@ class RoleService {
     {
       role: 'admin',
       name: 'Администратор',
-      description: 'Полный доступ ко всем функциям системы',
+      description: 'Управляет базой товаров, загружает фото, создает категории',
       permissions: [
+        'products.import',
+        'products.manage', 
+        'products.photos',
+        'categories.create',
+        'categories.manage',
+        'catalog.view',
+        'catalog.search',
+        'pricing.calculate',
         'quotes.create',
         'quotes.read',
         'quotes.update',
-        'quotes.delete',
         'quotes.export',
-        'quotes.change_status',
-        'templates.create',
-        'templates.read',
-        'templates.update',
-        'templates.delete',
-        'analytics.read',
-        'users.manage',
-        'settings.manage'
+        'analytics.view',
+        'users.manage'
       ],
-      level: 100
+      level: 100,
+      color: 'red',
+      icon: '👑'
     },
     {
-      role: 'manager',
-      name: 'Менеджер',
-      description: 'Управление КП и аналитика',
+      role: 'complectator',
+      name: 'Комплектатор',
+      description: 'Все функции кроме заказа на фабрику',
       permissions: [
+        'catalog.view',
+        'catalog.search',
+        'pricing.calculate',
         'quotes.create',
         'quotes.read',
         'quotes.update',
-        'quotes.change_status',
         'quotes.export',
-        'templates.create',
-        'templates.read',
-        'templates.update',
-        'analytics.read'
+        'analytics.view'
       ],
-      level: 80
+      level: 80,
+      color: 'blue',
+      icon: '📋'
     },
     {
-      role: 'sales',
-      name: 'Продавец',
-      description: 'Работа с КП и клиентами',
+      role: 'executor',
+      name: 'Исполнитель заказа',
+      description: 'Видит все, включая заказ на фабрику',
       permissions: [
+        'catalog.view',
+        'catalog.search',
+        'pricing.calculate',
         'quotes.create',
         'quotes.read',
         'quotes.update',
-        'quotes.change_status',
         'quotes.export',
-        'templates.read'
+        'factory.order',
+        'analytics.view'
       ],
-      level: 60
-    },
-    {
-      role: 'viewer',
-      name: 'Наблюдатель',
-      description: 'Только просмотр КП и аналитики',
-      permissions: [
-        'quotes.read',
-        'analytics.read'
-      ],
-      level: 20
+      level: 90,
+      color: 'green',
+      icon: '⚡'
     }
   ];
 
@@ -123,10 +126,65 @@ class RoleService {
     return permissions.includes(permission);
   }
 
-  // Проверить, может ли роль выполнить действие
-  canPerformAction(role: Role, action: string): boolean {
-    const permissions = this.getRolePermissions(role);
-    return permissions.some(permission => permission.includes(action));
+  // Проверить доступ к импорту товаров
+  canImportProducts(role: Role): boolean {
+    return this.hasPermission(role, 'products.import');
+  }
+
+  // Проверить доступ к управлению товарами
+  canManageProducts(role: Role): boolean {
+    return this.hasPermission(role, 'products.manage');
+  }
+
+  // Проверить доступ к загрузке фото
+  canUploadPhotos(role: Role): boolean {
+    return this.hasPermission(role, 'products.photos');
+  }
+
+  // Проверить доступ к созданию категорий
+  canCreateCategories(role: Role): boolean {
+    return this.hasPermission(role, 'categories.create');
+  }
+
+  // Проверить доступ к управлению категориями
+  canManageCategories(role: Role): boolean {
+    return this.hasPermission(role, 'categories.manage');
+  }
+
+  // Проверить доступ к каталогу
+  canViewCatalog(role: Role): boolean {
+    return this.hasPermission(role, 'catalog.view');
+  }
+
+  // Проверить доступ к поиску
+  canSearchProducts(role: Role): boolean {
+    return this.hasPermission(role, 'catalog.search');
+  }
+
+  // Проверить доступ к расчету цен
+  canCalculatePricing(role: Role): boolean {
+    return this.hasPermission(role, 'pricing.calculate');
+  }
+
+  // Проверить доступ к КП
+  canManageQuotes(role: Role, action: 'create' | 'read' | 'update' | 'export'): boolean {
+    const permission = `quotes.${action}` as Permission;
+    return this.hasPermission(role, permission);
+  }
+
+  // Проверить доступ к заказу на фабрику
+  canCreateFactoryOrder(role: Role): boolean {
+    return this.hasPermission(role, 'factory.order');
+  }
+
+  // Проверить доступ к аналитике
+  canViewAnalytics(role: Role): boolean {
+    return this.hasPermission(role, 'analytics.view');
+  }
+
+  // Проверить доступ к управлению пользователями
+  canManageUsers(role: Role): boolean {
+    return this.hasPermission(role, 'users.manage');
   }
 
   // Получить уровень доступа роли
@@ -150,98 +208,70 @@ class RoleService {
       .map(r => r.role);
   }
 
-  // Проверить доступ к КП
-  canAccessQuote(role: Role, quoteStatus: string, action: 'read' | 'update' | 'delete' | 'change_status'): boolean {
-    const permissions = this.getRolePermissions(role);
-    
-    switch (action) {
-      case 'read':
-        return permissions.includes('quotes.read');
-      
-      case 'update':
-        if (!permissions.includes('quotes.update')) return false;
-        // Только создатель или менеджер может редактировать принятые КП
-        if (quoteStatus === 'accepted') {
-          return permissions.includes('quotes.change_status');
-        }
-        return true;
-      
-      case 'delete':
-        if (!permissions.includes('quotes.delete')) return false;
-        // Нельзя удалять принятые КП
-        if (quoteStatus === 'accepted') return false;
-        return true;
-      
-      case 'change_status':
-        return permissions.includes('quotes.change_status');
-      
-      default:
-        return false;
-    }
-  }
-
-  // Проверить доступ к экспорту
-  canExportQuote(role: Role, quoteStatus: string): boolean {
-    if (!this.hasPermission(role, 'quotes.export')) return false;
-    
-    // Только принятые КП можно экспортировать на фабрику
-    if (quoteStatus === 'accepted') return true;
-    
-    // Для других статусов - только администраторы и менеджеры
-    return ['admin', 'manager'].includes(role);
-  }
-
-  // Проверить доступ к аналитике
-  canViewAnalytics(role: Role): boolean {
-    return this.hasPermission(role, 'analytics.read');
-  }
-
-  // Проверить доступ к шаблонам
-  canManageTemplates(role: Role, action: 'create' | 'read' | 'update' | 'delete'): boolean {
-    const permission = `templates.${action}` as Permission;
-    return this.hasPermission(role, permission);
-  }
-
   // Получить ограничения для роли
   getRoleRestrictions(role: Role): {
     maxQuotesPerDay?: number;
-    canDeleteAcceptedQuotes: boolean;
-    canChangeAcceptedQuotes: boolean;
-    canExportAllQuotes: boolean;
-    canViewAllAnalytics: boolean;
+    canImportProducts: boolean;
+    canUploadPhotos: boolean;
+    canCreateCategories: boolean;
+    canCreateFactoryOrders: boolean;
+    canManageUsers: boolean;
   } {
     const restrictions = {
       maxQuotesPerDay: undefined as number | undefined,
-      canDeleteAcceptedQuotes: false,
-      canChangeAcceptedQuotes: false,
-      canExportAllQuotes: false,
-      canViewAllAnalytics: false
+      canImportProducts: false,
+      canUploadPhotos: false,
+      canCreateCategories: false,
+      canCreateFactoryOrders: false,
+      canManageUsers: false
     };
 
     switch (role) {
       case 'admin':
-        restrictions.canDeleteAcceptedQuotes = true;
-        restrictions.canChangeAcceptedQuotes = true;
-        restrictions.canExportAllQuotes = true;
-        restrictions.canViewAllAnalytics = true;
+        restrictions.canImportProducts = true;
+        restrictions.canUploadPhotos = true;
+        restrictions.canCreateCategories = true;
+        restrictions.canManageUsers = true;
         break;
       
-      case 'manager':
-        restrictions.canChangeAcceptedQuotes = true;
-        restrictions.canExportAllQuotes = true;
-        restrictions.canViewAllAnalytics = true;
+      case 'complectator':
+        restrictions.maxQuotesPerDay = 100;
         break;
       
-      case 'sales':
-        restrictions.maxQuotesPerDay = 50;
-        break;
-      
-      case 'viewer':
-        restrictions.maxQuotesPerDay = 0;
+      case 'executor':
+        restrictions.canCreateFactoryOrders = true;
+        restrictions.maxQuotesPerDay = 200;
         break;
     }
 
     return restrictions;
+  }
+
+  // Получить цвет роли для UI
+  getRoleColor(role: Role): string {
+    const roleDef = this.getRole(role);
+    return roleDef ? roleDef.color : 'gray';
+  }
+
+  // Получить иконку роли для UI
+  getRoleIcon(role: Role): string {
+    const roleDef = this.getRole(role);
+    return roleDef ? roleDef.icon : '👤';
+  }
+
+  // Проверить доступ к админке
+  canAccessAdmin(role: Role): boolean {
+    return ['admin'].includes(role);
+  }
+
+  // Проверить доступ к функциям импорта
+  canAccessImport(role: Role): boolean {
+    return this.hasPermission(role, 'products.import');
+  }
+
+  // Проверить доступ к функциям загрузки фото
+  canAccessMedia(role: Role): boolean {
+    return this.hasPermission(role, 'products.photos');
   }
 }
 

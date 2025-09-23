@@ -17,12 +17,16 @@ model Categories {
   icon           String?  @db.VarChar(10)
   properties     Json     @default("[]")
   import_mapping Json     @default("{}")
+  parent_id      String?  @db.VarChar(50)  // Для подкатегорий
+  is_main        Boolean  @default(true)   // Основная категория или подкатегория
   created_at     DateTime @default(now()) @db.Timestamptz(6)
   updated_at     DateTime @default(now()) @db.Timestamptz(6)
 
   // Связи
   products       Products[]
   import_history ImportHistory[]
+  parent         Categories? @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
+  subcategories  Categories[] @relation("CategoryHierarchy")
 
   @@map("categories")
 }

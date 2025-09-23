@@ -1,355 +1,539 @@
 // app/admin/import/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
-type Category = { id: string; code: string; name: string };
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-type ImportError = {
-  index: number;
-  sku?: string;
-  reason: string;
+type Category = { 
+  id: string; 
+  name: string; 
+  description: string; 
+  icon: string; 
+  properties: FieldMapping[];
+  import_mapping: Record<string, string>;
 };
 
-type ImportResult = {
-  total: number;
-  accepted: number;
-  rejected: number;
-  imported?: number; // Добавляем опциональное поле imported
-  sample: any[];
-  errors: ImportError[];
-  schema?: any[];
+type FieldMapping = {
+  key: string;
+  name: string;
+  type: 'text' | 'number' | 'select' | 'url';
+  required: boolean;
+  unit?: string;
+  options?: string[];
 };
 
-type ImportLog = {
-  id: string;
-  category: string;
-  filename: string;
-  total: number;
-  imported: number;
-  rejected: number;
-  status: 'success' | 'error' | 'partial';
-  createdAt: string;
-  errors?: ImportError[];
+type PriceSettings = {
+  calculatorFields: string[];
+  frontendPrice: string;
+  exportFields: string[];
 };
 
 export default function UniversalImportPage() {
-  const [cats, setCats] = useState<Category[]>([]);
-  const [catCode, setCatCode] = useState<string>('doors');
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
+  
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [currency, setCurrency] = useState<'RUB'|'EUR'>('RUB');
-  const [validFrom, setValidFrom] = useState<string>(new Date().toISOString().slice(0,10));
-  const [preview, setPreview] = useState<ImportResult | null>(null);
-  const [published, setPublished] = useState<ImportResult | null>(null);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  const [showManager, setShowManager] = useState(false);
+  const [priceSettings, setPriceSettings] = useState<PriceSettings>({
+    calculatorFields: [],
+    frontendPrice: '',
+    exportFields: []
+  });
   const [loading, setLoading] = useState(false);
-  const [importLogs, setImportLogs] = useState<ImportLog[]>([]);
-  const [showLogs, setShowLogs] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<FileList | null>(null);
+  const [photoFolderUrl, setPhotoFolderUrl] = useState('');
 
-  useEffect(() => { (async () => {
+  useEffect(() => { 
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
     try {
-      const r = await fetch('/api/admin/categories', { cache: 'no-store' });
-      const d = await r.json();
-      setCats(d || []);
-      if (d?.length && !d.find((c:Category)=>c.code===catCode)) setCatCode(d[0].code);
+      console.log('Fetching categories...');
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      console.log('Categories fetched:', data);
       
-      // Загружаем журнал импорта
-      await fetchImportLogs();
-    } catch {}
-  })(); }, []);
-
-  const fetchImportLogs = async () => {
-    try {
-      // Заглушка для демонстрации журнала импорта
-      const mockLogs: ImportLog[] = [
-        {
-          id: 'log-1',
-          category: 'doors',
-          filename: 'doors_price_2025_01_15.xlsx',
-          total: 150,
-          imported: 145,
-          rejected: 5,
-          status: 'partial',
-          createdAt: '2025-01-15T10:30:00Z',
-          errors: [
-            { index: 12, sku: 'DOOR-001', reason: 'Поле base_price должно быть числом' },
-            { index: 45, sku: 'DOOR-002', reason: 'Поле currency не входит в RUB,EUR' }
-          ]
-        },
-        {
-          id: 'log-2',
-          category: 'doors',
-          filename: 'doors_price_2025_01_14.xlsx',
-          total: 100,
-          imported: 100,
-          rejected: 0,
-          status: 'success',
-          createdAt: '2025-01-14T15:20:00Z'
-        },
-        {
-          id: 'log-3',
-          category: 'doors',
-          filename: 'doors_price_2025_01_13.xlsx',
-          total: 50,
-          imported: 0,
-          rejected: 50,
-          status: 'error',
-          createdAt: '2025-01-13T09:15:00Z',
-          errors: [
-            { index: 0, reason: 'Файл поврежден или имеет неправильный формат' }
-          ]
+      setCategories(data.categories || []);
+      
+      // Автоматически выбираем категорию из URL параметра или первую доступную
+      if (data.categories?.length > 0) {
+        let categoryToSelect = null;
+        
+        if (categoryParam) {
+          // Ищем категорию по параметру из URL
+          categoryToSelect = data.categories.find((cat: Category) => cat.id === categoryParam);
+          console.log('Category from URL param:', categoryParam, 'found:', categoryToSelect);
         }
-      ];
-      setImportLogs(mockLogs);
-    } catch (err) {
-      console.error('Error fetching import logs:', err);
+        
+        if (!categoryToSelect) {
+          // Если не найдена по параметру, выбираем первую
+          categoryToSelect = data.categories[0];
+          console.log('Auto-selecting first category:', categoryToSelect);
+        }
+        
+        setSelectedCategory(categoryToSelect);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
     }
   };
 
-  const send = async (mode:'preview'|'publish') => {
-    if (!file || !catCode) return;
-    setLoading(true); 
-    if (mode==='preview') setPublished(null);
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) {
+      console.log('No file selected');
+      return;
+    }
+
+    console.log('=== FILE UPLOAD START ===');
+    console.log('File selected:', {
+      name: selectedFile.name,
+      size: selectedFile.size,
+      type: selectedFile.type,
+      lastModified: selectedFile.lastModified
+    });
     
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('currency', currency);
-    fd.append('valid_from', validFrom);
-    fd.append('mode', mode);
+    setFile(selectedFile);
+    setLoading(true);
     
     try {
-      const res = await fetch(`/api/admin/import/${encodeURIComponent(catCode)}`, { method:'POST', body: fd });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Ошибка импорта');
+      // Проверяем, что категория выбрана
+      if (!selectedCategory) {
+        console.error('No category selected');
+        alert('Сначала выберите категорию');
+        setFile(null);
+        setLoading(false);
+        return;
       }
+
+      // Отправляем файл на сервер для чтения заголовков
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('category', selectedCategory.id);
+      formData.append('mode', 'headers'); // Режим только заголовки
       
-      if (mode==='preview') {
-        setPreview(data);
+      console.log('FormData prepared:', {
+        file: selectedFile.name,
+        category: selectedCategory.id,
+        mode: 'headers'
+      });
+      
+      console.log('Sending request to:', '/api/admin/import/universal');
+      
+      const response = await fetch('/api/admin/import/universal', {
+        method: 'POST',
+        body: formData
+      });
+      
+      console.log('Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (response.ok && data.headers) {
+        console.log('SUCCESS: Headers received:', data.headers);
+        setFileHeaders(data.headers);
+        setShowManager(true);
       } else {
-        setPublished(data);
-        // Обновляем журнал импорта после публикации
-        await fetchImportLogs();
+        console.error('ERROR: Failed to get headers:', data);
+        alert(`Ошибка чтения файла: ${data.error || 'Неизвестная ошибка'}`);
+        setFile(null);
       }
-    } catch (error: any) {
-      alert(`Ошибка импорта: ${error.message}`);
+    } catch (error) {
+      console.error('EXCEPTION: Error reading file:', error);
+      alert('Ошибка при чтении файла: ' + error);
+      setFile(null);
     } finally {
       setLoading(false);
+      console.log('=== FILE UPLOAD END ===');
     }
   };
 
-  const handleRollback = async () => {
-    if (!confirm('Вы уверены, что хотите отменить последнюю публикацию прайса?')) return;
+  const handleSettingsChange = (type: keyof PriceSettings, value: string[]) => {
+    setPriceSettings(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
+
+  const handleImport = async () => {
+    if (!file || !priceSettings.frontendPrice || !selectedCategory) return;
     
+    setLoading(true);
     try {
-      setLoading(true);
-      // Здесь должен быть API вызов для rollback
-      console.log('Rolling back last import...');
-      alert('Rollback выполнен успешно');
-      await fetchImportLogs();
-    } catch (error: any) {
-      alert(`Ошибка rollback: ${error.message}`);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedCategory.id);
+      formData.append('settings', JSON.stringify(priceSettings));
+      
+      const response = await fetch('/api/admin/import/universal', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`Импорт завершен успешно! Импортировано: ${result.imported || 0} товаров`);
+        setShowManager(false);
+        setFile(null);
+        setFileHeaders([]);
+      } else {
+        alert(`Ошибка импорта: ${result.error}`);
+      }
+    } catch (error) {
+      alert('Ошибка при импорте файла');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status: ImportLog['status']) => {
-    switch (status) {
-      case 'success': return 'text-green-600 bg-green-100';
-      case 'error': return 'text-red-600 bg-red-100';
-      case 'partial': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+  const getAvailableFields = () => {
+    if (!selectedCategory) return [];
+    console.log('getAvailableFields - selectedCategory:', selectedCategory);
+    console.log('getAvailableFields - fileHeaders:', fileHeaders);
+    console.log('getAvailableFields - selectedCategory.properties:', selectedCategory.properties);
+    
+    const availableFields = selectedCategory.properties.filter(field => fileHeaders.includes(field.key));
+    console.log('getAvailableFields - availableFields:', availableFields);
+    return availableFields;
   };
 
-  const getStatusText = (status: ImportLog['status']) => {
-    switch (status) {
-      case 'success': return 'Успешно';
-      case 'error': return 'Ошибка';
-      case 'partial': return 'Частично';
-      default: return 'Неизвестно';
-    }
+  const getUnmappedHeaders = () => {
+    if (!selectedCategory) return fileHeaders;
+    return fileHeaders.filter(header => !selectedCategory.properties.some(field => field.key === header));
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Импорт прайсов</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowLogs(!showLogs)}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-          >
-            {showLogs ? 'Скрыть журнал' : 'Показать журнал'}
-          </button>
-          {published && (
-            <button
-              onClick={handleRollback}
-              disabled={loading}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-            >
-              Отменить последнюю публикацию
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Журнал импорта */}
-      {showLogs && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Журнал импорта</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Файл</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Всего</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Импортировано</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Отброшено</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {importLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {log.filename}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.status)}`}>
-                        {getStatusText(log.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {log.total}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="text-green-600">{log.imported}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="text-red-600">{log.rejected}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(log.createdAt).toLocaleString('ru-RU')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {log.errors && log.errors.length > 0 && (
-                        <button
-                          onClick={() => {
-                            const errorDetails = log.errors?.map(e => 
-                              `Строка ${e.index + 1}${e.sku ? ` (SKU: ${e.sku})` : ''}: ${e.reason}`
-                            ).join('\n');
-                            alert(`Ошибки импорта:\n\n${errorDetails}`);
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Показать ошибки
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Форма импорта */}
-      <div className="rounded-2xl border p-4 grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Категория</label>
-          <select className="rounded-2xl border p-3 w-full" value={catCode} onChange={e=>setCatCode(e.target.value)}>
-            {cats.length ? cats.map(c => <option key={c.id} value={c.code}>{c.name} ({c.code})</option>)
-                         : <option value="doors">Doors (по умолчанию)</option>}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Файл (XLSX/CSV)</label>
-          <input type="file" accept=".xlsx,.csv" onChange={e=>setFile(e.target.files?.[0] ?? null)} />
-        </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">Валюта</label>
-          <select className="rounded-2xl border p-3 w-full" value={currency} onChange={e=>setCurrency(e.target.value as any)}>
-            <option value="RUB">RUB</option><option value="EUR">EUR</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">valid_from</label>
-          <input type="date" className="rounded-2xl border p-3 w-full" value={validFrom} onChange={e=>setValidFrom(e.target.value)} />
-        </div>
-        <div className="sm:col-span-2 flex gap-2">
-          <button className="rounded-2xl border px-4 py-3" disabled={!file || loading} onClick={()=>send('preview')}>
-            {loading ? 'Проверяем…' : 'Проверка'}
-          </button>
-          <button className="rounded-2xl border px-4 py-3" disabled={!preview || (preview.rejected>0) || loading} onClick={()=>send('publish')}>
-            {loading ? 'Публикуем…' : 'Опубликовать'}
-          </button>
-        </div>
-      </div>
-
-      {/* Результаты предпросмотра */}
-      {preview && (
-        <div className="rounded-2xl border p-4">
-          <div className="flex flex-wrap gap-4 mb-4">
-            <div>Всего: <b>{preview.total}</b></div>
-            <div className="text-green-700">Пройдёт: <b>{preview.accepted}</b></div>
-            <div className="text-red-700">Отброшено: <b>{preview.rejected}</b></div>
-            {preview.rejected > 0 && (
-              <div className="text-yellow-700">
-                <b>⚠️ Есть ошибки валидации!</b>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-2">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Domeo</h1>
+                <p className="text-xs text-gray-600">Configurators</p>
               </div>
-            )}
+              <div className="flex items-center">
+                <span className="text-gray-400 mx-2 text-lg">•</span>
+                <h2 className="text-lg font-semibold text-gray-800">Импорт прайсов</h2>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Link 
+                href="/admin"
+                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
+              >
+                Назад в админку
+              </Link>
+            </div>
           </div>
-          
-          <div className="mt-3">
-            <div className="text-sm text-gray-600 mb-1">Примеры данных</div>
-            <pre className="bg-gray-50 rounded-xl p-3 overflow-auto text-sm max-h-40">{JSON.stringify(preview.sample, null, 2)}</pre>
-          </div>
-          
-          {preview.errors?.length ? (
-            <details className="mt-4">
-              <summary className="cursor-pointer text-sm font-medium text-red-600">
-                Ошибки валидации ({preview.errors.length})
-              </summary>
-              <div className="mt-2 bg-red-50 rounded-xl p-3">
-                <div className="text-sm text-red-800 space-y-1">
-                  {preview.errors.map((error, index) => (
-                    <div key={index} className="flex items-start space-x-2">
-                      <span className="font-medium">Строка {error.index + 1}:</span>
-                      <span>{error.reason}</span>
-                      {error.sku && (
-                        <span className="text-gray-600">(SKU: {error.sku})</span>
-                      )}
-                    </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {!showManager ? (
+          /* Шаг 1: Выбор категории и загрузка файла */
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Импорт прайса</h1>
+              <p className="text-gray-600">Выберите категорию товаров и загрузите файл с прайсом</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Выбор категории */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Категория товаров</h3>
+                  <Link
+                    href="/admin/categories"
+                    className="px-3 py-1 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 transition-colors"
+                  >
+                    Управление
+                  </Link>
+                </div>
+                
+                <div className="space-y-3">
+                  {categories.map(category => (
+                    <label key={category.id} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="category"
+                        value={category.id}
+                        checked={selectedCategory?.id === category.id}
+                        onChange={() => setSelectedCategory(category)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">{category.icon}</span>
+                          <span className="font-medium text-gray-900">{category.name}</span>
+                        </div>
+                        <p className="text-sm text-gray-600">{category.description}</p>
+                        <p className="text-xs text-gray-500">
+                          {category.properties.length} свойств
+                        </p>
+                      </div>
+                    </label>
                   ))}
                 </div>
               </div>
-            </details>
-          ) : null}
+
+              {/* Загрузка файла */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Загрузить файлы</h3>
+                <div className="space-y-4">
+                  {/* Загрузка прайса */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Файл прайса
+                    </label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileUpload}
+                      disabled={!selectedCategory}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  
+                  {/* Загрузка фото */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Фото товаров
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => setPhotoFiles(e.target.files)}
+                      disabled={!selectedCategory}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {photoFiles && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        Выбрано файлов: {photoFiles.length}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Ссылка на папку с фото */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Или ссылка на папку с фото
+                    </label>
+                    <input
+                      type="url"
+                      value={photoFolderUrl}
+                      onChange={(e) => setPhotoFolderUrl(e.target.value)}
+                      placeholder="https://example.com/photos/"
+                      disabled={!selectedCategory}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  {file && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{file.name}</p>
+                          <p className="text-sm text-gray-600">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setFile(null);
+                            setFileHeaders([]);
+                          }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          ✕
+                        </button>
+          </div>
         </div>
       )}
 
-      {/* Результаты публикации */}
-      {published && (
-        <div className="rounded-2xl border p-4 bg-green-50 border-green-200">
-          <div className="flex items-center mb-2">
-            <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-green-800 font-medium">Публикация завершена успешно!</span>
+                  <div className="text-sm text-gray-600">
+                    <p>Поддерживаемые форматы: Excel (.xlsx, .xls), CSV (.csv)</p>
+                    {!selectedCategory && (
+                      <p className="text-yellow-600 mt-1">⚠️ Сначала выберите категорию</p>
+                    )}
+        </div>
+        </div>
+        </div>
+      </div>
+
           </div>
-          <div className="text-green-700">
-            Импортировано: <b>{published.imported}</b> / {published.total}, отброшено: {published.rejected}
+        ) : (
+          /* Шаг 2: Менеджер загрузки прайса */
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Менеджер загрузки прайса</h1>
+              <p className="text-gray-600">
+                Настройте параметры импорта для категории "{selectedCategory?.name}" и файла: {file?.name}
+              </p>
+              
+              {/* Отладочная информация */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold text-gray-800 mb-2">Отладочная информация:</h4>
+                <p className="text-sm text-gray-600">
+                  <strong>Заголовки файла:</strong> {fileHeaders.length > 0 ? fileHeaders.join(', ') : 'Не загружены'}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Доступные поля:</strong> {getAvailableFields().length} из {selectedCategory?.properties.length || 0}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Неиспользуемые поля:</strong> {getUnmappedHeaders().length}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 1. Поля для калькулятора */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">1. Поля для калькулятора</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Выберите поля, которые будут использоваться для расчета цен в калькуляторе
+                </p>
+                
+                <div className="space-y-2">
+                  {fileHeaders.length > 0 ? (
+                    fileHeaders.map(header => (
+                      <label key={header} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={priceSettings.calculatorFields.includes(header)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              handleSettingsChange('calculatorFields', [...priceSettings.calculatorFields, header]);
+                            } else {
+                              handleSettingsChange('calculatorFields', priceSettings.calculatorFields.filter(f => f !== header));
+                            }
+                          }}
+                          className="mr-3"
+                        />
+                        <span className="text-sm text-gray-700">{header}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">Заголовки файла не загружены</p>
+            )}
           </div>
-          <div className="mt-2">
-            <a href="/doors" className="inline-block underline text-green-600 hover:text-green-800">
-              Открыть каталог Doors
-            </a>
+          </div>
+          
+              {/* 2. Цена для фронта */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">2. Цена для корзины</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Выберите поле, которое будет отображаться как цена в корзине
+                </p>
+                
+                <div className="space-y-2">
+                  {fileHeaders.length > 0 ? (
+                    fileHeaders.map(header => (
+                      <label key={header} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="frontendPrice"
+                          value={header}
+                          checked={priceSettings.frontendPrice === header}
+                          onChange={(e) => handleSettingsChange('frontendPrice', [e.target.value])}
+                          className="mr-3"
+                        />
+                        <span className="text-sm text-gray-700">{header}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">Заголовки файла не загружены</p>
+                  )}
+                </div>
+                    </div>
+
+              {/* 3. Поля для экспорта */}
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">3. Поля для экспорта</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Выберите поля, которые будут включены в экспорт "Заказ поставщику"
+                </p>
+                
+                <div className="space-y-2">
+                  {fileHeaders.length > 0 ? (
+                    fileHeaders.map(header => (
+                      <label key={header} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={priceSettings.exportFields.includes(header)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              handleSettingsChange('exportFields', [...priceSettings.exportFields, header]);
+                            } else {
+                              handleSettingsChange('exportFields', priceSettings.exportFields.filter(f => f !== header));
+                            }
+                          }}
+                          className="mr-3"
+                        />
+                        <span className="text-sm text-gray-700">{header}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">Заголовки файла не загружены</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Неиспользованные поля */}
+            {getUnmappedHeaders().length > 0 && (
+              <div className="bg-yellow-50 rounded-xl shadow-md p-6 border border-yellow-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Неиспользованные поля</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Эти поля найдены в файле, но не соответствуют схеме категории "{selectedCategory?.name}":
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {getUnmappedHeaders().map(header => (
+                    <span key={header} className="px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded-full">
+                      {header}
+                    </span>
+                  ))}
+                </div>
+        </div>
+      )}
+
+            {/* Кнопки действий */}
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => {
+                  setShowManager(false);
+                  setFile(null);
+                  setFileHeaders([]);
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Назад
+              </button>
+              
+              <button
+                onClick={handleImport}
+                disabled={loading || !priceSettings.frontendPrice}
+                className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Импортируем...' : 'Загрузить прайс'}
+              </button>
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }
