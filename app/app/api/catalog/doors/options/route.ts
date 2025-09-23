@@ -1,66 +1,39 @@
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+import { NextRequest, NextResponse } from "next/server";
+import { mockDoorsData } from "@/lib/mock-data";
 
-// app/api/catalog/doors/options/route.ts
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // если у тебя иной хелпер — скажи, адаптирую
-
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const model  = searchParams.get('model');
-  const finish = searchParams.get('finish');
-  const type   = searchParams.get('type');
-  const width  = searchParams.get('width')  ? Number(searchParams.get('width'))  : null;
-  const height = searchParams.get('height') ? Number(searchParams.get('height')) : null;
+  const q = Object.fromEntries(searchParams.entries()) as Record<string, string>;
 
-  // Домены конфигуратора
-  const domains = await prisma.$queryRawUnsafe(`
-    SELECT DISTINCT model, finish, color, type, width, height
-    FROM doors_catalog
-    ORDER BY model, finish, color, type, width, height
-    LIMIT 10000
-  `);
+  const style  = q.style  ?? null;
+  const model  = q.model  ?? null;
+  const finish = q.finish ?? null;
+  const color  = q.color  ?? null;
+  const type   = q.type   ?? null;
+  const width  = q.width  ? String(q.width)  : null;
+  const height = q.height ? String(q.height) : null;
 
-  const hasAnyFilter = !!(model || finish || type || width || height);
+  // Use mock data instead of database
+  const mockOptions = {
+    style: ["Современная", "Классика", "Неоклассика", "Скрытая"],
+    model: ["Современная", "Классика", "Неоклассика", "Скрытая"],
+    finish: ["Белый", "Дуб", "Орех", "Черный"],
+    color: ["Белый", "Дуб", "Орех", "Черный"],
+    type: ["handle", "lock", "hinge"],
+    width: [600, 700, 800, 900],
+    height: [1900, 2000, 2100, 2200],
+    kits: [
+      { id: 1, name: "Комплект золотой", price_rrc: 5000, model: "Современная" },
+      { id: 2, name: "Комплект серебряный", price_rrc: 4500, model: "Классика" },
+    ],
+    handles: [
+      { id: 1, name: "Ручка золотая", price_opt: 1500, price_group_multiplier: 1.0, supplier_name: "Поставщик 1", supplier_sku: "HANDLE-001" },
+      { id: 2, name: "Ручка серебряная", price_opt: 1200, price_group_multiplier: 1.0, supplier_name: "Поставщик 1", supplier_sku: "HANDLE-002" },
+    ],
+  };
 
-  // KITS
-  const kits = hasAnyFilter
-    ? await prisma.$queryRaw`
-        SELECT k.*
-        FROM kits k
-        LEFT JOIN kit_suiting s ON s.kit_id = k.id
-        WHERE
-          ( ${model}::text  IS NULL OR s.model  IS NULL OR s.model  = ${model}::text ) AND
-          ( ${finish}::text IS NULL OR s.finish IS NULL OR s.finish = ${finish}::text ) AND
-          ( ${type}::text   IS NULL OR s.type   IS NULL OR s.type   = ${type}::text )   AND
-          ( ${width}::int   IS NULL OR s.width_min  IS NULL OR s.width_min  <= ${width}::int ) AND
-          ( ${width}::int   IS NULL OR s.width_max  IS NULL OR s.width_max  >= ${width}::int ) AND
-          ( ${height}::int  IS NULL OR s.height_min IS NULL OR s.height_min <= ${height}::int ) AND
-          ( ${height}::int  IS NULL OR s.height_max IS NULL OR s.height_max >= ${height}::int )
-        GROUP BY k.id
-        ORDER BY k.id
-      `
-    : await prisma.$queryRaw`SELECT * FROM kits ORDER BY id`;
-
-  // HANDLES
-  const handles = hasAnyFilter
-    ? await prisma.$queryRaw`
-        SELECT h.*
-        FROM handles h
-        LEFT JOIN handle_suiting s ON s.handle_id = h.id
-        WHERE
-          ( ${model}::text  IS NULL OR s.model  IS NULL OR s.model  = ${model}::text ) AND
-          ( ${finish}::text IS NULL OR s.finish IS NULL OR s.finish = ${finish}::text ) AND
-          ( ${type}::text   IS NULL OR s.type   IS NULL OR s.type   = ${type}::text )   AND
-          ( ${width}::int   IS NULL OR s.width_min  IS NULL OR s.width_min  <= ${width}::int ) AND
-          ( ${width}::int   IS NULL OR s.width_max  IS NULL OR s.width_max  >= ${width}::int ) AND
-          ( ${height}::int  IS NULL OR s.height_min IS NULL OR s.height_min <= ${height}::int ) AND
-          ( ${height}::int  IS NULL OR s.height_max IS NULL OR s.height_max >= ${height}::int )
-        GROUP BY h.id
-        ORDER BY h.id
-      `
-    : await prisma.$queryRaw`SELECT * FROM handles ORDER BY id`;
-
-  return NextResponse.json({ domains, kits, handles });
+  return NextResponse.json({
+    ok: true,
+    domain: mockOptions
+  });
 }

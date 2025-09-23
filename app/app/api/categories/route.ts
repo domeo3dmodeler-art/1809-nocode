@@ -1,49 +1,67 @@
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
+import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from '@prisma/client';
 
-// app/app/api/categories/route.ts
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+const prisma = new PrismaClient();
 
-// Категории = уникальные значения по полю `type` из products
-export async function GET() {
+// Универсальная система для управления категориями товаров
+export async function GET(req: NextRequest) {
   try {
-    // Быстрый путь: groupBy
-    const groups = await prisma.products.groupBy({
-      by: ['type'],
-      _count: { _all: true },
-      orderBy: { type: 'asc' },
+    // Получаем категории из базы данных
+    const categories = await prisma.categories.findMany({
+      orderBy: { created_at: 'asc' }
     });
 
-    const items = groups
-      .filter(g => (g.type as string) !== '')
-      .map(g => ({ type: g.type as string, count: (g as any)._count._all as number }));
+    return NextResponse.json({
+      categories,
+      total: categories.length,
+      message: "Универсальная система категорий товаров"
+    });
+  } catch (error) {
+    console.error('Ошибка получения категорий:', error);
+    return NextResponse.json(
+      { error: "Ошибка получения категорий" },
+      { status: 500 }
+    );
+  }
+}
 
-    return NextResponse.json({ ok: true, total: items.length, items });
-  } catch (_err) {
-    // Фолбэк: distinct + последующий count
-    try {
-      const rows = await prisma.products.findMany({
-        where: { type: { not: '' } },     // без not: null — поле не nullable
-        distinct: ['type'],
-        select: { type: true },
-        orderBy: { type: 'asc' },
-      });
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { name, description, icon, properties, import_mapping } = body;
 
-      const items = await Promise.all(
-        rows.map(async r => ({
-          type: r.type as string,
-          count: await prisma.products.count({ where: { type: r.type as string } }),
-        }))
-      );
-
-      return NextResponse.json({ ok: true, total: items.length, items });
-    } catch (e: any) {
+    // Валидация обязательных полей
+    if (!name || !properties || !Array.isArray(properties)) {
       return NextResponse.json(
-        { ok: false, error: 'categories_failed', message: e?.message || 'unknown error' },
-        { status: 500 }
+        { error: "Название и свойства обязательны" },
+        { status: 400 }
       );
     }
+
+    // Генерируем ID на основе названия
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+    // Создаем категорию в базе данных
+    const newCategory = await prisma.categories.create({
+      data: {
+        id,
+        name,
+        description: description || "",
+        icon: icon || "📦",
+        properties: properties,
+        import_mapping: import_mapping || {}
+      }
+    });
+
+    return NextResponse.json({
+      message: "Категория создана успешно",
+      category: newCategory
+    }, { status: 201 });
+  } catch (error) {
+    console.error('Ошибка создания категории:', error);
+    return NextResponse.json(
+      { error: "Ошибка создания категории" },
+      { status: 500 }
+    );
   }
 }

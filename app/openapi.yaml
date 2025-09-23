@@ -176,6 +176,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/ExportResponseFactory"
 
+  /api/export/order:
+    post:
+      tags: [Cart/Export]
+      operationId: exportOrderToFactory
+      summary: Экспорт заказа на фабрику из принятого КП
+      description: |
+        Экспортирует заказ на фабрику в формате XLSX на основе данных принятого КП.
+        Возвращает файл с корректными заголовками для скачивания.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportOrderRequest"
+      responses:
+        "200":
+          description: Файл экспорта успешно сгенерирован
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Имя файла для скачивания
+              schema:
+                type: string
+                example: "attachment; filename=\"factory_order_kp-123_2025-01-15.xlsx\""
+        "400":
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportError"
+        "404":
+          description: КП не найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportError"
+        "500":
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportError"
+
   /api/admin/import/doors:
     post:
       tags: [Admin/Import]
@@ -566,3 +613,40 @@ components:
             email: { type: string, format: email }
             name: { type: string }
       required: [token]
+
+    ExportOrderRequest:
+      type: object
+      properties:
+        kpId:
+          type: string
+          description: ID принятого КП
+          example: "kp-123"
+        format:
+          type: string
+          enum: ["xlsx"]
+          description: Формат экспорта
+          example: "xlsx"
+      required: [kpId, format]
+
+    ExportError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: string
+          description: Сообщение об ошибке
+        details:
+          type: object
+          description: Дополнительные детали ошибки
+          properties:
+            code:
+              type: string
+              description: Код ошибки
+            field:
+              type: string
+              description: Поле, в котором произошла ошибка
+            value:
+              description: Значение, вызвавшее ошибку
+      required: [success, error]
