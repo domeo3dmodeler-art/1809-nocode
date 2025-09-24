@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AdminLayout from '../../components/layout/AdminLayout';
+import { Card, Button } from '../../components/ui';
 
 interface CategoryStats {
   id: string;
@@ -153,54 +155,30 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white border-b border-black/10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-                <div className="flex items-center space-x-3">
-                  <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
-                    <div>
-                      <h1 className="text-2xl font-bold text-black">Domeo</h1>
-                      <p className="text-xs text-gray-500 font-medium">Configurators</p>
-                    </div>
-                  </Link>
-                  <div className="flex items-center">
-                    <span className="text-black mx-3 text-lg font-bold">•</span>
-                    <h2 className="text-lg font-semibold text-black">Админка</h2>
-                  </div>
-                </div>
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/"
-                className="px-6 py-2 bg-transparent border border-black text-black rounded-none hover:bg-black hover:text-white transition-all duration-200 text-sm font-medium"
-              >
-                На главную
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    <AdminLayout 
+      title="Админка" 
+      subtitle="Управление системой и контентом"
+    >
+      <div className="space-y-8">
+        {/* Категории товаров */}
+        <div>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Категории товаров</h2>
               <p className="text-gray-600 mt-1">Управляйте разными группами товаров. Каждая категория имеет свои свойства и настройки импорта.</p>
             </div>
-                <Link
-                  href="/admin/categories"
-                  className="inline-flex items-center px-6 py-2 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 text-sm font-medium"
-                >
-                  <span className="mr-2">+</span>
-                  Новая категория
-                </Link>
+            <Link
+              href="/admin/categories/builder"
+              className="inline-flex items-center px-6 py-2 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 text-sm font-medium"
+            >
+              <span className="mr-2">+</span>
+              Новая категория
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.filter(category => category.id === 'doors').map((category) => (
-              <div key={category.id} className="bg-white border border-black/10 p-6 hover:border-black transition-all duration-200">
+              <Card key={category.id} variant="interactive" className="hover:border-black transition-all duration-200">
                 <div className="flex items-center mb-4">
                   <div className="bg-black/5 p-3">
                     <span className="text-3xl">{category.icon}</span>
@@ -214,7 +192,7 @@ export default function AdminDashboard() {
                 <div className="mb-4">
                   <p className="text-sm text-gray-600 mb-2">Свойства товаров:</p>
                   <div className="flex flex-wrap gap-1">
-                    {category.properties.slice(0, 4).map((prop) => (
+                    {category.properties.slice(0, 4).map((prop: any) => (
                       <span 
                         key={prop.key}
                         className={`px-2 py-1 text-xs rounded-none border ${
@@ -249,21 +227,61 @@ export default function AdminDashboard() {
                     Импорт
                   </Link>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
 
         {/* Статистика */}
-        <div className="bg-white border border-black/10 p-6 mb-8">
+        <Card variant="base" className="mb-8">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Статистика</h3>
-            <button
+            <Button
+              variant="secondary"
               onClick={refreshStats}
-              className="px-4 py-2 bg-transparent border border-black text-black rounded-none hover:bg-black hover:text-white transition-all duration-200 text-sm font-medium"
             >
               🔄 Обновить
-            </button>
+            </Button>
+          </div>
+          
+          {/* Карточки статистики */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div className="bg-gray-50 border border-black/10 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Категории товаров</p>
+                  <p className="text-2xl font-bold text-black mt-1">{stats.total.totalCategories}</p>
+                </div>
+                <div className="text-2xl">📁</div>
+              </div>
+            </div>
+            <div className="bg-gray-50 border border-black/10 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Пользователи</p>
+                  <p className="text-2xl font-bold text-black mt-1">8</p>
+                </div>
+                <div className="text-2xl">👥</div>
+              </div>
+            </div>
+            <div className="bg-gray-50 border border-black/10 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Импортов прайсов</p>
+                  <p className="text-2xl font-bold text-black mt-1">{stats.total.totalImports}</p>
+                </div>
+                <div className="text-2xl">📊</div>
+              </div>
+            </div>
+            <div className="bg-gray-50 border border-black/10 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Уведомления</p>
+                  <p className="text-2xl font-bold text-black mt-1">3</p>
+                </div>
+                <div className="text-2xl">🔔</div>
+              </div>
+            </div>
           </div>
           
           {/* Объединенная таблица статистики */}
@@ -361,7 +379,7 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
 
         {/* Быстрые действия */}
         <div className="bg-white border border-black/10 p-6">
@@ -401,6 +419,28 @@ export default function AdminDashboard() {
             </Link>
             
             <Link
+              href="/admin/users"
+              className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
+            >
+              <span className="text-2xl mr-3">👥</span>
+              <div>
+                <p className="font-medium text-black">Управление пользователями</p>
+                <p className="text-sm text-gray-600">Добавление и настройка ролей</p>
+              </div>
+            </Link>
+            
+            <Link
+              href="/admin/settings"
+              className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
+            >
+              <span className="text-2xl mr-3">⚙️</span>
+              <div>
+                <p className="font-medium text-black">Настройки системы</p>
+                <p className="text-sm text-gray-600">Конфигурация и параметры</p>
+              </div>
+            </Link>
+            
+            <Link
               href="/admin/analytics"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
@@ -412,10 +452,9 @@ export default function AdminDashboard() {
             </Link>
           </div>
         </div>
-      </main>
 
-      {/* Модальное окно истории импортов */}
-      {showImportModal && (
+        {/* Модальное окно истории импортов */}
+        {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -501,6 +540,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

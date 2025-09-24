@@ -26,15 +26,6 @@ type Category = {
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newCategory, setNewCategory] = useState({
-    name: '',
-    description: '',
-    icon: '📦',
-    is_main: true,
-    parent_id: null as string | null,
-    properties: [] as FieldMapping[]
-  });
 
   useEffect(() => {
     fetchCategories();
@@ -54,73 +45,6 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleCreateCategory = async () => {
-    if (!newCategory.name || newCategory.properties.length === 0) {
-      alert('Название и хотя бы одно свойство обязательны');
-      return;
-    }
-
-    if (!newCategory.is_main && !newCategory.parent_id) {
-      alert('Для подкатегории необходимо выбрать родительскую категорию');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCategory)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert('Категория создана успешно!');
-        setShowCreateForm(false);
-        setNewCategory({ 
-          name: '', 
-          description: '', 
-          icon: '📦', 
-          is_main: true,
-          parent_id: null,
-          properties: [] 
-        });
-        await fetchCategories();
-      } else {
-        const error = await response.json();
-        alert(`Ошибка создания категории: ${error.error}`);
-      }
-    } catch (error) {
-      alert('Ошибка при создании категории');
-    }
-  };
-
-  const addProperty = () => {
-    setNewCategory(prev => ({
-      ...prev,
-      properties: [...prev.properties, {
-        key: '',
-        name: '',
-        type: 'text',
-        required: false
-      }]
-    }));
-  };
-
-  const updateProperty = (index: number, field: keyof FieldMapping, value: any) => {
-    setNewCategory(prev => ({
-      ...prev,
-      properties: prev.properties.map((prop, i) => 
-        i === index ? { ...prop, [field]: value } : prop
-      )
-    }));
-  };
-
-  const removeProperty = (index: number) => {
-    setNewCategory(prev => ({
-      ...prev,
-      properties: prev.properties.filter((_, i) => i !== index)
-    }));
-  };
 
   if (loading) {
     return (
@@ -163,25 +87,18 @@ export default function CategoriesPage() {
 
       <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="space-y-8">
-          {/* Заголовок и кнопка создания */}
+          {/* Заголовок */}
           <div className="flex justify-between items-center">
-            <div>
+    <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Категории товаров</h1>
               <p className="text-gray-600">Управляйте группами товаров и их свойствами</p>
             </div>
-            <button
-              onClick={() => {
-                console.log('Кнопка нажата, showCreateForm:', showCreateForm);
-                setShowCreateForm(true);
-              }}
-              className={`px-6 py-3 rounded-lg transition-colors shadow-md hover:shadow-lg cursor-pointer ${
-                showCreateForm 
-                  ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                  : 'bg-gray-800 text-white hover:bg-gray-900'
-              }`}
-            >
-              {showCreateForm ? '✓ Форма открыта' : '+ Создать категорию'}
-            </button>
+                  <Link
+                    href="/admin/categories/builder"
+                    className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-md hover:shadow-lg"
+                  >
+                    + Создать категорию
+                  </Link>
           </div>
 
           {/* Список категорий */}
@@ -300,153 +217,6 @@ export default function CategoriesPage() {
             ))}
           </div>
 
-          {/* Форма создания категории */}
-          {showCreateForm && (
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Создать новую категорию</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Название</label>
-                  <input
-                    type="text"
-                    value={newCategory.name}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="Например: Окна"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Описание</label>
-                  <input
-                    type="text"
-                    value={newCategory.description}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="Краткое описание"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Иконка</label>
-                  <input
-                    type="text"
-                    value={newCategory.icon}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, icon: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="🪟"
-                  />
-                </div>
-    <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Тип категории</label>
-                  <select
-                    value={newCategory.is_main ? 'main' : 'sub'}
-                    onChange={(e) => {
-                      const isMain = e.target.value === 'main';
-                      setNewCategory(prev => ({ 
-                        ...prev, 
-                        is_main: isMain,
-                        parent_id: isMain ? null : prev.parent_id
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  >
-                    <option value="main">Основная категория</option>
-                    <option value="sub">Подкатегория</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Выбор родительской категории для подкатегории */}
-              {!newCategory.is_main && (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Родительская категория</label>
-                  <select
-                    value={newCategory.parent_id || ''}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, parent_id: e.target.value || null }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  >
-                    <option value="">Выберите родительскую категорию</option>
-                    {categories.filter(cat => cat.is_main).map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-medium text-gray-800">Свойства товаров</h4>
-                  <button
-                    onClick={addProperty}
-                    className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    + Добавить свойство
-                  </button>
-                </div>
-                
-                <div className="space-y-2">
-                  {newCategory.properties.map((prop, index) => (
-                    <div key={index} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg">
-                      <input
-                        type="text"
-                        placeholder="Ключ поля"
-                        value={prop.key}
-                        onChange={(e) => updateProperty(index, 'key', e.target.value)}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Название"
-                        value={prop.name}
-                        onChange={(e) => updateProperty(index, 'name', e.target.value)}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                      />
-                      <select
-                        value={prop.type}
-                        onChange={(e) => updateProperty(index, 'type', e.target.value)}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
-                      >
-                        <option value="text">Текст</option>
-                        <option value="number">Число</option>
-                        <option value="select">Список</option>
-                        <option value="url">URL</option>
-                      </select>
-                      <label className="flex items-center text-sm">
-                        <input
-                          type="checkbox"
-                          checked={prop.required}
-                          onChange={(e) => updateProperty(index, 'required', e.target.checked)}
-                          className="mr-1"
-                        />
-                        Обязательное
-                      </label>
-                      <button
-                        onClick={() => removeProperty(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleCreateCategory}
-                  className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
-                >
-                  Создать категорию
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>

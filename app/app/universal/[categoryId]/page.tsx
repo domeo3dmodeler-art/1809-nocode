@@ -2,398 +2,264 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { NoCodeComponentRenderer } from '../../../components/nocode/NoCodeComponents';
 
 // ===================== Универсальный генератор страниц =====================
 
 interface UniversalPageProps {
   categoryId: string;
-  templateId: string;
+  templateId?: string;
   customConfig?: any;
 }
 
-interface ComponentRendererProps {
-  component: any;
-  categoryData: any;
-  onUpdate: (data: any) => void;
-}
-
-// Универсальный рендерер компонентов
-function ComponentRenderer({ component, categoryData, onUpdate }: ComponentRendererProps) {
-  const [localData, setLocalData] = useState({});
-
-  const handleDataChange = (newData: any) => {
-    setLocalData(newData);
-    onUpdate(newData);
-  };
-
-  switch (component.type) {
-    case 'selector':
-      return (
-        <div className="bg-white border border-black/10 p-6">
-          <h3 className="text-lg font-semibold text-black mb-4">
-            {component.config.title || 'Выбор опций'}
-          </h3>
-          
-          {component.config.type === 'style-tiles' && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {component.config.options?.map((option: string) => (
-                <button
-                  key={option}
-                  onClick={() => handleDataChange({ style: option })}
-                  className="group overflow-hidden border border-black/10 hover:border-black transition-all duration-200"
-                >
-                  <div className="aspect-[4/3] flex items-center justify-center bg-gray-50">
-                    <div className="w-16 h-28 bg-white border border-black/10 relative">
-                      <div className="absolute right-1/4 top-1/2 w-4 h-1 bg-black/30" />
-                    </div>
-                  </div>
-                  <div className="p-3 text-left">
-                    <div className="font-medium text-black">{option}</div>
-                    <div className="text-xs text-gray-500">Выбрать стиль</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {component.config.type === 'model-cards' && (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
-              {categoryData.models?.map((model: any) => (
-                <button
-                  key={model.id}
-                  onClick={() => handleDataChange({ model: model.id })}
-                  className="group w-full text-left border border-black/10 hover:border-black transition-all duration-200"
-                >
-                  <div className="p-4 flex flex-col gap-3">
-                    <div className="aspect-[3/4] w-full overflow-hidden bg-gray-50">
-                      <img
-                        src={model.image || '/assets/placeholder.jpg'}
-                        alt={model.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="text-lg font-semibold text-black">{model.name}</div>
-                      <div className="text-sm text-gray-500">{model.description}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {component.config.type === 'material-cards' && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {component.config.options?.map((material: string) => (
-                <button
-                  key={material}
-                  onClick={() => handleDataChange({ material })}
-                  className="group overflow-hidden border border-black/10 hover:border-black transition-all duration-200"
-                >
-                  <div className="aspect-square flex items-center justify-center bg-gray-50">
-                    <div className="text-4xl">
-                      {material === 'Ламинат' && '🏠'}
-                      {material === 'Паркет' && '🌳'}
-                      {material === 'Линолеум' && '📐'}
-                      {material === 'Плитка' && '🔲'}
-                    </div>
-                  </div>
-                  <div className="p-3 text-center">
-                    <div className="font-medium text-black">{material}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-
-    case 'parameters':
-      return (
-        <div className="bg-white border border-black/10 p-6">
-          <h3 className="text-lg font-semibold text-black mb-4">
-            {component.title || 'Параметры'}
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {component.config.fields?.map((field: any) => (
-              <div key={field.key}>
-                <label className="block text-sm font-medium text-black mb-1">
-                  {field.label}
-                </label>
-                {field.type === 'select' ? (
-                  <select
-                    onChange={(e) => handleDataChange({ [field.key]: e.target.value })}
-                    className="w-full border border-black/20 px-3 py-2 text-black"
-                  >
-                    <option value="">—</option>
-                    {field.options?.map((option: string) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                ) : field.type === 'number' ? (
-                  <input
-                    type="number"
-                    onChange={(e) => handleDataChange({ [field.key]: Number(e.target.value) })}
-                    className="w-full border border-black/20 px-3 py-2 text-black"
-                    placeholder="Введите число"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    onChange={(e) => handleDataChange({ [field.key]: e.target.value })}
-                    className="w-full border border-black/20 px-3 py-2 text-black"
-                    placeholder={`Введите ${field.label.toLowerCase()}`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-
-    case 'preview':
-      return (
-        <div className="bg-white border border-black/10 p-6">
-          <h3 className="text-lg font-semibold text-black mb-4">
-            {component.title || 'Предпросмотр'}
-          </h3>
-          <div className="aspect-[3/4] w-full overflow-hidden bg-gray-50 border border-black/10">
-            <div className="h-full w-full flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🖼️</div>
-                <div className="text-gray-600">Предпросмотр товара</div>
-              </div>
-            </div>
-          </div>
-          {component.config.showPrice && (
-            <div className="mt-4 text-2xl font-bold text-black">
-              — ₽
-            </div>
-          )}
-        </div>
-      );
-
-    case 'cart':
-      return (
-        <div className="bg-white border border-black/10 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-black">
-              {component.title || 'Корзина'}
-            </h3>
-            <div className="text-sm text-gray-600">
-              Итого: <span className="font-semibold text-black">— ₽</span>
-            </div>
-          </div>
-          <div className="text-gray-500 text-center py-8">
-            Корзина пуста
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            {component.config.exportOptions?.map((option: string) => (
-              <button
-                key={option}
-                className="px-3 py-2 border border-black text-black hover:bg-black hover:text-white transition-all duration-200"
-              >
-                {option === 'kp' && 'КП'}
-                {option === 'invoice' && 'Счет'}
-                {option === 'factory' && 'Заказ на фабрику'}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-
-    default:
-      return (
-        <div className="bg-white border border-black/10 p-6">
-          <h3 className="text-lg font-semibold text-black mb-4">
-            {component.title || 'Неизвестный компонент'}
-          </h3>
-          <div className="text-gray-500">
-            Компонент типа "{component.type}" не поддерживается
-          </div>
-        </div>
-      );
+// Предустановленные шаблоны для категорий
+const categoryTemplates: Record<string, any> = {
+  doors: {
+    id: 'doors-template',
+    name: 'Конфигуратор дверей',
+    layout: { type: 'grid', columns: 3, gap: 8, responsive: true },
+    components: [
+      {
+        id: 'style-selector',
+        type: 'style-selector',
+        position: { row: 1, col: 1, span: 1 },
+        config: {
+          title: 'Полотно',
+          options: ['Скрытая', 'Современная', 'Неоклассика', 'Классика']
+        },
+        title: 'Выбор стиля',
+        visible: true
+      },
+      {
+        id: 'model-selector',
+        type: 'model-selector',
+        position: { row: 2, col: 1, span: 1 },
+        config: {
+          title: 'Модели',
+          models: [
+            { id: 'pg-base-1', name: 'PG Base 1', description: 'Современная дверь' },
+            { id: 'po-base-1-1', name: 'PO Base 1/1', description: 'Классическая дверь' },
+            { id: 'neo-1', name: 'Neo-1', description: 'Неоклассическая дверь' }
+          ]
+        },
+        title: 'Выбор модели',
+        visible: true
+      },
+      {
+        id: 'parameters-form',
+        type: 'parameters-form',
+        position: { row: 3, col: 1, span: 1 },
+        config: {
+          fields: [
+            { key: 'finish', label: 'Покрытие', type: 'select', options: ['Ламинат', 'ПВХ', 'Шпон'] },
+            { key: 'color', label: 'Цвет', type: 'select', options: ['Белый', 'Дуб', 'Орех'] },
+            { key: 'width', label: 'Ширина', type: 'number', min: 600, max: 1000 },
+            { key: 'height', label: 'Высота', type: 'number', min: 1900, max: 2200 }
+          ]
+        },
+        title: 'Параметры',
+        visible: true
+      },
+      {
+        id: 'preview-panel',
+        type: 'preview-panel',
+        position: { row: 1, col: 2, span: 2 },
+        config: {
+          showImage: true,
+          showPrice: true,
+          showSpecs: true
+        },
+        title: 'Предпросмотр',
+        visible: true
+      },
+      {
+        id: 'cart-panel',
+        type: 'cart-panel',
+        position: { row: 3, col: 2, span: 2 },
+        config: {
+          showTotal: true,
+          allowEdit: true,
+          exportOptions: ['kp', 'invoice', 'factory-csv', 'factory-xlsx']
+        },
+        title: 'Корзина',
+        visible: true
+      }
+    ]
+  },
+  smart: {
+    id: 'smart-template',
+    name: 'Каталог умных устройств',
+    layout: { type: 'grid', columns: 2, gap: 6, responsive: true },
+    components: [
+      {
+        id: 'category-selector',
+        type: 'style-selector',
+        position: { row: 1, col: 1, span: 1 },
+        config: {
+          title: 'Категория',
+          options: ['Умное освещение', 'Умные выключатели', 'Датчики', 'Умные розетки']
+        },
+        title: 'Выбор категории',
+        visible: true
+      },
+      {
+        id: 'product-selector',
+        type: 'model-selector',
+        position: { row: 2, col: 1, span: 1 },
+        config: {
+          title: 'Товары',
+          models: [
+            { id: 'smart-bulb-1', name: 'Умная лампа RGB', description: 'Управление через приложение' },
+            { id: 'smart-switch-1', name: 'Умный выключатель', description: 'Wi-Fi управление' },
+            { id: 'smart-sensor-1', name: 'Датчик движения', description: 'PIR сенсор' }
+          ]
+        },
+        title: 'Выбор товара',
+        visible: true
+      },
+      {
+        id: 'preview-panel',
+        type: 'preview-panel',
+        position: { row: 1, col: 2, span: 1 },
+        config: {
+          showImage: true,
+          showPrice: true,
+          showSpecs: true
+        },
+        title: 'Предпросмотр',
+        visible: true
+      },
+      {
+        id: 'cart-panel',
+        type: 'cart-panel',
+        position: { row: 2, col: 2, span: 1 },
+        config: {
+          showTotal: true,
+          allowEdit: true,
+          exportOptions: ['kp', 'invoice']
+        },
+        title: 'Корзина',
+        visible: true
+      }
+    ]
   }
-}
+};
 
 // Главный компонент универсальной страницы
 export default function UniversalPage({ categoryId, templateId, customConfig }: UniversalPageProps) {
   const [pageData, setPageData] = useState({});
-  const [categoryData, setCategoryData] = useState({});
-  const [template, setTemplate] = useState(null);
+  const [componentData, setComponentData] = useState<Record<string, any>>({});
 
-  // Загрузка данных категории
+  // Получаем шаблон для категории
+  const template = customConfig || categoryTemplates[categoryId];
+
   useEffect(() => {
-    // Здесь будет загрузка данных категории из API
-    const mockData = {
-      doors: {
-        models: [
-          { id: 'pg-base-1', name: 'PG Base 1', description: 'Современная дверь', image: '/assets/doors/pg-base-1.jpg' },
-          { id: 'po-base-1-1', name: 'PO Base 1/1', description: 'Классическая дверь', image: '/assets/doors/po-base-1-1.jpg' },
-          { id: 'neo-1', name: 'Neo-1', description: 'Неоклассическая дверь', image: '/assets/doors/neo-1.jpg' }
-        ]
-      },
-      flooring: {
-        models: [
-          { id: 'laminate-1', name: 'Ламинат Premium', description: 'Высококачественный ламинат', image: '/assets/flooring/laminate-1.jpg' },
-          { id: 'parquet-1', name: 'Паркет Дуб', description: 'Массив дуба', image: '/assets/flooring/parquet-1.jpg' }
-        ]
-      }
-    };
+    if (!template) {
+      console.warn(`Шаблон для категории "${categoryId}" не найден`);
+      return;
+    }
     
-    setCategoryData(mockData[categoryId as keyof typeof mockData] || {});
-  }, [categoryId]);
+    // Инициализируем данные компонентов
+    const initialData: Record<string, any> = {};
+    template.components.forEach((component: any) => {
+      initialData[component.id] = {};
+    });
+    setComponentData(initialData);
+  }, [categoryId, template]);
 
-  // Загрузка шаблона
-  useEffect(() => {
-    // Здесь будет загрузка шаблона из API
-    const mockTemplates = {
-      'doors-template': {
-        id: 'doors-template',
-        name: 'Шаблон для дверей',
-        layout: { type: 'grid', columns: 3, gap: 8 },
-        components: [
-          {
-            id: 'style-selector',
-            type: 'selector',
-            position: { row: 1, col: 1 },
-            config: {
-              title: 'Полотно',
-              type: 'style-tiles',
-              options: ['Скрытая', 'Современная', 'Неоклассика', 'Классика']
-            },
-            title: 'Выбор стиля',
-            visible: true
-          },
-          {
-            id: 'model-selector',
-            type: 'selector',
-            position: { row: 2, col: 1 },
-            config: {
-              title: 'Модели',
-              type: 'model-cards'
-            },
-            title: 'Выбор модели',
-            visible: true
-          },
-          {
-            id: 'preview-panel',
-            type: 'preview',
-            position: { row: 1, col: 2 },
-            config: { showPrice: true },
-            title: 'Предпросмотр',
-            visible: true
-          },
-          {
-            id: 'cart-panel',
-            type: 'cart',
-            position: { row: 1, col: 3 },
-            config: { exportOptions: ['kp', 'invoice', 'factory'] },
-            title: 'Корзина',
-            visible: true
-          }
-        ]
-      },
-      'flooring-template': {
-        id: 'flooring-template',
-        name: 'Шаблон для напольных покрытий',
-        layout: { type: 'grid', columns: 2, gap: 6 },
-        components: [
-          {
-            id: 'material-selector',
-            type: 'selector',
-            position: { row: 1, col: 1 },
-            config: {
-              title: 'Материал',
-              type: 'material-cards',
-              options: ['Ламинат', 'Паркет', 'Линолеум', 'Плитка']
-            },
-            title: 'Выбор материала',
-            visible: true
-          },
-          {
-            id: 'preview-panel',
-            type: 'preview',
-            position: { row: 1, col: 2 },
-            config: { showPrice: true },
-            title: 'Предпросмотр',
-            visible: true
-          }
-        ]
-      }
-    };
-    
-    setTemplate(mockTemplates[templateId as keyof typeof mockTemplates] || null);
-  }, [templateId]);
-
-  const handleDataUpdate = (newData: any) => {
-    setPageData(prev => ({ ...prev, ...newData }));
+  const handleComponentUpdate = (id: string, data: any) => {
+    setComponentData(prev => ({ ...prev, [id]: data }));
   };
 
   if (!template) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">⏳</div>
-          <div className="text-xl text-gray-600">Загрузка шаблона...</div>
+          <h1 className="text-2xl font-bold text-black mb-4">Категория не найдена</h1>
+          <p className="text-gray-600 mb-6">Шаблон для категории "{categoryId}" не найден</p>
+          <Link 
+            href="/nocode-builder" 
+            className="px-4 py-2 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200"
+          >
+            Создать шаблон
+          </Link>
         </div>
       </div>
     );
   }
 
+  const layout = template.layout || { type: 'grid', columns: 3, gap: 8, responsive: true };
+  const components = template.components || [];
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white border-b border-black/10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
               <Link href="/" className="text-2xl font-bold text-black">
                 Domeo
               </Link>
-              <span className="text-black mx-3 text-lg font-bold">•</span>
-              <span className="text-lg font-semibold text-black">
-                {template.name}
-              </span>
+              <span className="text-black text-lg font-bold">•</span>
+              <span className="text-lg font-semibold text-black capitalize">{categoryId}</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex space-x-2">
               <Link 
-                href="/nocode-builder" 
-                className="px-4 py-2 border border-black text-black hover:bg-black hover:text-white transition-all duration-200"
+                href="/nocode-builder"
+                className="px-4 py-2 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 text-sm font-medium"
               >
-                Редактор
-              </Link>
-              <Link 
-                href="/admin" 
-                className="px-4 py-2 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200"
-              >
-                Админка
+                Редактировать
               </Link>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Основной контент */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div 
-          className={`grid gap-${template.layout.gap} ${
-            template.layout.columns === 1 ? 'grid-cols-1' :
-            template.layout.columns === 2 ? 'grid-cols-1 md:grid-cols-2' :
-            template.layout.columns === 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' :
-            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-          }`}
-        >
-          {template.components.map((component) => (
-            <ComponentRenderer
-              key={component.id}
-              component={component}
-              categoryData={categoryData}
-              onUpdate={handleDataUpdate}
-            />
-          ))}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-black mb-2">{template.name}</h1>
+          <p className="text-gray-600">Конфигуратор товаров категории {categoryId}</p>
         </div>
-      </div>
+
+        {/* Dynamic Page Content */}
+        <div 
+          className="space-y-6"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${layout.columns}, 1fr)`,
+            gap: `${layout.gap * 0.25}rem`
+          }}
+        >
+          {components
+            .filter((component: any) => component.visible)
+            .map((component: any) => (
+              <div
+                key={component.id}
+                className="bg-white border border-black/10"
+                style={{
+                  gridColumn: `span ${component.position.span || 1}`,
+                  gridRow: component.position.row
+                }}
+              >
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold text-black mb-4">
+                    {component.title || component.type}
+                  </h2>
+                  
+                  <NoCodeComponentRenderer
+                    type={component.type}
+                    id={component.id}
+                    config={component.config}
+                    data={componentData[component.id]}
+                    onUpdate={handleComponentUpdate}
+                  />
+                </div>
+              </div>
+            ))}
+        </div>
+      </main>
     </div>
   );
 }

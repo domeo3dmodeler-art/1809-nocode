@@ -11,9 +11,16 @@ let categoryStats: { [categoryId: string]: {
 } } = {
   'doors': {
     name: 'Двери',
-    totalProducts: 0,
-    lastImport: null,
-    totalImports: 0,
+    totalProducts: 156,
+    lastImport: '2024-01-30T10:30:00Z',
+    totalImports: 3,
+    isActive: true
+  },
+  'smart': {
+    name: 'Смарт',
+    totalProducts: 89,
+    lastImport: '2024-01-28T14:20:00Z',
+    totalImports: 2,
     isActive: true
   },
   'flooring': {

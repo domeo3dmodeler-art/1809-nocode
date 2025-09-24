@@ -7,6 +7,7 @@ if (typeof window !== "undefined") {
 
 import Link from "next/link";
 import ExportButtons from "../components/ExportButtons"; // ПУТЬ ОТНОСИТЕЛЬНО /doors/page.tsx
+import UnifiedExportButtons from "../../components/UnifiedExportButtons"; // Новый унифицированный компонент
 import React, { useEffect, useMemo, useState } from "react";
 
 // ===================== Типы =====================
@@ -626,6 +627,8 @@ export default function DoorsPage() {
   const [price, setPrice] = useState<any>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [kpHtml, setKpHtml] = useState<string>("");
+  const [selectedClient, setSelectedClient] = useState<string>('');
+  const [showClientModal, setShowClientModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemDomains, setItemDomains] = useState<Record<string, Domain>>({});
@@ -799,18 +802,12 @@ export default function DoorsPage() {
     a.remove();
     URL.revokeObjectURL(url);
   };
-  const exportKP = async () => {
-    const html = await api.kp({ items: cart });
-    download("kp.html", "text/html;charset=utf-8", html);
-    setKpHtml(html);
-  };
-  const exportInvoice = async () => {
-    const html = await api.invoice({ items: cart });
-    download("invoice.html", "text/html;charset=utf-8", html);
-  };
-  const exportFactory = async () => {
-    const csv = await api.factory({ items: cart });
-    download("factory.csv", "text/csv;charset=utf-8", csv);
+  const checkClientBeforeExport = (exportFunction: () => void) => {
+    if (!selectedClient) {
+      setShowClientModal(true);
+      return;
+    }
+    exportFunction();
   };
 
   // ADMIN
@@ -1030,10 +1027,10 @@ export default function DoorsPage() {
                   <button
                     key={s.key}
                     onClick={() => setSel((v) => ({ ...v, style: s.key }))}
-                    className={`group overflow-hidden border border-gray-200 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
+                    className={`group overflow-hidden transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ring-offset-2 ${
                       sel.style === s.key 
-                        ? "bg-gray-50 border-gray-400" 
-                        : "hover:bg-gray-50 hover:border-gray-300"
+                        ? "bg-gray-50" 
+                        : "hover:bg-gray-50"
                     }`}
                     aria-label={`Выбрать стиль ${s.key}`}
                   >
@@ -1081,7 +1078,7 @@ export default function DoorsPage() {
                         </svg>
                       )}
                     </div>
-                    <div className="p-2 text-center min-h-[2.5rem] flex items-center justify-center">
+                    <div className="text-center h-4 flex items-center justify-center">
                       <div className="font-medium text-black text-xs leading-tight">{s.key}</div>
                     </div>
                   </button>
@@ -1408,27 +1405,23 @@ export default function DoorsPage() {
                 {/* Кнопки экспорта в корзине */}
                 <div className="mt-4 pt-3 border-t border-black/10">
                   <div className="flex flex-wrap gap-2">
-                  <button
-                    disabled={!cart.length}
-                    onClick={exportKP}
-                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                  >
-                    КП
-                  </button>
-                  <button
-                    disabled={!cart.length}
-                    onClick={exportInvoice}
-                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                  >
-                    Счет
-                  </button>
-                  <button
-                    disabled={!cart.length}
-                    onClick={exportFactory}
-                    className="px-3 py-1 border border-black text-black hover:bg-black hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                  >
-                    Заказ на фабрику
-                  </button>
+                  <UnifiedExportButtons
+                    getCart={() => cart.map(item => ({
+                      productId: parseInt(item.sku_1c?.toString() || '0'),
+                      qty: item.qty,
+                      kitId: item.hardwareKitId,
+                      handleId: item.handleId,
+                      model: item.model,
+                      width: item.width,
+                      height: item.height,
+                      color: item.color,
+                      finish: item.finish,
+                      type: item.type
+                    }))}
+                    acceptedKPId={selectedClient}
+                    compact={true}
+                    className="flex space-x-2"
+                  />
                   </div>
                 </div>
               </div>
@@ -1651,6 +1644,55 @@ export default function DoorsPage() {
 
       {/* SSR smoke marker */}
       <div data-smoke="doors-active" hidden />
+
+      {/* Client Selection Modal */}
+      {showClientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-black mb-4">Выберите клиента</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Для создания документа необходимо выбрать клиента
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">Клиент</label>
+                <select
+                  value={selectedClient}
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 text-black focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                >
+                  <option value="">Выберите клиента</option>
+                  <option value="1">Иванов Иван Иванович</option>
+                  <option value="2">Петрова Анна Сергеевна</option>
+                  <option value="3">Сидоров Петр Александрович</option>
+                </select>
+              </div>
+              
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => setShowClientModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 text-sm font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedClient) {
+                      setShowClientModal(false);
+                      // Здесь можно добавить логику для продолжения экспорта
+                    }
+                  }}
+                  disabled={!selectedClient}
+                  className="flex-1 px-4 py-2 bg-black text-white hover:bg-yellow-400 hover:text-black transition-all duration-200 text-sm font-medium disabled:opacity-50"
+                >
+                  Продолжить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
