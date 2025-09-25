@@ -1,33 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-
-// Демо-пользователи (в реальном проекте будет база данных)
-const demoUsers = [
-  {
-    id: '1',
-    email: 'admin@domeo.ru',
-    password: 'admin123',
-    role: 'admin',
-    name: 'Администратор',
-    permissions: ['products.import', 'products.manage', 'categories.create', 'users.manage']
-  },
-  {
-    id: '2',
-    email: 'sales@domeo.ru',
-    password: 'sales123',
-    role: 'complectator',
-    name: 'Комплектатор',
-    permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export']
-  },
-  {
-    id: '3',
-    email: 'executor@domeo.ru',
-    password: 'executor123',
-    role: 'executor',
-    name: 'Исполнитель заказа',
-    permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'factory.order']
-  }
-];
+import { demoUsers } from '../users/route';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'domeo-secret-key';
 

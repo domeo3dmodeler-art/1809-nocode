@@ -38,9 +38,9 @@ export default function AdminUsersPage() {
     {
       id: '1',
       email: 'admin@domeo.ru',
-      firstName: 'Иван',
+      firstName: 'Петр',
       lastName: 'Иванов',
-      middleName: 'Иванович',
+      middleName: 'Владимирович',
       role: 'admin',
       permissions: ['products.import', 'products.manage', 'categories.create', 'users.manage'],
       createdAt: '2024-01-01',
@@ -50,9 +50,9 @@ export default function AdminUsersPage() {
     {
       id: '2',
       email: 'sales@domeo.ru',
-      firstName: 'Петр',
+      firstName: 'Иван',
       lastName: 'Петров',
-      middleName: 'Петрович',
+      middleName: 'Сергеевич',
       role: 'complectator',
       permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
       createdAt: '2024-01-05',
@@ -62,9 +62,9 @@ export default function AdminUsersPage() {
     {
       id: '3',
       email: 'executor@domeo.ru',
-      firstName: 'Сидор',
+      firstName: 'Алексей',
       lastName: 'Сидоров',
-      middleName: 'Сидорович',
+      middleName: 'Михайлович',
       role: 'executor',
       permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'factory.order'],
       createdAt: '2024-01-10',
@@ -86,21 +86,38 @@ export default function AdminUsersPage() {
   ];
 
   useEffect(() => {
-    // Загружаем данные из localStorage или используем демо-данные
-    const savedUsers = localStorage.getItem('usersData');
-    if (savedUsers) {
-      try {
-        const parsedUsers = JSON.parse(savedUsers);
-        setUsers(parsedUsers);
-      } catch (error) {
-        console.error('Ошибка парсинга данных пользователей:', error);
+    loadUsers();
+  }, []);
+
+  // Перезагружаем данные при возврате на страницу
+  useEffect(() => {
+    const handleFocus = () => {
+      loadUsers();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/users');
+      const data = await response.json();
+      
+      if (data.success) {
+        setUsers(data.users);
+      } else {
+        console.error('Ошибка загрузки пользователей:', data.error);
         setUsers(demoUsers);
       }
-    } else {
+    } catch (error) {
+      console.error('Ошибка загрузки пользователей:', error);
       setUsers(demoUsers);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-  }, []);
+  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -278,8 +295,15 @@ export default function AdminUsersPage() {
 
         {/* Users Table */}
         <div className="bg-white border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-black">Список пользователей</h2>
+            <Button 
+              variant="primary" 
+              size="sm"
+              onClick={() => window.location.href = '/admin/users/new'}
+            >
+              👤 Добавить пользователя
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

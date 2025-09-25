@@ -3,15 +3,8 @@
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  role: string;
-}
+import { Button } from '../components/ui';
+import { formatUserName, getRoleDisplayName, User } from '../lib/utils/user-display';
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -98,20 +91,6 @@ export default function Home() {
     localStorage.removeItem('userPermissions');
     setUser(null);
     router.push('/');
-  };
-
-  const getUserDisplayName = () => {
-    if (!user) return '';
-    return `${user.lastName} ${user.firstName.charAt(0)}.${user.middleName ? user.middleName.charAt(0) + '.' : ''}`;
-  };
-
-  const getRoleText = (role: string) => {
-    const roleMap: { [key: string]: string } = {
-      'admin': 'Администратор',
-      'complectator': 'Комплектатор',
-      'executor': 'Исполнитель'
-    };
-    return roleMap[role] || 'Пользователь';
   };
 
   const currentBg = backgrounds[currentSlide];

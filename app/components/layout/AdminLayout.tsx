@@ -7,20 +7,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '../ui';
+import { formatUserName, getRoleDisplayName, getRoleColor, getRoleIcon, User } from '../../lib/utils/user-display';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
-}
-
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  role: string;
 }
 
 interface MenuItem {
@@ -87,40 +79,26 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
   const pathname = usePathname();
 
   useEffect(() => {
-    // Получаем данные пользователя из localStorage или API
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error('Ошибка парсинга данных пользователя:', error);
-      }
-    } else {
-      // Демо-данные для разработки
+    // Проверяем аутентификацию из localStorage
+    const token = localStorage.getItem('authToken');
+    const userRole = localStorage.getItem('userRole');
+    const userId = localStorage.getItem('userId');
+
+    if (token && userRole && userId) {
+      // Пользователь авторизован
       setUser({
-        id: '1',
-        email: 'admin@domeo.ru',
-        firstName: 'Иван',
-        lastName: 'Иванов',
-        middleName: 'Иванович',
-        role: 'admin'
+        id: userId,
+        email: localStorage.getItem('userEmail') || '',
+        firstName: localStorage.getItem('userFirstName') || 'Иван',
+        lastName: localStorage.getItem('userLastName') || 'Иванов',
+        middleName: localStorage.getItem('userMiddleName') || 'Иванович',
+        role: userRole
       });
+    } else {
+      // Если нет токена, перенаправляем на страницу входа
+      window.location.href = '/login';
     }
   }, []);
-
-  const getUserDisplayName = () => {
-    if (!user) return 'Администратор';
-    return `${user.lastName} ${user.firstName.charAt(0)}.${user.middleName ? user.middleName.charAt(0) + '.' : ''}`;
-  };
-
-  const getRoleText = (role: string) => {
-    const roleMap: { [key: string]: string } = {
-      'admin': 'Администратор',
-      'complectator': 'Комплектатор',
-      'executor': 'Исполнитель'
-    };
-    return roleMap[role] || 'Пользователь';
-  };
 
   const isActive = (href: string) => {
     if (href === '/admin') {
@@ -131,6 +109,21 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  const handleLogout = () => {
+    // Очищаем данные аутентификации
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userFirstName');
+    localStorage.removeItem('userLastName');
+    localStorage.removeItem('userMiddleName');
+    
+    // Перенаправляем на страницу входа
+    window.location.href = '/login';
   };
 
   return (
@@ -216,9 +209,9 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user ? `${user.lastName} ${user.firstName} ${user.middleName || ''}`.trim() : 'Администратор'}
+                {user ? `${user.lastName} ${user.firstName} ${user.middleName || ''}`.trim() : 'Пользователь'}
               </p>
-              <p className="text-xs text-gray-500 truncate">{getRoleText(user?.role || 'admin')}</p>
+              <p className="text-xs text-gray-500 truncate">{getRoleDisplayName(user?.role || 'admin')}</p>
             </div>
           </div>
         </div>
@@ -263,10 +256,10 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
               {/* User info */}
               <div className="flex items-center space-x-3">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-black">{getUserDisplayName()}</p>
-                  <p className="text-xs text-gray-500">({getRoleText(user?.role || 'admin')})</p>
+                  <p className="text-sm font-medium text-black">{formatUserName(user)}</p>
+                  <p className="text-xs text-gray-500">({getRoleDisplayName(user?.role || 'admin')})</p>
                 </div>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
                   Выйти
                 </Button>
               </div>

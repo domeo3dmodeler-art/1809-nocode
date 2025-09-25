@@ -28,10 +28,15 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Сохраняем токен в localStorage
+        // Сохраняем токен и данные пользователя в localStorage
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userRole', data.user.role);
         localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('userEmail', data.user.email);
+        localStorage.setItem('userName', data.user.name);
+        localStorage.setItem('userFirstName', data.user.firstName);
+        localStorage.setItem('userLastName', data.user.lastName);
+        localStorage.setItem('userMiddleName', data.user.middleName);
         
         // Перенаправляем на dashboard
         router.push('/dashboard');

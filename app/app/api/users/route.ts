@@ -1,5 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { demoUsers } from '../users/route';
+
+// Общий массив пользователей (в реальном проекте будет база данных)
+let demoUsers = [
+  {
+    id: '1',
+    email: 'admin@domeo.ru',
+    password: 'admin123',
+    role: 'admin',
+    name: 'Иванов Петр Владимирович',
+    firstName: 'Петр',
+    lastName: 'Иванов',
+    middleName: 'Владимирович',
+    permissions: ['products.import', 'products.manage', 'categories.create', 'users.manage'],
+    createdAt: '2024-01-01',
+    lastLogin: '2024-01-30',
+    isActive: true
+  },
+  {
+    id: '2',
+    email: 'sales@domeo.ru',
+    password: 'sales123',
+    role: 'complectator',
+    name: 'Петров Иван Сергеевич',
+    firstName: 'Иван',
+    lastName: 'Петров',
+    middleName: 'Сергеевич',
+    permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
+    createdAt: '2024-01-05',
+    lastLogin: '2024-01-29',
+    isActive: true
+  },
+  {
+    id: '3',
+    email: 'executor@domeo.ru',
+    password: 'executor123',
+    role: 'executor',
+    name: 'Сидоров Алексей Михайлович',
+    firstName: 'Алексей',
+    lastName: 'Сидоров',
+    middleName: 'Михайлович',
+    permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'factory.order'],
+    createdAt: '2024-01-10',
+    lastLogin: '2024-01-28',
+    isActive: true
+  },
+  {
+    id: '4',
+    email: 'sales2@domeo.ru',
+    password: 'sales2123',
+    role: 'complectator',
+    name: 'Смирнова Анна Александровна',
+    firstName: 'Анна',
+    lastName: 'Смирнова',
+    middleName: 'Александровна',
+    permissions: ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
+    createdAt: '2024-01-15',
+    lastLogin: '2024-01-25',
+    isActive: false
+  }
+];
+
+export async function GET(req: NextRequest) {
+  try {
+    // Возвращаем список пользователей без паролей
+    const usersWithoutPasswords = demoUsers.map(({ password, ...user }) => user);
+    
+    return NextResponse.json({
+      success: true,
+      users: usersWithoutPasswords
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    return NextResponse.json(
+      { error: 'Ошибка сервера' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,3 +160,6 @@ function getRolePermissions(role: string): string[] {
   };
   return permissions[role] || [];
 }
+
+// Экспортируем массив для использования в других API
+export { demoUsers };
