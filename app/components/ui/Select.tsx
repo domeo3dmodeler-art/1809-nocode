@@ -1,8 +1,7 @@
 // components/ui/Select.tsx
 // Унифицированные селекты в стиле Domeo
 
-import React from 'react';
-import { createStyle } from '@/lib/design/DesignTokens';
+import React, { useId } from 'react';
 
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
@@ -22,8 +21,12 @@ export function Select({
   id,
   ...props 
 }: SelectProps) {
-  const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
-  const selectClasses = error ? createStyle.input.error : createStyle.input.base;
+  const generatedId = useId();
+  const selectId = id || generatedId;
+  
+  const baseClasses = "mt-1 block w-full px-3 py-2 border border-gray-300 text-black focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent";
+  const errorClasses = "mt-1 block w-full px-3 py-2 border border-red-300 text-black focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent";
+  const selectClasses = error ? errorClasses : baseClasses;
   
   return (
     <div className="space-y-1">

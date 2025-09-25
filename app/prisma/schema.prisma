@@ -1,65 +1,302 @@
-// Prisma схема для универсальной системы товаров
-// Подходит для Yandex Cloud PostgreSQL
+// Prisma схема для SQLite (локальная разработка)
+// Упрощенная версия для быстрого старта
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
 }
 
-model Categories {
-  id             String   @id @db.VarChar(50)
-  name           String   @db.VarChar(100)
-  description    String?
-  icon           String?  @db.VarChar(10)
-  properties     Json     @default("[]")
-  import_mapping Json     @default("{}")
-  parent_id      String?  @db.VarChar(50)  // Для подкатегорий
-  is_main        Boolean  @default(true)   // Основная категория или подкатегория
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+// ===========================================
+// ПОЛЬЗОВАТЕЛИ И АУТЕНТИФИКАЦИЯ
+// ===========================================
 
-  // Связи
-  products       Products[]
-  import_history ImportHistory[]
-  parent         Categories? @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
-  subcategories  Categories[] @relation("CategoryHierarchy")
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password_hash String
+  first_name    String
+  last_name     String
+  middle_name   String?
+  role          String    @default("admin") // admin, complectator, executor
+  is_active     Boolean   @default(true)
+  last_login    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@map("users")
+}
+
+// ===========================================
+// КЛИЕНТЫ
+// ===========================================
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  company      String?
+  address      String?
+  tax_number   String?
+  notes        String?
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("clients")
+}
+
+// ===========================================
+// КАТЕГОРИИ ТОВАРОВ
+// ===========================================
+
+model Category {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  icon           String?
+  parent_id      String?
+  level          Int      @default(0)
+  sort_order     Int      @default(0)
+  is_active      Boolean  @default(true)
+  properties     String   @default("[]") // JSON as string for SQLite
+  import_mapping String   @default("{}") // JSON as string for SQLite
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   @@map("categories")
 }
 
-model Products {
-  id           Int      @id @default(autoincrement())
-  category_id  String   @db.VarChar(50)
-  supplier_sku String   @db.VarChar(100)
-  data         Json     @default("{}")
-  photo_url    String?
-  created_at   DateTime @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+// ===========================================
+// ТОВАРЫ
+// ===========================================
 
-  // Связи
-  category     Categories @relation(fields: [category_id], references: [id], onDelete: Cascade)
+model Product {
+  id              String   @id @default(cuid())
+  category_id     String
+  sku             String   @unique
+  name            String
+  description     String?
+  brand           String?
+  model           String?
+  series          String?
+  base_price      Float
+  currency        String   @default("RUB")
+  stock_quantity  Int      @default(0)
+  min_order_qty   Int      @default(1)
+  weight          Float?
+  dimensions      String   @default("{}") // JSON as string for SQLite
+  specifications  String   @default("{}") // JSON as string for SQLite
+  tags            String   @default("[]") // JSON as string for SQLite
+  is_active       Boolean  @default(true)
+  is_featured     Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  @@unique([category_id, supplier_sku])
   @@map("products")
 }
 
-model ImportHistory {
-  id             Int      @id @default(autoincrement())
-  category_id    String   @db.VarChar(50)
-  filename       String   @db.VarChar(255)
-  file_size      Int?
-  imported_count Int      @default(0)
-  error_count    Int      @default(0)
-  status         String   @default("pending") @db.VarChar(20)
-  errors         Json     @default("[]")
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
+// ===========================================
+// ИЗОБРАЖЕНИЯ ТОВАРОВ
+// ===========================================
 
-  // Связи
-  category       Categories @relation(fields: [category_id], references: [id], onDelete: Cascade)
+model ProductImage {
+  id          String   @id @default(cuid())
+  product_id  String
+  filename    String
+  original_name String
+  url         String
+  alt_text    String?
+  width       Int?
+  height      Int?
+  file_size   Int?
+  mime_type   String
+  is_primary  Boolean  @default(false)
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+
+  @@map("product_images")
+}
+
+// ===========================================
+// КОММЕРЧЕСКИЕ ПРЕДЛОЖЕНИЯ
+// ===========================================
+
+model Quote {
+  id              String      @id @default(cuid())
+  number          String      @unique
+  client_id       String
+  created_by      String
+  status          String      @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  valid_until     DateTime?
+  subtotal        Float       @default(0)
+  tax_amount      Float       @default(0)
+  total_amount    Float       @default(0)
+  currency        String      @default("RUB")
+  notes           String?
+  terms           String?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quote_id    String
+  product_id  String
+  quantity    Int
+  unit_price  Float
+  total_price Float
+  notes       String?
+
+  @@map("quote_items")
+}
+
+// ===========================================
+// ЗАКАЗЫ
+// ===========================================
+
+model Order {
+  id              String      @id @default(cuid())
+  number          String      @unique
+  quote_id        String?
+  client_id       String
+  created_by      String
+  status          String      @default("PENDING") // PENDING, CONFIRMED, IN_PRODUCTION, READY_FOR_SHIPPING, SHIPPED, DELIVERED, CANCELLED
+  order_date      DateTime    @default(now())
+  delivery_date   DateTime?
+  subtotal        Float       @default(0)
+  tax_amount      Float       @default(0)
+  total_amount    Float       @default(0)
+  currency        String      @default("RUB")
+  notes           String?
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  order_id    String
+  product_id  String
+  quantity    Int
+  unit_price  Float
+  total_price Float
+  notes       String?
+
+  @@map("order_items")
+}
+
+// ===========================================
+// СЧЕТА
+// ===========================================
+
+model Invoice {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  order_id        String?
+  client_id       String
+  created_by      String
+  status          String        @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  invoice_date    DateTime      @default(now())
+  due_date        DateTime?
+  subtotal        Float         @default(0)
+  tax_amount      Float         @default(0)
+  total_amount    Float         @default(0)
+  currency        String        @default("RUB")
+  notes           String?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoice_id  String
+  product_id  String
+  quantity    Int
+  unit_price  Float
+  total_price Float
+  notes       String?
+
+  @@map("invoice_items")
+}
+
+// ===========================================
+// ЗАКАЗЫ ПОСТАВЩИКАМ
+// ===========================================
+
+model SupplierOrder {
+  id              String            @id @default(cuid())
+  order_id        String
+  executor_id     String
+  supplier_name   String
+  supplier_email  String?
+  supplier_phone  String?
+  status          String            @default("PENDING") // PENDING, SENT, CONFIRMED, IN_PRODUCTION, SHIPPED, DELIVERED, CANCELLED
+  order_date      DateTime          @default(now())
+  expected_date   DateTime?
+  notes           String?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  @@map("supplier_orders")
+}
+
+// ===========================================
+// УВЕДОМЛЕНИЯ
+// ===========================================
+
+model Notification {
+  id          String             @id @default(cuid())
+  user_id     String
+  type        String // ORDER_CREATED, ORDER_UPDATED, INVOICE_CREATED, QUOTE_CREATED, SYSTEM_ALERT
+  title       String
+  message     String
+  is_read     Boolean            @default(false)
+  data        String?            @default("{}") // JSON as string for SQLite
+  created_at  DateTime           @default(now())
+
+  @@map("notifications")
+}
+
+// ===========================================
+// ИСТОРИЯ ИМПОРТА
+// ===========================================
+
+model ImportHistory {
+  id              String   @id @default(cuid())
+  category_id     String
+  filename        String
+  file_size       Int?
+  imported_count  Int      @default(0)
+  error_count     Int      @default(0)
+  status          String   @default("pending")
+  errors          String   @default("[]") // JSON as string for SQLite
+  created_at      DateTime @default(now())
 
   @@map("import_history")
+}
+
+// ===========================================
+// СИСТЕМНЫЕ НАСТРОЙКИ
+// ===========================================
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("system_settings")
 }

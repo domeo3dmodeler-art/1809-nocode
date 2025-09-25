@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { demoUsers } from '../users/route';
+import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+import { getRolePermissions } from '../../../lib/auth/roles';
+
+const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +17,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Проверяем, что пользователь с таким email не существует
-    const existingUser = demoUsers.find(u => u.email === email);
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+    
     if (existingUser) {
       return NextResponse.json(
         { error: 'Пользователь с таким email уже существует' },
@@ -38,32 +45,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Создаем нового пользователя
-    const newUser = {
-      id: (demoUsers.length + 1).toString(),
-      email,
-      password,
-      role,
-      name: `${lastName} ${firstName} ${middleName || ''}`.trim(),
-      firstName,
-      lastName,
-      middleName: middleName || '',
-      permissions: getRolePermissions(role),
-      createdAt: new Date().toISOString().split('T')[0],
-      lastLogin: null,
-      isActive: true
-    };
+    // Хешируем пароль
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    // Добавляем пользователя в общий массив
-    demoUsers.push(newUser);
+    // Создаем нового пользователя в базе данных
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        password_hash: passwordHash,
+        first_name: firstName,
+        last_name: lastName,
+        middle_name: middleName || null,
+        role: role.toUpperCase(),
+        is_active: true
+      },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        middle_name: true,
+        role: true,
+        is_active: true,
+        created_at: true
+      }
+    });
 
     // Возвращаем данные пользователя (без пароля)
-    const { password: _, ...userWithoutPassword } = newUser;
+    const userData = {
+      id: newUser.id,
+      email: newUser.email,
+      firstName: newUser.first_name,
+      lastName: newUser.last_name,
+      middleName: newUser.middle_name,
+      role: newUser.role.toLowerCase(),
+      isActive: newUser.is_active,
+      createdAt: newUser.created_at
+    };
 
     return NextResponse.json({
       success: true,
       message: 'Пользователь успешно создан',
-      user: userWithoutPassword
+      user: userData
     });
 
   } catch (error) {
@@ -72,14 +95,7 @@ export async function POST(req: NextRequest) {
       { error: 'Ошибка сервера' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
-}
-
-function getRolePermissions(role: string): string[] {
-  const permissions: { [key: string]: string[] } = {
-    'admin': ['products.import', 'products.manage', 'categories.create', 'users.manage'],
-    'complectator': ['catalog.view', 'pricing.calculate', 'quotes.create', 'quotes.export'],
-    'executor': ['catalog.view', 'pricing.calculate', 'quotes.create', 'factory.order']
-  };
-  return permissions[role] || [];
 }
