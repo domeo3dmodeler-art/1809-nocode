@@ -51,23 +51,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/catalog/import/template - Получить шаблон Excel
+// GET /api/catalog/import - Получить историю импортов
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-    if (action === 'template') {
-      const templateBuffer = await catalogImportService.getExcelTemplate();
-      
-      return new NextResponse(templateBuffer, {
-        headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': 'attachment; filename="catalog_template.xlsx"',
-          'Content-Length': templateBuffer.length.toString()
-        }
-      });
-    }
 
     if (action === 'history') {
       const history = await catalogImportService.getImportHistory();
@@ -80,9 +69,9 @@ export async function GET(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error getting template:', error);
+    console.error('Error getting history:', error);
     return NextResponse.json(
-      { error: 'Ошибка при получении шаблона' },
+      { error: 'Ошибка при получении истории' },
       { status: 500 }
     );
   }

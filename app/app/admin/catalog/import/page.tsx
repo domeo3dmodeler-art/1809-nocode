@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge } from '../../../../components/ui';
-import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw } from 'lucide-react';
+import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Trash2, Database, Upload as UploadIcon } from 'lucide-react';
 import { CatalogImportResult } from '@/lib/types/catalog';
 
 interface ImportHistoryItem {
@@ -51,17 +51,31 @@ export default function CatalogImportPage() {
   const handleUpload = async () => {
     if (!file) return;
 
+    console.log('=== НАЧАЛО ЗАГРУЗКИ ФАЙЛА ===');
+    console.log('Файл:', file.name, 'Размер:', file.size);
+
     try {
       setUploading(true);
       const formData = new FormData();
       formData.append('file', file);
 
+      console.log('Отправка запроса на /api/catalog/import...');
       const response = await fetch('/api/catalog/import', {
         method: 'POST',
         body: formData
       });
 
+      console.log('Ответ сервера:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Ошибка сервера:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const result: CatalogImportResult = await response.json();
+      console.log('Результат импорта:', result);
+      
       setImportResult(result);
       setShowResult(true);
       
@@ -86,23 +100,92 @@ export default function CatalogImportPage() {
     }
   };
 
-  const downloadTemplate = async () => {
+  const handleClearCatalog = async () => {
+    if (!confirm('Вы уверены, что хотите очистить весь каталог? Это действие нельзя отменить.')) {
+      return;
+    }
+
     try {
-      const response = await fetch('/api/catalog/import?action=template');
-      const blob = await response.blob();
+      const response = await fetch('/api/catalog/clear', {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert(`Каталог очищен. Удалено ${result.deletedCount} категорий.`);
       
+      // Обновляем историю импортов
+      await loadImportHistory();
+      
+    } catch (error) {
+      console.error('Error clearing catalog:', error);
+      alert('Ошибка при очистке каталога');
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    try {
+      const response = await fetch('/api/catalog/backup', {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Создаем blob и скачиваем файл
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'catalog_template.xlsx';
+      a.download = `catalog_backup_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
     } catch (error) {
-      console.error('Error downloading template:', error);
+      console.error('Error creating backup:', error);
+      alert('Ошибка при создании бэкапа');
     }
   };
+
+  const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('Вы уверены, что хотите восстановить каталог из бэкапа? Текущий каталог будет полностью заменен.')) {
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/catalog/backup', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert('Каталог успешно восстановлен из бэкапа');
+      
+      // Обновляем историю импортов
+      await loadImportHistory();
+      
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      alert('Ошибка при восстановлении бэкапа');
+    }
+  };
+
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -133,20 +216,43 @@ export default function CatalogImportPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
-        <div className="flex space-x-2">
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={downloadTemplate}
-            className="flex items-center space-x-1"
+            onClick={handleCreateBackup}
+            className="flex items-center gap-2"
           >
-            <Download className="h-4 w-4" />
-            <span>Шаблон</span>
+            <Database className="h-4 w-4" />
+            <span>Создать бэкап</span>
+          </Button>
+          <label className="cursor-pointer">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <UploadIcon className="h-4 w-4" />
+              <span>Восстановить из бэкапа</span>
+            </Button>
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={handleRestoreBackup}
+              className="hidden"
+            />
+          </label>
+          <Button
+            variant="destructive"
+            onClick={handleClearCatalog}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Очистить каталог</span>
           </Button>
           <Button
             variant="outline"
             onClick={loadImportHistory}
             disabled={loadingHistory}
-            className="flex items-center space-x-1"
+            className="flex items-center gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${loadingHistory ? 'animate-spin' : ''}`} />
             <span>Обновить</span>
@@ -388,12 +494,12 @@ export default function CatalogImportPage() {
           <h2 className="text-lg font-semibold">Инструкции по импорту</h2>
           <div className="prose prose-sm max-w-none">
             <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-              <li>Скачайте шаблон Excel файла, нажав кнопку "Шаблон"</li>
               <li>Заполните файл согласно структуре каталога:
                 <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
                   <li>Каждая строка представляет одну категорию</li>
                   <li>Колонки соответствуют уровням вложенности (1-4 уровня)</li>
-                  <li>Для создания подкатегории оставьте пустые ячейки в предыдущих колонках</li>
+                  <li>Заполненные ячейки должны идти подряд без пропусков</li>
+                  <li>Пустые ячейки в конце строки допустимы</li>
                 </ul>
               </li>
               <li>Сохраните файл в формате Excel (.xlsx)</li>

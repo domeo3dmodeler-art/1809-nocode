@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui';
-import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings } from 'lucide-react';
+import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
 
 interface CatalogTreeProps {
@@ -22,6 +22,8 @@ function CatalogTree({
 }: CatalogTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<CatalogCategory | null>(null);
+  const [breadcrumbs, setBreadcrumbs] = useState<CatalogCategory[]>([]);
 
   const toggleNode = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -33,49 +35,100 @@ function CatalogTree({
     setExpandedNodes(newExpanded);
   };
 
+  const handleCategorySelect = (category: CatalogCategory) => {
+    setSelectedCategory(category);
+    onCategorySelect(category);
+    
+    // Обновляем хлебные крошки
+    const buildBreadcrumbs = (cat: CatalogCategory, allCategories: CatalogCategory[]): CatalogCategory[] => {
+      const crumbs: CatalogCategory[] = [cat];
+      // Здесь можно добавить логику для построения полного пути
+      return crumbs;
+    };
+    
+    setBreadcrumbs(buildBreadcrumbs(category, categories));
+  };
+
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const renderCategory = (category: CatalogCategory, level: 0) => {
+  const renderCategory = (category: CatalogCategory, level: number = 0) => {
     const hasChildren = category.subcategories && category.subcategories.length > 0;
     const isExpanded = expandedNodes.has(category.id);
-    const indent = level * 20;
+    const indent = level * 24; // Увеличиваем отступ для лучшей визуализации
 
     return (
       <div key={category.id} className="select-none">
         <div
-          className="flex items-center py-2 px-3 hover:bg-gray-50 cursor-pointer group"
+          className={`flex items-center py-2 px-3 cursor-pointer group transition-colors duration-150 ${
+            level === 0 
+              ? 'hover:bg-blue-50 border-l-2 border-transparent hover:border-blue-200' 
+              : 'hover:bg-gray-50'
+          }`}
           style={{ paddingLeft: `${indent + 12}px` }}
-          onClick={() => onCategorySelect(category)}
+          onClick={() => handleCategorySelect(category)}
         >
-          {hasChildren && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNode(category.id);
-              }}
-              className="mr-2 p-1 hover:bg-gray-200 rounded"
-            >
-              {isExpanded ? (
+          {/* Индикатор раскрытия/сворачивания */}
+          <div className="flex items-center w-6 mr-2">
+            {hasChildren ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleNode(category.id);
+                }}
+                className="p-1 hover:bg-gray-200 rounded transition-colors duration-150"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-600" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                )}
+              </button>
+            ) : (
+              <div className="w-6 h-6 flex items-center justify-center">
+                <div className="w-1 h-1 bg-gray-300 rounded-full" />
+              </div>
+            )}
+          </div>
+
+          {/* Иконка категории */}
+          <div className="mr-3">
+            {hasChildren ? (
+              isExpanded ? (
                 <FolderOpen className="h-4 w-4 text-blue-600" />
               ) : (
-                <Folder className="h-4 w-4 text-gray-500" />
-              )}
-            </button>
-          )}
+                <Folder className="h-4 w-4 text-blue-500" />
+              )
+            ) : (
+              <Package2 className="h-4 w-4 text-gray-400" />
+            )}
+          </div>
           
-          {!hasChildren && <div className="w-6 mr-2" />}
-          
-          <div className="flex-1 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium">{category.name}</span>
-              <Badge variant="secondary" className="text-xs">
-                {category.products_count || 0} товаров
+          {/* Основной контент */}
+          <div className="flex-1 flex items-center justify-between min-w-0">
+            <div className="flex items-center space-x-3 min-w-0">
+              <span className={`font-medium truncate ${
+                level === 0 ? 'text-gray-900' : 'text-gray-700'
+              }`}>
+                {category.name}
+              </span>
+              
+              {/* Счетчик товаров */}
+              <Badge 
+                variant="secondary" 
+                className={`text-xs shrink-0 ${
+                  (category.products_count || 0) > 0 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {category.products_count || 0}
               </Badge>
             </div>
             
-            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Действия (показываются при наведении) */}
+            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -83,7 +136,8 @@ function CatalogTree({
                   e.stopPropagation();
                   onCategoryCreate(category.id);
                 }}
-                className="h-6 w-6 p-0"
+                className="h-7 w-7 p-0 hover:bg-blue-100 hover:text-blue-600"
+                title="Добавить подкатегорию"
               >
                 <Plus className="h-3 w-3" />
               </Button>
@@ -94,7 +148,8 @@ function CatalogTree({
                   e.stopPropagation();
                   onCategoryEdit(category);
                 }}
-                className="h-6 w-6 p-0"
+                className="h-7 w-7 p-0 hover:bg-gray-100"
+                title="Редактировать"
               >
                 <Edit className="h-3 w-3" />
               </Button>
@@ -105,7 +160,8 @@ function CatalogTree({
                   e.stopPropagation();
                   onCategoryDelete(category);
                 }}
-                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                title="Удалить"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -113,11 +169,14 @@ function CatalogTree({
           </div>
         </div>
         
+        {/* Подкатегории с анимацией */}
         {hasChildren && isExpanded && (
-          <div>
-            {category.subcategories?.map(subcategory => 
-              renderCategory(subcategory, level + 1)
-            )}
+          <div className="overflow-hidden">
+            <div className="transition-all duration-200 ease-in-out">
+              {category.subcategories?.map(subcategory => 
+                renderCategory(subcategory, level + 1)
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -126,6 +185,7 @@ function CatalogTree({
 
   return (
     <div className="space-y-4">
+      {/* Поиск и действия */}
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -145,14 +205,68 @@ function CatalogTree({
           <span>Добавить</span>
         </Button>
       </div>
+
+      {/* Хлебные крошки */}
+      {breadcrumbs.length > 0 && (
+        <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+          <span>Путь:</span>
+          {breadcrumbs.map((crumb, index) => (
+            <React.Fragment key={crumb.id}>
+              {index > 0 && <ChevronRight className="h-3 w-3 text-gray-400" />}
+              <button
+                onClick={() => handleCategorySelect(crumb)}
+                className="hover:text-blue-600 transition-colors duration-150"
+              >
+                {crumb.name}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      {/* Информация о выбранной категории */}
+      {selectedCategory && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-blue-900">{selectedCategory.name}</h3>
+              <p className="text-sm text-blue-700">
+                Уровень {selectedCategory.level} • {selectedCategory.products_count || 0} товаров
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onCategoryEdit(selectedCategory)}
+                className="text-blue-600 border-blue-300 hover:bg-blue-100"
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Редактировать
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       
-      <div className="border rounded-lg">
+      <div className="border border-gray-200 rounded-lg bg-white shadow-sm">
         {filteredCategories.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            {searchTerm ? 'Категории не найдены' : 'Каталог пуст'}
+            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-lg font-medium mb-2">
+              {searchTerm ? 'Категории не найдены' : 'Каталог пуст'}
+            </p>
+            <p className="text-sm text-gray-400">
+              {searchTerm 
+                ? 'Попробуйте изменить поисковый запрос' 
+                : 'Добавьте категории или импортируйте каталог'
+              }
+            </p>
           </div>
         ) : (
-          filteredCategories.map(category => renderCategory(category, 0))
+          <div className="divide-y divide-gray-100">
+            {filteredCategories.map(category => renderCategory(category, 0))}
+          </div>
         )}
       </div>
     </div>

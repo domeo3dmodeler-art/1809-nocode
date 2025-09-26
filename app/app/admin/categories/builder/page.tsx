@@ -136,11 +136,11 @@ export default function CategoryBuilderPage() {
             
             <div className="flex items-center space-x-4">
               {[
-                { key: 'info', label: 'Инфо', icon: '📝' },
-                { key: 'upload', label: 'Данные', icon: '📊' },
-                { key: 'design', label: 'Дизайн', icon: '🎨' },
-                { key: 'preview', label: 'Превью', icon: '👁️' },
-                { key: 'generate', label: 'Генерация', icon: '⚡' }
+                { key: 'info', label: 'Инфо' },
+                { key: 'upload', label: 'Данные' },
+                { key: 'design', label: 'Дизайн' },
+                { key: 'preview', label: 'Превью' },
+                { key: 'generate', label: 'Генерация' }
               ].map((step, index) => {
                 const isActive = step.key === currentStep;
                 const isCompleted = ['info', 'upload', 'design', 'preview', 'generate'].indexOf(currentStep) > index;
@@ -258,7 +258,6 @@ export default function CategoryBuilderPage() {
             <Card variant="base">
               <div className="p-6">
                 <div className="text-center mb-6">
-                  <div className="text-4xl mb-4">⚡</div>
                   <h2 className="text-xl font-semibold text-black mb-2">Генерация конфигуратора</h2>
                   <p className="text-gray-600">Создание готового конфигуратора категории</p>
                 </div>
@@ -266,7 +265,7 @@ export default function CategoryBuilderPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h3 className="font-medium text-green-800 mb-2">✅ Данные загружены</h3>
+                      <h3 className="font-medium text-green-800 mb-2">Данные загружены</h3>
                       <p className="text-sm text-green-700">
                         Прайс-лист: {priceListData?.totalRows} товаров<br/>
                         Фотографии: {photoData?.totalCount} файлов
@@ -274,7 +273,7 @@ export default function CategoryBuilderPage() {
                     </div>
                     
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h3 className="font-medium text-blue-800 mb-2">🎨 Интерфейс создан</h3>
+                      <h3 className="font-medium text-blue-800 mb-2">Интерфейс создан</h3>
                       <p className="text-sm text-blue-700">
                         Модули настроены<br/>
                         Дизайн готов

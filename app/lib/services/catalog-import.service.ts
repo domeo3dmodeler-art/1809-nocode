@@ -16,18 +16,30 @@ export class CatalogImportService {
    */
   async importFromExcel(file: Buffer, filename: string): Promise<CatalogImportResult> {
     try {
+      console.log('=== НАЧАЛО ИМПОРТА КАТАЛОГА ===');
+      console.log('Файл:', filename, 'Размер:', file.length);
+      
       // Читаем Excel файл
+      console.log('Чтение Excel файла...');
       const workbook = XLSX.read(file, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
+      console.log('Имя листа:', sheetName);
       const worksheet = workbook.Sheets[sheetName];
       
       // Конвертируем в JSON
+      console.log('Конвертация в массив...');
       const data: ExcelRow[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
-      // Пропускаем заголовок (первую строку)
+      console.log('Данные из Excel (первые 5 строк):', data.slice(0, 5));
+      console.log('Всего строк:', data.length);
+      
+      // Пропускаем заголовок (первую строку) - данные начинаются со второй строки
       const rows = data.slice(1).filter(row => row.length > 0);
+      console.log('Строки после фильтрации:', rows.length);
+      console.log('Первые 3 строки данных:', rows.slice(0, 3));
       
       if (rows.length === 0) {
+        console.log('Файл не содержит данных');
         return {
           success: false,
           message: 'Файл не содержит данных',
@@ -39,9 +51,12 @@ export class CatalogImportService {
       }
 
       // Анализируем структуру файла
+      console.log('Анализ структуры файла...');
       const analysis = this.analyzeFileStructure(rows);
+      console.log('Анализ структуры:', analysis);
       
       if (!analysis.isValid) {
+        console.log('Структура файла неверная, возвращаем ошибку');
         return {
           success: false,
           message: 'Неверная структура файла',
@@ -53,12 +68,17 @@ export class CatalogImportService {
       }
 
       // Парсим категории
+      console.log('Парсинг категорий...');
       const categories = this.parseCategories(rows, analysis);
+      console.log('Распарсенные категории:', categories);
       
       // Валидируем данные
+      console.log('Валидация категорий...');
       const validation = this.validateCategories(categories);
+      console.log('Валидация:', validation);
       
       if (!validation.isValid) {
+        console.log('Валидация не пройдена, возвращаем ошибку');
         return {
           success: false,
           message: 'Ошибки валидации данных',
@@ -70,7 +90,9 @@ export class CatalogImportService {
       }
 
       // Импортируем в базу данных
+      console.log('Импорт в базу данных...');
       const importResult = await this.importToDatabase(categories);
+      console.log('Результат импорта в БД:', importResult);
       
       return {
         success: true,
@@ -181,55 +203,161 @@ export class CatalogImportService {
       fullPath: string;
     }> = [];
 
-    const parentStack: string[] = [];
+    // Карта для отслеживания созданных категорий по полному пути
+    const categoryMap = new Map<string, string>(); // fullPath -> name
+    const parentMap = new Map<string, string>(); // fullPath -> parentFullPath
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
       
       if (!Array.isArray(row)) continue;
 
-      // Собираем все непустые ячейки в строке для построения полного пути
-      const rowValues: string[] = [];
+      console.log(`\n--- Обработка строки ${rowIndex + 2} (${rowIndex + 1} в массиве) ---`);
+      console.log('Исходная строка:', row);
+      
+      // Собираем все непустые ячейки в строке по порядку
+      const filledValues: string[] = [];
       let categoryName = '';
       let level = 0;
+      let hasGap = false; // Флаг для проверки пропусков в иерархии
+      let firstEmptyIndex = -1; // Индекс первой пустой ячейки
       
       for (let colIndex = 0; colIndex < row.length; colIndex++) {
         const cellValue = row[colIndex];
+        console.log(`  Ячейка ${colIndex}: "${cellValue}" (тип: ${typeof cellValue})`);
+        
         if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
-          rowValues[colIndex] = cellValue.trim();
+          filledValues.push(cellValue.trim());
           if (!categoryName) {
             categoryName = cellValue.trim();
             level = colIndex + 1;
+            console.log(`    -> Название категории: "${categoryName}", уровень: ${level}`);
           }
         } else {
-          rowValues[colIndex] = '';
+          if (firstEmptyIndex === -1) {
+            firstEmptyIndex = colIndex;
+          }
+          console.log(`    -> Пустая ячейка`);
         }
       }
 
-      if (!categoryName) continue;
+      console.log('Заполненные значения:', filledValues);
+      console.log('Название категории:', categoryName);
+      console.log('Уровень:', level);
 
-      // Обновляем стек родителей
-      while (parentStack.length >= level) {
-        parentStack.pop();
+      if (!categoryName) {
+        console.log('Строка без названия категории, пропускаем');
+        continue;
       }
 
-      const parent = parentStack.length > 0 ? parentStack[parentStack.length - 1] : undefined;
-      const path = parentStack.length > 0 ? parentStack.join('/') : '';
+      // Проверяем на пропуски в иерархии (ошибка)
+      // Ошибка: если есть пустая ячейка в середине последовательности заполненных ячеек
+      console.log('Проверка на пропуски в иерархии...');
       
-      // Создаем полный путь для проверки дубликатов
-      const fullPath = rowValues.filter(val => val).join('/');
+      // Находим все заполненные ячейки по их позициям в исходной строке
+      const filledIndices: number[] = [];
+      for (let i = 0; i < row.length; i++) {
+        const cellValue = row[i];
+        if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
+          filledIndices.push(i);
+        }
+      }
+      
+      console.log(`  Заполненные ячейки: [${filledIndices.join(', ')}]`);
+      
+      // Проверяем, что заполненные ячейки идут подряд без пропусков
+      if (filledIndices.length > 1) {
+        for (let i = 0; i < filledIndices.length - 1; i++) {
+          const currentIndex = filledIndices[i];
+          const nextIndex = filledIndices[i + 1];
+          
+          // Если между текущей и следующей заполненной ячейкой есть пропуск
+          if (nextIndex - currentIndex > 1) {
+            console.error(`    ОШИБКА: Пропуск между ячейками ${currentIndex} и ${nextIndex}`);
+            hasGap = true;
+            break;
+          }
+        }
+      }
 
-      categories.push({
-        name: categoryName,
-        level,
-        path,
-        parent,
-        sortOrder: rowIndex + 1,
-        fullPath
-      });
+      if (hasGap) {
+        console.error(`ОШИБКА: Пропуск в иерархии в строке ${rowIndex + 2}`);
+        throw new Error(`Строка ${rowIndex + 2}: пропуск в иерархии - промежуточные категории не должны быть пустыми`);
+      }
+      
+      console.log('Проверка на пропуски пройдена успешно');
 
-      // Добавляем в стек родителей
-      parentStack.push(categoryName);
+      // Строим полный путь для этой строки
+      // Используем специальный разделитель для путей, чтобы не конфликтовать с / в названиях
+      const fullPath = filledValues.join('|');
+      console.log('Полный путь:', fullPath);
+      
+      // Определяем родительский путь
+      let parentFullPath = '';
+      let parentName = '';
+      
+      if (level > 1) {
+        // Создаем родительский путь, убирая последний элемент
+        parentFullPath = filledValues.slice(0, -1).join('|');
+        console.log('Родительский путь:', parentFullPath);
+        
+        // Проверяем, что родитель существует
+        if (!categoryMap.has(parentFullPath)) {
+          console.error(`ОШИБКА: Родительская категория "${parentFullPath}" не найдена`);
+          throw new Error(`Строка ${rowIndex + 2}: родительская категория не найдена для "${categoryName}"`);
+        }
+        
+        parentName = categoryMap.get(parentFullPath) || '';
+      }
+
+      // Проверяем на дубликаты полного пути только для конечной категории
+      // Дубликат возможен только если это конечная категория (не промежуточная)
+      const isLeafCategory = filledValues.length === level; // Конечная категория в строке
+      
+      if (isLeafCategory && categoryMap.has(fullPath)) {
+        console.error(`ОШИБКА: Дубликат полного пути "${fullPath}"`);
+        throw new Error(`Строка ${rowIndex + 2}: дубликат полного пути "${fullPath}"`);
+      }
+
+      // Создаем все промежуточные категории в иерархии
+      console.log('Заполненные значения для создания иерархии:', filledValues);
+      
+      for (let i = 0; i < filledValues.length; i++) {
+        const currentPath = filledValues.slice(0, i + 1).join('|');
+        const currentName = filledValues[i];
+        const currentLevel = i + 1;
+        const currentParentPath = i > 0 ? filledValues.slice(0, i).join('|') : '';
+        const currentParentName = i > 0 ? filledValues[i - 1] : '';
+        
+        console.log(`  Проверяем категорию уровня ${currentLevel}: "${currentName}" (путь: "${currentPath}")`);
+        
+        // Если категория еще не создана, создаем ее
+        if (!categoryMap.has(currentPath)) {
+          console.log(`    Создаем новую категорию: "${currentName}"`);
+          
+          categoryMap.set(currentPath, currentName);
+          if (currentParentPath) {
+            parentMap.set(currentPath, currentParentPath);
+          }
+          
+          // Строим путь для отображения (только имена родителей)
+          const pathParts = currentParentPath ? currentParentPath.split('|') : [];
+          const displayPath = pathParts.join('/');
+          
+          categories.push({
+            name: currentName,
+            level: currentLevel,
+            path: displayPath,
+            parent: currentParentPath, // Используем полный путь родителя вместо имени
+            sortOrder: rowIndex + 1,
+            fullPath: currentPath
+          });
+          
+          console.log(`    Добавлена категория: ${currentName} (уровень ${currentLevel})`);
+        } else {
+          console.log(`    Категория уже существует: "${currentName}"`);
+        }
+      }
     }
 
     return categories;
@@ -262,7 +390,7 @@ export class CatalogImportService {
         continue;
       }
 
-      // Проверка на полные дубликаты (одинаковые пути)
+      // Проверка на полные дубликаты (одинаковые полные пути)
       if (fullPathSet.has(category.fullPath)) {
         errors.push(`Строка ${category.sortOrder}: полный дубликат пути "${category.fullPath}"`);
       } else {
@@ -272,23 +400,29 @@ export class CatalogImportService {
       // Добавляем в статистику названий (для информации)
       nameSet.add(category.name);
 
-      // Проверка длины названия
+      // Проверка длины названия (максимум 255 символов)
       if (category.name.length > 255) {
-        errors.push(`Строка ${category.sortOrder}: название слишком длинное (${category.name.length} символов)`);
+        errors.push(`Строка ${category.sortOrder}: название слишком длинное (${category.name.length} символов, максимум 255)`);
       }
 
       // Проверка на специальные символы
       if (/[<>:"/\\|?*]/.test(category.name)) {
         warnings.push(`Строка ${category.sortOrder}: название содержит специальные символы: "${category.name}"`);
       }
+
+      // Проверка на циклические зависимости
+      if (category.parent) {
+        const parentPath = category.fullPath.split('/').slice(0, -1).join('/');
+        if (parentPath === category.fullPath) {
+          errors.push(`Строка ${category.sortOrder}: циклическая зависимость в пути "${category.fullPath}"`);
+        }
+      }
     }
 
     // Информационное сообщение о статистике
     const totalCategories = categories.length;
     const uniqueNames = nameSet.size;
-    if (totalCategories > uniqueNames) {
-      warnings.push(`Обнаружено ${totalCategories} категорий с ${uniqueNames} уникальными названиями. Повторяющиеся названия в разных ветках - это нормально.`);
-    }
+    console.log(`Валидация: ${totalCategories} категорий с ${uniqueNames} уникальными названиями.`);
 
     return {
       isValid: errors.length === 0,
@@ -319,19 +453,35 @@ export class CatalogImportService {
     try {
       // Начинаем транзакцию
       await prisma.$transaction(async (tx) => {
-        // Очищаем существующие категории (опционально)
-        // await tx.catalogCategory.deleteMany({});
+        // Получаем существующие категории для проверки дубликатов
+        const existingCategories = await tx.catalogCategory.findMany({
+          select: { id: true, name: true, path: true, level: true }
+        });
 
-        const categoryMap = new Map<string, string>(); // name -> id
+        // Создаем карту существующих категорий по полному пути
+        const existingMap = new Map<string, string>(); // fullPath -> id
+        for (const cat of existingCategories) {
+          const fullPath = this.buildFullPath(cat, existingCategories);
+          existingMap.set(fullPath, cat.id);
+        }
+
+        const categoryMap = new Map<string, string>(); // fullPath -> id
 
         for (const categoryData of categories) {
           try {
-            // Определяем parent_id
+            // Проверяем на дубликаты с существующими категориями
+            if (existingMap.has(categoryData.fullPath)) {
+              warnings.push(`Категория "${categoryData.name}" (путь: ${categoryData.fullPath}) уже существует в базе данных`);
+              continue;
+            }
+
+            // Определяем parent_id по полному пути родителя
             let parentId: string | undefined;
             if (categoryData.parent) {
-              parentId = categoryMap.get(categoryData.parent);
+              // Используем parent как полный путь родителя
+              parentId = categoryMap.get(categoryData.parent) || existingMap.get(categoryData.parent);
               if (!parentId) {
-                errors.push(`Не найден родитель для категории "${categoryData.name}"`);
+                errors.push(`Не найден родитель для категории "${categoryData.name}" (путь: ${categoryData.fullPath})`);
                 continue;
               }
             }
@@ -342,13 +492,14 @@ export class CatalogImportService {
                 name: categoryData.name,
                 parent_id: parentId,
                 level: categoryData.level,
-                path: categoryData.path,
+                path: parentId || '', // Сохраняем ID родителя, а не путь
                 sort_order: categoryData.sortOrder,
                 is_active: true
               }
             });
 
-            categoryMap.set(categoryData.name, category.id);
+            // Сохраняем связь fullPath -> id
+            categoryMap.set(categoryData.fullPath, category.id);
             imported++;
 
           } catch (error) {
@@ -373,71 +524,43 @@ export class CatalogImportService {
   }
 
   /**
-   * Получение шаблона Excel файла
+   * Построение полного пути для существующей категории
    */
-  async getExcelTemplate(): Promise<Buffer> {
-    const templateData = [
-      ['Уровень 1', 'Уровень 2', 'Уровень 3', 'Уровень 4'],
-      ['Бытовая техника для кухни', '', '', ''],
-      ['', 'Холодильники', '', ''],
-      ['', '', 'Однокамерные', ''],
-      ['', '', '', 'Белые'],
-      ['', '', '', 'Серые'],
-      ['', '', 'Двухкамерные', ''],
-      ['', '', '', 'Белые'],
-      ['', '', '', 'Серые'],
-      ['', 'Морозильники', '', ''],
-      ['', '', 'Горизонтальные', ''],
-      ['', '', 'Вертикальные', ''],
-      ['Двери', '', '', ''],
-      ['', 'Межкомнатные', '', ''],
-      ['', '', 'Деревянные', ''],
-      ['', '', 'Стеклянные', ''],
-      ['', 'Входные', '', ''],
-      ['', '', 'Металлические', ''],
-      ['', '', 'Деревянные', ''],
-      ['Кухни на заказ', '', '', ''],
-      ['', 'Корпуса', '', ''],
-      ['', '', 'ЛДСП', ''],
-      ['', '', 'МДФ', ''],
-      ['', 'Фасады', '', ''],
-      ['', '', 'Пластик', ''],
-      ['', '', 'Эмаль', ''],
-      ['', '', '', ''],
-      ['', '', '', ''],
-      ['ПРИМЕРЫ ПРАВИЛЬНОЙ СТРУКТУРЫ:', '', '', ''],
-      ['', '', '', ''],
-      ['Бытовая техника', '', '', ''],
-      ['', 'Холодильники', '', ''],
-      ['', '', 'Белые', ''],
-      ['', '', 'Серые', ''],
-      ['', 'Стиральные машины', '', ''],
-      ['', '', 'Белые', ''],
-      ['', '', 'Серые', ''],
-      ['Двери', '', '', ''],
-      ['', 'Межкомнатные', '', ''],
-      ['', '', 'Белые', ''],
-      ['', '', 'Серые', ''],
-      ['', 'Входные', '', ''],
-      ['', '', 'Белые', ''],
-      ['', '', 'Серые', '']
-    ];
+  private buildFullPath(category: { id: string; name: string; path: string; level: number }, allCategories: Array<{ id: string; name: string; path: string; level: number }>): string {
+    if (category.level === 1) {
+      return category.name;
+    }
 
-    const worksheet = XLSX.utils.aoa_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Каталог');
+    // Строим путь рекурсивно, начиная с корня
+    const buildPathRecursive = (catId: string, visited: Set<string> = new Set()): string[] => {
+      if (visited.has(catId)) {
+        return []; // Предотвращаем циклические зависимости
+      }
+      visited.add(catId);
 
-    // Устанавливаем ширину колонок
-    worksheet['!cols'] = [
-      { width: 30 },
-      { width: 25 },
-      { width: 20 },
-      { width: 15 }
-    ];
+      const cat = allCategories.find(c => c.id === catId);
+      if (!cat) {
+        return [];
+      }
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    return buffer;
+      if (cat.level === 1) {
+        return [cat.name];
+      }
+
+      // Находим родительскую категорию
+      const parent = allCategories.find(c => c.id === cat.path);
+      if (!parent) {
+        return [cat.name];
+      }
+
+      const parentPath = buildPathRecursive(parent.id, visited);
+      return [...parentPath, cat.name];
+    };
+
+    const pathParts = buildPathRecursive(category.id);
+    return pathParts.join('|');
   }
+
 
   /**
    * Получение истории импортов

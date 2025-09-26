@@ -168,7 +168,7 @@ export default function AdminSettingsPage() {
           {/* Поля экспорта */}
           <Card variant="base">
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-black mb-4">📤 Поля экспорта</h2>
+              <h2 className="text-lg font-semibold text-black mb-4">Поля экспорта</h2>
               <div className="space-y-4">
                 <div>
                   <h3 className="font-medium text-black mb-2">Поля для КП:</h3>

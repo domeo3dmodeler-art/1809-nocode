@@ -153,7 +153,6 @@ export default function ClientsPage() {
                   <p className="text-sm font-medium text-gray-600">Всего клиентов</p>
                   <p className="text-2xl font-bold text-black mt-1">{clients.length}</p>
                 </div>
-                <div className="text-2xl">👥</div>
               </div>
             </div>
           </Card>
@@ -165,7 +164,6 @@ export default function ClientsPage() {
                   <p className="text-sm font-medium text-gray-600">Активные клиенты</p>
                   <p className="text-2xl font-bold text-black mt-1">{clients.filter(c => c.ordersCount > 0).length}</p>
                 </div>
-                <div className="text-2xl">✅</div>
               </div>
             </div>
           </Card>

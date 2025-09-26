@@ -222,7 +222,6 @@ export default function QuotesPage() {
                   <p className="text-sm font-medium text-gray-600">Черновики</p>
                   <p className="text-2xl font-bold text-black mt-1">{quotes.filter(q => q.status === 'draft').length}</p>
                 </div>
-                <div className="text-2xl">📝</div>
               </div>
             </div>
           </Card>
@@ -234,7 +233,6 @@ export default function QuotesPage() {
                   <p className="text-sm font-medium text-gray-600">Отправленные</p>
                   <p className="text-2xl font-bold text-black mt-1">{quotes.filter(q => q.status === 'sent').length}</p>
                 </div>
-                <div className="text-2xl">📤</div>
               </div>
             </div>
           </Card>
@@ -246,7 +244,6 @@ export default function QuotesPage() {
                   <p className="text-sm font-medium text-gray-600">Принятые</p>
                   <p className="text-2xl font-bold text-black mt-1">{quotes.filter(q => q.status === 'accepted').length}</p>
                 </div>
-                <div className="text-2xl">✅</div>
               </div>
             </div>
           </Card>

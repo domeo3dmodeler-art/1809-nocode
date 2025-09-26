@@ -36,10 +36,6 @@ export class CatalogService {
         { name: 'asc' }
       ],
       include: {
-        subcategories: {
-          where: { is_active: true },
-          orderBy: { sort_order: 'asc' }
-        },
         _count: {
           select: { products: true }
         }
@@ -52,8 +48,34 @@ export class CatalogService {
       products_count: category._count.products
     }));
 
+    // Строим иерархическое дерево
+    const categoryMap = new Map<string, any>();
+    const rootCategories: any[] = [];
+
+    // Сначала создаем карту всех категорий
+    categoriesWithCounts.forEach(category => {
+      categoryMap.set(category.id, {
+        ...category,
+        subcategories: []
+      });
+    });
+
+    // Затем строим иерархию
+    categoriesWithCounts.forEach(category => {
+      const categoryNode = categoryMap.get(category.id);
+      
+      if (category.parent_id) {
+        const parent = categoryMap.get(category.parent_id);
+        if (parent) {
+          parent.subcategories.push(categoryNode);
+        }
+      } else {
+        rootCategories.push(categoryNode);
+      }
+    });
+
     return {
-      categories: categoriesWithCounts,
+      categories: rootCategories,
       total_count: categories.length
     };
   }

@@ -72,5 +72,37 @@ export function Select({
   );
 }
 
+// Дополнительные компоненты для совместимости
+export const SelectTrigger = ({ children, className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={`relative ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+export const SelectValue = ({ placeholder, value }: { placeholder?: string; value?: string }) => (
+  <span>{value || placeholder}</span>
+);
+
+export const SelectContent = ({ children, className = '', ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={`absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+export const SelectItem = ({ children, value, onSelect, className = '', ...props }: { 
+  children: React.ReactNode; 
+  value: string; 
+  onSelect?: (value: string) => void;
+  className?: string;
+} & React.HTMLAttributes<HTMLDivElement>) => (
+  <div 
+    className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${className}`}
+    onClick={() => onSelect?.(value)}
+    {...props}
+  >
+    {children}
+  </div>
+);
+
 // Экспорт для удобства
 export default Select;

@@ -261,7 +261,6 @@ export default function AdminUsersPage() {
                 <p className="text-sm font-medium text-gray-600">Всего пользователей</p>
                 <p className="text-2xl font-bold text-black mt-1">{users.length}</p>
               </div>
-              <div className="text-2xl">👥</div>
             </div>
           </div>
           <div className="bg-white border border-gray-200 p-6">
@@ -279,7 +278,6 @@ export default function AdminUsersPage() {
                 <p className="text-sm font-medium text-gray-600">Комплектаторы</p>
                 <p className="text-2xl font-bold text-black mt-1">{users.filter(u => u.role === 'complectator').length}</p>
               </div>
-              <div className="text-2xl">📋</div>
             </div>
           </div>
           <div className="bg-white border border-gray-200 p-6">
@@ -288,7 +286,6 @@ export default function AdminUsersPage() {
                 <p className="text-sm font-medium text-gray-600">Исполнители</p>
                 <p className="text-2xl font-bold text-black mt-1">{users.filter(u => u.role === 'executor').length}</p>
               </div>
-              <div className="text-2xl">⚡</div>
             </div>
           </div>
         </div>

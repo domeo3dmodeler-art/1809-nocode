@@ -356,7 +356,7 @@ function CreateFrontendCategoryDialog({
             <Input
               value={formData.icon}
               onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-              placeholder="🏠 или название иконки"
+              placeholder="название иконки"
             />
           </div>
 
@@ -573,7 +573,7 @@ function EditFrontendCategoryDialog({
             <Input
               value={formData.icon}
               onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-              placeholder="🏠 или название иконки"
+              placeholder="название иконки"
             />
           </div>
 

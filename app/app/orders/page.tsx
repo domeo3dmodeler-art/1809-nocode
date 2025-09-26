@@ -163,7 +163,6 @@ export default function OrdersPage() {
                   <p className="text-sm font-medium text-gray-600">Всего заказов</p>
                   <p className="text-2xl font-bold text-black mt-1">{orders.length}</p>
                 </div>
-                <div className="text-2xl">📋</div>
               </div>
             </div>
           </Card>
@@ -187,7 +186,6 @@ export default function OrdersPage() {
                   <p className="text-sm font-medium text-gray-600">В работе</p>
                   <p className="text-2xl font-bold text-black mt-1">{orders.filter(o => o.status === 'in_progress').length}</p>
                 </div>
-                <div className="text-2xl">⚡</div>
               </div>
             </div>
           </Card>
@@ -199,7 +197,6 @@ export default function OrdersPage() {
                   <p className="text-sm font-medium text-gray-600">Выполненные</p>
                   <p className="text-2xl font-bold text-black mt-1">{orders.filter(o => o.status === 'completed').length}</p>
                 </div>
-                <div className="text-2xl">✅</div>
               </div>
             </div>
           </Card>

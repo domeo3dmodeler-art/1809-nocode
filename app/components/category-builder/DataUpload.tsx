@@ -5,6 +5,9 @@ import { Card, Button } from '../ui';
 import PropertyMapper from './PropertyMapper';
 import FormulaBuilder from './FormulaBuilder';
 import PhotoUploader from './PhotoUploader';
+import CatalogCategorySelector from './CatalogCategorySelector';
+import RequiredFieldsSelector from './RequiredFieldsSelector';
+import * as XLSX from 'xlsx';
 
 interface PriceListData {
   headers: string[];
@@ -48,11 +51,12 @@ interface DataUploadProps {
   onPriceListLoaded: (data: PriceListData) => void;
   onPhotosLoaded: (data: PhotoData) => void;
   onComplete: () => void;
+  categoryData?: any; // Данные категории для привязки к каталогу
 }
 
-type DataStep = 'upload' | 'properties' | 'formulas' | 'photos' | 'complete';
+type DataStep = 'upload' | 'catalog' | 'properties' | 'formulas' | 'photos' | 'complete';
 
-export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComplete }: DataUploadProps) {
+export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComplete, categoryData }: DataUploadProps) {
   const [currentStep, setCurrentStep] = useState<DataStep>('upload');
   const [priceListData, setPriceListData] = useState<PriceListData | null>(null);
   const [photoData, setPhotoData] = useState<PhotoData | null>(null);
@@ -60,6 +64,8 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
   const [formulaConfig, setFormulaConfig] = useState<FormulaConfig | null>(null);
   const [photoMapping, setPhotoMapping] = useState<PhotoMapping | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string>('');
+  const [requiredFields, setRequiredFields] = useState<any[]>([]);
 
   const handlePriceListUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -68,58 +74,64 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
     setIsProcessing(true);
     
     try {
-      // Имитируем обработку файла
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Читаем реальный файл
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
       
-      // Демо-данные прайс-листа с 30 столбцами
-      const mockData: PriceListData = {
-        headers: [
-          'Артикул', 'Наименование', 'Цена', 'Размер', 'Цвет', 'Материал',
-          'Тип_двери', 'Толщина', 'Ширина', 'Высота', 'Вес', 'Производитель',
-          'Страна', 'Гарантия', 'Срок_поставки', 'Наличие', 'Скидка',
-          'Цена_опт', 'Минимум_опт', 'Фурнитура', 'Петли', 'Ручки',
-          'Замок', 'Уплотнитель', 'Утепление', 'Звукоизоляция',
-          'Огнестойкость', 'Влагостойкость', 'Фото', 'Описание'
-        ],
-        rows: [
-          [
-            'DOOR-001', 'Дверь межкомнатная', '15000', '2000x800', 'Белый', 'МДФ',
-            'Распашная', '40', '800', '2000', '25', 'ДвериПро',
-            'Россия', '24', '7', 'В наличии', '5',
-            '12000', '10', 'Золотая', 'Скрытые', 'Ручка-скоба',
-            'Нет', 'Резиновый', 'Нет', 'Средняя',
-            'Нет', 'Да', 'door-001.jpg', 'Качественная межкомнатная дверь'
-          ],
-          [
-            'DOOR-002', 'Дверь входная', '25000', '2100x900', 'Коричневый', 'Металл',
-            'Распашная', '50', '900', '2100', '45', 'МеталлДверь',
-            'Россия', '36', '14', 'Под заказ', '10',
-            '20000', '5', 'Серебряная', 'Наружные', 'Ручка-кнопка',
-            'Цилиндровый', 'Магнитный', 'Да', 'Высокая',
-            'Да', 'Да', 'door-002.jpg', 'Надежная входная дверь'
-          ],
-          [
-            'DOOR-003', 'Дверь раздвижная', '18000', '2000x600', 'Серый', 'Стекло',
-            'Раздвижная', '30', '600', '2000', '20', 'СтеклоДверь',
-            'Италия', '12', '21', 'В наличии', '0',
-            '18000', '1', 'Хром', 'Роликовые', 'Скрытая ручка',
-            'Нет', 'Силиконовый', 'Нет', 'Низкая',
-            'Нет', 'Нет', 'door-003.jpg', 'Стильная раздвижная дверь'
-          ]
-        ],
-        totalRows: 3
+      // Конвертируем в JSON
+      const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length === 0) {
+        throw new Error('Файл пуст или не содержит данных');
+      }
+      
+      // Первая строка - заголовки
+      const headers = jsonData[0] as string[];
+      const rows = jsonData.slice(1); // Остальные строки - данные
+      
+      // Фильтруем пустые строки
+      const filteredRows = rows.filter(row => 
+        row.some(cell => cell !== null && cell !== undefined && cell !== '')
+      );
+      
+      const priceListData: PriceListData = {
+        headers: headers,
+        rows: filteredRows,
+        totalRows: filteredRows.length
       };
       
-      setPriceListData(mockData);
-      onPriceListLoaded(mockData);
-      setCurrentStep('properties');
+      console.log('Загружен прайс-лист:', {
+        headers: headers.length,
+        rows: filteredRows.length,
+        sampleData: filteredRows.slice(0, 3)
+      });
+      
+      setPriceListData(priceListData);
+      onPriceListLoaded(priceListData);
+      setCurrentStep('catalog');
       
     } catch (error) {
       console.error('Error processing price list:', error);
+      alert('Ошибка при обработке файла: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
     } finally {
       setIsProcessing(false);
     }
   }, [onPriceListLoaded]);
+
+  const handleCatalogCategorySelect = (categoryId: string) => {
+    setSelectedCatalogCategoryId(categoryId);
+  };
+
+  const handleCatalogComplete = () => {
+    setCurrentStep('properties');
+  };
+
+  const handleRequiredFieldsConfigured = (fields: any[]) => {
+    setRequiredFields(fields);
+    setCurrentStep('formulas');
+  };
 
   const handlePropertyMappingComplete = (mappings: PropertyMapping[]) => {
     setPropertyMappings(mappings);
@@ -149,6 +161,7 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
   const getStepTitle = () => {
     switch (currentStep) {
       case 'upload': return 'Загрузка прайс-листа';
+      case 'catalog': return 'Привязка к каталогу';
       case 'properties': return 'Настройка свойств';
       case 'formulas': return 'Настройка формул';
       case 'photos': return 'Загрузка фото';
@@ -160,6 +173,7 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
   const getStepDescription = () => {
     switch (currentStep) {
       case 'upload': return 'Загрузите файл с данными о товарах';
+      case 'catalog': return 'Выберите категорию каталога для привязки товаров';
       case 'properties': return 'Выберите поля для конфигуратора';
       case 'formulas': return 'Настройте формулы расчета цен';
       case 'photos': return 'Загрузите фотографии товаров';
@@ -197,19 +211,37 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
           </div>
         );
 
+      case 'catalog':
+        return (
+          <div className="space-y-6">
+            <CatalogCategorySelector
+              onCategorySelect={handleCatalogCategorySelect}
+              selectedCategoryId={selectedCatalogCategoryId}
+            />
+            
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
+                ← Назад
+              </Button>
+              <Button 
+                onClick={handleCatalogComplete}
+                disabled={!selectedCatalogCategoryId}
+              >
+                Продолжить →
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'properties':
         return priceListData ? (
-          <PropertyMapper
+          <RequiredFieldsSelector
             priceListHeaders={priceListData.headers}
-            priceListData={priceListData.rows.map(row => {
-              const obj: any = {};
-              priceListData.headers.forEach((header, index) => {
-                obj[header] = row[index];
-              });
-              return obj;
-            })}
-            onMappingComplete={handlePropertyMappingComplete}
-            onBack={() => setCurrentStep('upload')}
+            priceListData={priceListData.rows}
+            onFieldsConfigured={handleRequiredFieldsConfigured}
+            onBack={() => setCurrentStep('catalog')}
+            catalogCategoryId={selectedCatalogCategoryId}
+            categoryName={categoryData?.name}
           />
         ) : null;
 
@@ -297,14 +329,15 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
         <div className="p-4">
           <div className="flex items-center space-x-4">
             {[
-              { key: 'upload', label: 'Загрузка', icon: '📊' },
-              { key: 'properties', label: 'Свойства', icon: '⚙️' },
-              { key: 'formulas', label: 'Формулы', icon: '🧮' },
-              { key: 'photos', label: 'Фото', icon: '📸' },
-              { key: 'complete', label: 'Готово', icon: '✅' }
+              { key: 'upload', label: 'Загрузка' },
+              { key: 'catalog', label: 'Каталог' },
+              { key: 'properties', label: 'Свойства' },
+              { key: 'formulas', label: 'Формулы' },
+              { key: 'photos', label: 'Фото' },
+              { key: 'complete', label: 'Готово' }
             ].map((step, index) => {
               const isActive = step.key === currentStep;
-              const isCompleted = ['upload', 'properties', 'formulas', 'photos', 'complete'].indexOf(currentStep) > index;
+              const isCompleted = ['upload', 'catalog', 'properties', 'formulas', 'photos', 'complete'].indexOf(currentStep) > index;
               
               return (
                 <div key={step.key} className="flex items-center">
@@ -315,14 +348,14 @@ export default function DataUpload({ onPriceListLoaded, onPhotosLoaded, onComple
                         ? 'border-green-500 bg-green-500 text-white'
                         : 'border-gray-300 bg-white text-gray-400'
                   }`}>
-                    <span className="text-sm">{step.icon}</span>
+                    <span className="text-sm">{index + 1}</span>
                   </div>
                   <span className={`ml-2 text-sm font-medium ${
                     isActive ? 'text-black' : isCompleted ? 'text-green-600' : 'text-gray-500'
                   }`}>
                     {step.label}
                   </span>
-                  {index < 4 && (
+                  {index < 5 && (
                     <div className={`w-6 h-0.5 mx-3 ${
                       isCompleted ? 'bg-green-500' : 'bg-gray-300'
                     }`} />

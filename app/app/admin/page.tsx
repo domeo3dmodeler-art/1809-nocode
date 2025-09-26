@@ -261,7 +261,6 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-600">Пользователи</p>
                   <p className="text-2xl font-bold text-black mt-1">8</p>
                 </div>
-                <div className="text-2xl">👥</div>
               </div>
             </div>
             <div className="bg-gray-50 border border-black/10 p-6">
@@ -270,7 +269,6 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-600">Импортов прайсов</p>
                   <p className="text-2xl font-bold text-black mt-1">{stats.total.totalImports}</p>
                 </div>
-                <div className="text-2xl">📊</div>
               </div>
             </div>
             <div className="bg-gray-50 border border-black/10 p-6">
@@ -279,7 +277,6 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-gray-600">Уведомления</p>
                   <p className="text-2xl font-bold text-black mt-1">3</p>
                 </div>
-                <div className="text-2xl">🔔</div>
               </div>
             </div>
           </div>
@@ -309,7 +306,6 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="bg-black/10 p-2 mr-3">
-                        <span className="text-black text-lg">📊</span>
                       </div>
                       <div className="text-sm font-semibold text-black">
                         Общая статистика
@@ -389,7 +385,6 @@ export default function AdminDashboard() {
               href="/admin/configurator/import?category=doors"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
-              <span className="text-2xl mr-3">📥</span>
               <div>
                 <p className="font-medium text-black">Импорт прайса</p>
                 <p className="text-sm text-gray-600">Загрузка цен и данных товаров</p>
@@ -411,7 +406,6 @@ export default function AdminDashboard() {
               href="/admin/products"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
-              <span className="text-2xl mr-3">📦</span>
               <div>
                 <p className="font-medium text-black">Товары</p>
                 <p className="text-sm text-gray-600">Просмотр загруженных товаров</p>
@@ -422,7 +416,6 @@ export default function AdminDashboard() {
               href="/admin/users"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
-              <span className="text-2xl mr-3">👥</span>
               <div>
                 <p className="font-medium text-black">Управление пользователями</p>
                 <p className="text-sm text-gray-600">Добавление и настройка ролей</p>
@@ -433,7 +426,6 @@ export default function AdminDashboard() {
               href="/admin/settings"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
-              <span className="text-2xl mr-3">⚙️</span>
               <div>
                 <p className="font-medium text-black">Настройки системы</p>
                 <p className="text-sm text-gray-600">Конфигурация и параметры</p>
@@ -444,7 +436,6 @@ export default function AdminDashboard() {
               href="/admin/analytics"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
-              <span className="text-2xl mr-3">📊</span>
               <div>
                 <p className="font-medium text-black">Аналитика</p>
                 <p className="text-sm text-gray-600">Статистика и отчеты</p>

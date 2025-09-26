@@ -25,61 +25,54 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Главная',
-    href: '/admin',
-    icon: '🏠'
-  },
+        {
+          id: 'dashboard',
+          label: 'Главная',
+          href: '/admin'
+        },
   {
     id: 'catalog',
     label: 'Каталог товаров',
     href: '/admin/catalog',
-    icon: '📚',
     children: [
-      { id: 'catalog-tree', label: 'Дерево каталога', href: '/admin/catalog', icon: '🌳' },
-      { id: 'catalog-properties', label: 'Свойства товаров', href: '/admin/catalog/properties', icon: '🏷️' },
-      { id: 'catalog-properties-moderate', label: 'Модерация свойств', href: '/admin/catalog/properties/moderate', icon: '✅' },
-      { id: 'catalog-properties-assignments', label: 'Назначение свойств', href: '/admin/catalog/properties/assignments', icon: '🔗' },
-      { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import', icon: '📥' },
-      { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products', icon: '📦' }
+      { id: 'catalog-tree', label: 'Дерево каталога', href: '/admin/catalog' },
+      { id: 'catalog-properties', label: 'Свойства товаров', href: '/admin/catalog/properties' },
+      { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import' },
+      { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products' }
     ]
   },
   {
     id: 'configurator',
     label: 'Категории конфигуратора',
     href: '/admin/configurator',
-    icon: '🌐',
     children: [
-      { id: 'configurator-list', label: 'Список категорий', href: '/admin/configurator', icon: '📋' },
-      { id: 'configurator-create', label: 'Создать категорию', href: '/admin/configurator/create', icon: '➕' },
-      { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import', icon: '📥' },
-      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export', icon: '📤' }
+      { id: 'configurator-list', label: 'Список категорий', href: '/admin/configurator' },
+      { id: 'configurator-create', label: 'Создать категорию', href: '/admin/configurator/create' },
+      { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import' },
+      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export' }
     ]
   },
   {
     id: 'users',
     label: 'Пользователи',
-    href: '/admin/users',
-    icon: '👥'
+    href: '/admin/users'
   },
   {
     id: 'settings',
     label: 'Настройки',
-    href: '/admin/settings',
-    icon: '⚙️'
+    href: '/admin/settings'
   },
   {
     id: 'analytics',
     label: 'Аналитика',
-    href: '/analytics',
-    icon: '📊'
+    href: '/analytics'
   }
 ];
 
 export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['catalog', 'configurator']));
   const pathname = usePathname();
 
   useEffect(() => {
@@ -113,6 +106,18 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  const toggleMenu = (menuId: string) => {
+    setExpandedMenus(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(menuId)) {
+        newSet.delete(menuId);
+      } else {
+        newSet.add(menuId);
+      }
+      return newSet;
+    });
   };
 
   const handleLogout = () => {
@@ -164,41 +169,72 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
           <div className="space-y-1">
             {menuItems.map((item) => (
               <div key={item.id}>
-                <Link
-                  href={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                    isActive(item.href)
-                      ? 'bg-black text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-black'
-                  }`}
-                >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-2 px-2 py-1 text-xs font-medium bg-yellow-400 text-black rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-                
-                {/* Submenu */}
-                {item.children && isActive(item.href) && (
-                  <div className="ml-6 mt-1 space-y-1">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.id}
-                        href={child.href}
-                        className={`group flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
-                          pathname === child.href
-                            ? 'bg-gray-100 text-black'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-black'
-                        }`}
+                {item.children ? (
+                  // Menu item with children (expandable)
+                  <div>
+                    <button
+                      onClick={() => toggleMenu(item.id)}
+                      className={`group w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                        isActive(item.href)
+                          ? 'bg-black text-white'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-black'
+                      }`}
+                    >
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {item.badge && (
+                        <span className="ml-2 px-2 py-1 text-xs font-medium bg-yellow-400 text-black rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                      {/* Arrow icon */}
+                      <svg 
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          expandedMenus.has(item.id) ? 'rotate-90' : ''
+                        }`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
                       >
-                        <span className="mr-3 text-sm">{child.icon}</span>
-                        <span>{child.label}</span>
-                      </Link>
-                    ))}
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Submenu */}
+                    {expandedMenus.has(item.id) && (
+                      <div className="ml-6 mt-1 space-y-1">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.id}
+                            href={child.href}
+                            className={`group flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
+                              pathname === child.href
+                                ? 'bg-gray-100 text-black'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-black'
+                            }`}
+                          >
+                            <span>{child.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  // Regular menu item (no children)
+                  <Link
+                    href={item.href}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                      isActive(item.href)
+                        ? 'bg-black text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-black'
+                    }`}
+                  >
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-2 px-2 py-1 text-xs font-medium bg-yellow-400 text-black rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
                 )}
               </div>
             ))}
@@ -249,11 +285,11 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
             <div className="flex items-center space-x-4">
               {/* Quick actions */}
               <div className="hidden sm:flex items-center space-x-2">
+                        <Button variant="ghost" size="sm">
+                          Статистика
+                        </Button>
                 <Button variant="ghost" size="sm">
-                  📊 Статистика
-                </Button>
-                <Button variant="ghost" size="sm">
-                  🔔 Уведомления
+                  Уведомления
                 </Button>
               </div>
               
