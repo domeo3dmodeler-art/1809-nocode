@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useId } from 'react';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -20,9 +21,10 @@ export function Checkbox({
 }: CheckboxProps) {
   const generatedId = useId();
   const checkboxId = id || generatedId;
+  const styles = createComponentStyles();
   
   return (
-    <div className="space-y-1">
+    <div className={styles.form.field}>
       <label 
         htmlFor={checkboxId}
         className="flex items-center cursor-pointer"
@@ -41,11 +43,11 @@ export function Checkbox({
       </label>
       
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className={styles.input.errorText}>{error}</p>
       )}
       
       {helperText && !error && (
-        <p className="text-sm text-gray-500">{helperText}</p>
+        <p className={styles.input.helper}>{helperText}</p>
       )}
     </div>
   );

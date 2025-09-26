@@ -4,7 +4,7 @@
 // Унифицированные модальные окна в стиле Domeo
 
 import React, { useEffect } from 'react';
-import { createStyle } from '@/lib/design/DesignTokens';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -23,6 +23,8 @@ export function Modal({
   footer,
   size = 'md' 
 }: ModalProps) {
+  const styles = createComponentStyles();
+  
   // Закрытие по Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -52,14 +54,14 @@ export function Modal({
   };
 
   return (
-    <div className={createStyle.modal.overlay}>
+    <div className={styles.modal.overlay}>
       <div 
-        className={`${createStyle.modal.content} ${sizeClasses[size]}`}
+        className={`${styles.modal.content} ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {title && (
-          <div className={createStyle.modal.header}>
+          <div className={styles.modal.header}>
             <h3 className="text-lg font-semibold text-black">{title}</h3>
             <button
               onClick={onClose}
@@ -73,13 +75,13 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="mb-4">
+        <div className={styles.modal.body}>
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className={createStyle.modal.footer}>
+          <div className={styles.modal.footer}>
             {footer}
           </div>
         )}

@@ -2,6 +2,7 @@
 // Унифицированные поля ввода в стиле Domeo
 
 import React, { useId } from 'react';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -21,17 +22,16 @@ export function Input({
 }: InputProps) {
   const generatedId = useId();
   const inputId = id || generatedId;
+  const styles = createComponentStyles();
   
-  const baseClasses = "mt-1 block w-full px-3 py-2 border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent";
-  const errorClasses = "mt-1 block w-full px-3 py-2 border border-red-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent";
-  const inputClasses = variant === 'error' ? errorClasses : baseClasses;
+  const inputClasses = error ? styles.input.error : styles.input.base;
   
   return (
-    <div className="space-y-1">
+    <div className={styles.form.field}>
       {label && (
         <label 
           htmlFor={inputId}
-          className="block text-sm font-medium text-black"
+          className={styles.input.label}
         >
           {label}
         </label>
@@ -44,11 +44,11 @@ export function Input({
       />
       
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className={styles.input.errorText}>{error}</p>
       )}
       
       {helperText && !error && (
-        <p className="text-sm text-gray-500">{helperText}</p>
+        <p className={styles.input.helper}>{helperText}</p>
       )}
     </div>
   );

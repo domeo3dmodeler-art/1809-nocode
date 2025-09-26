@@ -4,6 +4,7 @@
 "use client";
 
 import Link from 'next/link';
+import { Button, Card } from '../../components/ui';
 
 export default function DoorsAdminPage() {
   return (
@@ -13,7 +14,7 @@ export default function DoorsAdminPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Серии */}
         <Link href="/admin/doors/series" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,12 +25,12 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Управление сериями дверей, материалами и базовыми ценами</p>
             <div className="text-sm text-blue-600 group-hover:text-blue-800">Управление →</div>
-          </div>
+          </Card>
         </Link>
 
         {/* Опции */}
         <Link href="/admin/doors/options" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,12 +42,12 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Фурнитура, размеры, отделка и другие опции</p>
             <div className="text-sm text-green-600 group-hover:text-green-800">Управление →</div>
-          </div>
+          </Card>
         </Link>
 
         {/* Ограничения */}
         <Link href="/admin/doors/constraints" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
                 <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,12 +58,12 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Правила совместимости опций между собой</p>
             <div className="text-sm text-yellow-600 group-hover:text-yellow-800">Управление →</div>
-          </div>
+          </Card>
         </Link>
 
         {/* Шаблоны КП */}
         <Link href="/admin/doors/templates" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,12 +74,12 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Настройка шаблонов и предпросмотр PDF</p>
             <div className="text-sm text-purple-600 group-hover:text-purple-800">Управление →</div>
-          </div>
+          </Card>
         </Link>
 
         {/* Импорт прайса */}
         <Link href="/admin/import" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
                 <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,12 +90,12 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Загрузка и публикация прайс-листов</p>
             <div className="text-sm text-indigo-600 group-hover:text-indigo-800">Управление →</div>
-          </div>
+          </Card>
         </Link>
 
         {/* Аналитика */}
         <Link href="/analytics" className="group">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+          <Card variant="interactive" padding="md">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +106,7 @@ export default function DoorsAdminPage() {
             </div>
             <p className="text-gray-600 mb-4">Статистика и метрики по КП</p>
             <div className="text-sm text-red-600 group-hover:text-red-800">Просмотр →</div>
-          </div>
+          </Card>
         </Link>
       </div>
 
@@ -113,18 +114,18 @@ export default function DoorsAdminPage() {
       <div className="mt-8 bg-gray-50 p-6 rounded-lg">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Быстрые действия</h3>
         <div className="flex flex-wrap gap-4">
-          <Link href="/admin/doors/series/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Button variant="primary" onClick={() => window.location.href = '/admin/doors/series/new'}>
             Создать серию
-          </Link>
-          <Link href="/admin/doors/options/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          </Button>
+          <Button variant="success" onClick={() => window.location.href = '/admin/doors/options/new'}>
             Добавить опцию
-          </Link>
-          <Link href="/admin/doors/constraints/new" className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+          </Button>
+          <Button variant="warning" onClick={() => window.location.href = '/admin/doors/constraints/new'}>
             Добавить ограничение
-          </Link>
-          <Link href="/admin/import" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+          </Button>
+          <Button variant="primary" onClick={() => window.location.href = '/admin/import'}>
             Импортировать прайс
-          </Link>
+          </Button>
         </div>
       </div>
     </div>

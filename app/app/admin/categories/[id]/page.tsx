@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '../../../../components/ui';
 
 interface Category {
   id: string;
@@ -358,10 +359,7 @@ export default function CategoryEditorPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка...</p>
-        </div>
+        <LoadingSpinner size="lg" color="black" text="Загрузка..." />
       </div>
     );
   }
@@ -396,19 +394,21 @@ export default function CategoryEditorPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <Link 
-                href="/admin/categories"
-                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => window.location.href = '/admin/categories'}
               >
                 ← Назад к категориям
-              </Link>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-all duration-200 text-sm font-medium disabled:opacity-50"
+                loading={saving}
               >
-                {saving ? 'Сохранение...' : 'Сохранить'}
-              </button>
+                Сохранить
+              </Button>
             </div>
           </div>
         </div>
@@ -419,22 +419,16 @@ export default function CategoryEditorPage() {
           {/* Левая колонка - Основные данные */}
           <div className="space-y-6">
             {/* Основная информация */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Основная информация</h3>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Название категории
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="Введите название категории"
-                  />
-                </div>
+                <Input
+                  label="Название категории"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Введите название категории"
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -444,36 +438,31 @@ export default function CategoryEditorPage() {
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                     placeholder="Введите описание категории"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Иконка (эмодзи)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.icon}
-                    onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="🚪"
-                  />
-                </div>
+                <Input
+                  label="Иконка (эмодзи)"
+                  value={formData.icon}
+                  onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
+                  placeholder="🚪"
+                />
               </div>
-            </div>
+            </Card>
 
             {/* Свойства категории */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Свойства категории</h3>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={addProperty}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
                 >
                   + Добавить свойство
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-3">
@@ -503,19 +492,20 @@ export default function CategoryEditorPage() {
                       <option value="select">Список</option>
                       <option value="url">Ссылка</option>
                     </select>
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={() => removeProperty(index)}
-                      className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors text-sm"
                     >
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Настройки импорта прайса */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Настройки импорта прайса</h3>
               
               <div className="space-y-4">
@@ -610,7 +600,8 @@ export default function CategoryEditorPage() {
 
                 {/* Кнопка сохранения настроек */}
                 <div className="pt-4 border-t border-gray-200">
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={async () => {
                       const updatedCategory = {
                         ...formData,
@@ -624,10 +615,9 @@ export default function CategoryEditorPage() {
                       await updateCategory(updatedCategory);
                       alert('Настройки импорта прайса сохранены!');
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
                     Сохранить настройки импорта
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -636,7 +626,7 @@ export default function CategoryEditorPage() {
           {/* Правая колонка - Импорт прайса и Фото */}
           <div className="space-y-6">
             {/* Импорт прайса */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Импорт прайса</h3>
               
               <div className="space-y-4">
@@ -652,13 +642,6 @@ export default function CategoryEditorPage() {
                       onChange={handlePriceFileUpload}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                     />
-                    <a
-                      href="/api/test-excel"
-                      download="test_doors.xlsx"
-                      className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-                    >
-                      📥 Тест файл
-                    </a>
                   </div>
                   <p className="text-xs text-gray-500 mb-2">
                     Поддерживаемые форматы: .xlsx, .xls, .csv
@@ -671,22 +654,24 @@ export default function CategoryEditorPage() {
                       <p className="text-xs text-gray-500">
                         Размер: {(priceFile.size / 1024).toFixed(1)} KB
                       </p>
-                      <button
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={handleProcessPriceFile}
-                        className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
                       >
                         Обработать файл
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setPriceFile(null);
                           setShowPriceManager(false);
                           setPriceHeaders([]);
                         }}
-                        className="mt-2 ml-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors text-sm"
                       >
                         Сбросить файл
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -786,7 +771,8 @@ export default function CategoryEditorPage() {
                     </div>
 
                     <div className="flex space-x-2">
-                      <button
+                      <Button
+                        variant="primary"
                         onClick={async () => {
                           // Сохраняем настройки импорта в категории
                           const updatedCategory = {
@@ -805,16 +791,15 @@ export default function CategoryEditorPage() {
                           await handleImportPrice();
                           setShowPriceManager(false);
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                       >
                         Сохранить настройки и импортировать прайс
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
                         onClick={() => setShowPriceManager(false)}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
                       >
                         Отмена
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -826,17 +811,17 @@ export default function CategoryEditorPage() {
                     <p className="text-sm text-gray-600 mb-3">
                       Настройки импорта уже существуют. Файл будет импортирован с текущими настройками.
                     </p>
-                    <button
+                    <Button
+                      variant="success"
                       onClick={handleImportPrice}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                     >
                       Импортировать прайс
-                    </button>
+                    </Button>
                   </div>
                 )}
                 {/* Отчет об импорте */}
                 {importReport && (
-                  <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 mt-6">
+                  <Card variant="base" padding="md" className="mt-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Отчет об импорте</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -903,25 +888,25 @@ export default function CategoryEditorPage() {
                     </div>
 
                     <div className="mt-6 flex space-x-3">
-                      <Link
-                        href="/admin/products"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      <Button
+                        variant="primary"
+                        onClick={() => window.location.href = '/admin/products'}
                       >
                         Посмотреть товары
-                      </Link>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
                         onClick={() => setImportReport(null)}
-                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
                       >
                         Закрыть отчет
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
               </div>
             </div>
             {/* Загрузка фото */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Загрузка фото</h3>
               
               <div className="space-y-4">
@@ -958,18 +943,20 @@ export default function CategoryEditorPage() {
                   />
                 </div>
 
-                <button
+                <Button
+                  variant="primary"
                   onClick={handlePhotoUpload}
                   disabled={uploadingPhotos || (!photoFiles && !photoFolderUrl)}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={uploadingPhotos}
+                  className="w-full"
                 >
-                  {uploadingPhotos ? 'Загрузка...' : 'Загрузить фото'}
-                </button>
+                  Загрузить фото
+                </Button>
               </div>
             </div>
 
             {/* Галерея фото */}
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Фото категории</h3>
               
               {photos.length === 0 ? (
@@ -983,12 +970,14 @@ export default function CategoryEditorPage() {
                         alt={photo.alt}
                         className="w-full h-32 object-cover rounded-lg"
                       />
-                      <button
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleDeletePhoto(photo.id)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         ✕
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>

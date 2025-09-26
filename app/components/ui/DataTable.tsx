@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Button } from './Button';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface Column<T> {
   key: string;
@@ -36,6 +37,7 @@ export function DataTable<T extends Record<string, any>>({
 }: DataTableProps<T>) {
   const [sortColumn, setSortColumn] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const styles = createComponentStyles();
 
   const handleSort = (column: string) => {
     if (!onSort) return;
@@ -68,7 +70,7 @@ export function DataTable<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div className={`bg-white border border-black/10 ${className}`}>
+      <div className={`${styles.card.base} ${styles.card.variants.base} ${className}`}>
         <div className="p-8 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
           <p className="mt-4 text-gray-600">Загрузка данных...</p>
@@ -79,7 +81,7 @@ export function DataTable<T extends Record<string, any>>({
 
   if (data.length === 0) {
     return (
-      <div className={`bg-white border border-black/10 ${className}`}>
+      <div className={`${styles.card.base} ${styles.card.variants.base} ${className}`}>
         <div className="p-8 text-center">
           <div className="text-gray-500 text-4xl mb-4">📊</div>
           <p className="text-gray-600 text-lg">{emptyMessage}</p>
@@ -89,15 +91,15 @@ export function DataTable<T extends Record<string, any>>({
   }
 
   return (
-    <div className={`bg-white border border-black/10 overflow-hidden ${className}`}>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+    <div className={`${styles.card.base} ${styles.card.variants.base} overflow-hidden ${className}`}>
+      <div className={styles.table.container}>
+        <table className={styles.table.table}>
+          <thead className={styles.table.thead}>
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                  className={`${styles.table.th} ${
                     column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
                   }`}
                   style={{ width: column.width }}
@@ -114,7 +116,7 @@ export function DataTable<T extends Record<string, any>>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className={styles.table.tbody}>
             {data.map((row, index) => (
               <tr
                 key={index}
@@ -126,7 +128,7 @@ export function DataTable<T extends Record<string, any>>({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${
+                    className={`${styles.table.td} ${
                       column.align === 'center' ? 'text-center' : 
                       column.align === 'right' ? 'text-right' : 'text-left'
                     }`}

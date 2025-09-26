@@ -32,8 +32,8 @@ const consoleFormat = winston.format.combine(
   })
 );
 
-// Создаем логгер
-const logger = winston.createLogger({
+// Создаем winston логгер
+const winstonLogger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: logFormat,
   defaultMeta: {
@@ -53,7 +53,7 @@ if (process.env.NODE_ENV === 'production') {
   const logDir = process.env.LOG_DIR || './logs';
   
   // Общие логи
-  logger.add(new winston.transports.File({
+  winstonLogger.add(new winston.transports.File({
     filename: path.join(logDir, 'app.log'),
     maxsize: 10 * 1024 * 1024, // 10MB
     maxFiles: 5,
@@ -61,7 +61,7 @@ if (process.env.NODE_ENV === 'production') {
   }));
 
   // Логи ошибок
-  logger.add(new winston.transports.File({
+  winstonLogger.add(new winston.transports.File({
     filename: path.join(logDir, 'error.log'),
     level: 'error',
     maxsize: 10 * 1024 * 1024, // 10MB
@@ -70,7 +70,7 @@ if (process.env.NODE_ENV === 'production') {
   }));
 
   // Логи доступа
-  logger.add(new winston.transports.File({
+  winstonLogger.add(new winston.transports.File({
     filename: path.join(logDir, 'access.log'),
     level: 'http',
     maxsize: 10 * 1024 * 1024, // 10MB
@@ -115,7 +115,7 @@ export class Logger {
   private winston: winston.Logger;
 
   private constructor() {
-    this.winston = logger;
+    this.winston = winstonLogger;
   }
 
   public static getInstance(): Logger {

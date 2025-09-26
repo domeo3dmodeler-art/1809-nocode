@@ -2,9 +2,10 @@
 // Унифицированные кнопки в стиле Domeo
 
 import React from 'react';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'compact';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   children: React.ReactNode;
@@ -19,25 +20,17 @@ export function Button({
   disabled,
   ...props 
 }: ButtonProps) {
-  // Базовые стили в соответствии со скриншотом
-  const baseClasses = {
-    primary: 'bg-black text-white border border-black hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium',
-    secondary: 'bg-transparent border border-black text-black hover:bg-black hover:text-white transition-all duration-200 font-medium',
-    ghost: 'bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium',
-    compact: 'bg-gray-600 text-white border border-gray-600 hover:bg-gray-700 transition-all duration-200 font-medium'
-  };
+  const styles = createComponentStyles();
   
-  const sizeClasses = {
-    sm: 'px-2 py-1 text-xs',
-    md: 'px-3 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
-  };
+  const baseClasses = styles.button.base;
+  const variantClasses = styles.button.variants[variant];
+  const sizeClasses = styles.button.sizes[size];
   
   const isDisabled = disabled || loading;
   
   return (
     <button
-      className={`${baseClasses[variant]} ${sizeClasses[size]} rounded-none ${className}`}
+      className={`${baseClasses} ${variantClasses} ${sizeClasses} ${className}`}
       disabled={isDisabled}
       {...props}
     >

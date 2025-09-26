@@ -2,7 +2,7 @@
 // Унифицированные карточки в стиле Domeo
 
 import React from 'react';
-import { createStyle } from '@/lib/design/DesignTokens';
+import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'base' | 'elevated' | 'interactive';
@@ -17,17 +17,15 @@ export function Card({
   className = '',
   ...props 
 }: CardProps) {
-  const baseClasses = createStyle.card[variant];
+  const styles = createComponentStyles();
   
-  const paddingClasses = {
-    sm: 'p-3',
-    md: 'p-6',
-    lg: 'p-8'
-  };
+  const baseClasses = styles.card.base;
+  const variantClasses = styles.card.variants[variant];
+  const paddingClasses = styles.card.padding[padding];
   
   return (
     <div
-      className={`${baseClasses} ${paddingClasses[padding]} ${className}`}
+      className={`${baseClasses} ${variantClasses} ${paddingClasses} ${className}`}
       {...props}
     >
       {children}

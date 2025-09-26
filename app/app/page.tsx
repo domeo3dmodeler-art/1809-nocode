@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '../components/ui';
+import { Button, Card, Badge } from '../components/ui';
 import { formatUserName, getRoleDisplayName, User } from '../lib/utils/user-display';
 
 export default function Home() {
@@ -181,16 +181,14 @@ export default function Home() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {/* Двери - АКТИВНАЯ */}
-              <Link
-                href="/doors"
-                className="group relative bg-white border border-black/10 hover:border-black transition-all duration-300 overflow-hidden"
-              >
-                {/* Статус бейдж */}
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="bg-yellow-400 text-black px-3 py-1 text-xs font-bold">
-                    Активно
+              <Link href="/doors" className="group relative">
+                <Card variant="interactive" padding="md" className="h-full">
+                  {/* Статус бейдж */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <Badge variant="warning" size="sm">
+                      Активно
+                    </Badge>
                   </div>
-                </div>
                 
                 {/* Иконка категории */}
                 <div className="p-8 pb-6">
@@ -223,16 +221,18 @@ export default function Home() {
                     </svg>
                   </div>
                 </div>
+                </Card>
               </Link>
 
               {/* Напольные покрытия - ЗАГЛУШКА */}
-              <div className="relative bg-white border border-black/5 overflow-hidden opacity-60">
-                {/* Статус бейдж */}
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="bg-gray-400 text-white px-3 py-1 text-xs font-bold">
-                    Скоро
+              <div className="relative opacity-60">
+                <Card variant="base" padding="md" className="h-full">
+                  {/* Статус бейдж */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <Badge variant="default" size="sm">
+                      Скоро
+                    </Badge>
                   </div>
-                </div>
                 
                 {/* Иконка категории */}
                 <div className="p-8 pb-6">
@@ -271,16 +271,18 @@ export default function Home() {
                     </svg>
                   </div>
                 </div>
+                </Card>
               </div>
 
               {/* Кухни - ЗАГЛУШКА */}
-              <div className="relative bg-white border border-black/5 overflow-hidden opacity-60">
-                {/* Статус бейдж */}
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="bg-gray-400 text-white px-3 py-1 text-xs font-bold">
-                    Скоро
+              <div className="relative opacity-60">
+                <Card variant="base" padding="md" className="h-full">
+                  {/* Статус бейдж */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <Badge variant="default" size="sm">
+                      Скоро
+                    </Badge>
                   </div>
-                </div>
                 
                 {/* Иконка категории */}
                 <div className="p-8 pb-6">
@@ -326,16 +328,18 @@ export default function Home() {
                     </svg>
                   </div>
                 </div>
+                </Card>
               </div>
 
               {/* Плитка - ЗАГЛУШКА */}
-              <div className="relative bg-white border border-black/5 overflow-hidden opacity-60">
-                {/* Статус бейдж */}
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="bg-gray-400 text-white px-3 py-1 text-xs font-bold">
-                    Скоро
+              <div className="relative opacity-60">
+                <Card variant="base" padding="md" className="h-full">
+                  {/* Статус бейдж */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <Badge variant="default" size="sm">
+                      Скоро
+                    </Badge>
                   </div>
-                </div>
                 
                 {/* Иконка категории */}
                 <div className="p-8 pb-6">
@@ -384,19 +388,18 @@ export default function Home() {
                     </svg>
                   </div>
                 </div>
+                </Card>
               </div>
 
               {/* Смарт - АКТИВНАЯ */}
-              <Link
-                href="/smart"
-                className="group relative bg-white border border-black/10 hover:border-black transition-all duration-300 overflow-hidden"
-              >
-                {/* Статус бейдж */}
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="bg-green-500 text-white px-3 py-1 text-xs font-bold">
-                    Доступно
+              <Link href="/smart" className="group relative">
+                <Card variant="interactive" padding="md" className="h-full">
+                  {/* Статус бейдж */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <Badge variant="success" size="sm">
+                      Доступно
+                    </Badge>
                   </div>
-                </div>
                 
                 <div className="p-8">
                   {/* Иконка */}
@@ -423,6 +426,7 @@ export default function Home() {
                     </svg>
                   </div>
                 </div>
+                </Card>
               </Link>
             </div>
           </div>
