@@ -168,7 +168,7 @@ export default function AdminDashboard() {
               <p className="text-gray-600 mt-1">Управляйте разными группами товаров. Каждая категория имеет свои свойства и настройки импорта.</p>
             </div>
             <Link
-              href="/admin/categories/builder"
+              href="/admin/configurator/create"
               className="inline-flex items-center px-6 py-2 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 text-sm font-medium"
             >
               <span className="mr-2">+</span>
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
                     Управление
                   </Link>
                   <Link
-                    href={`/admin/import?category=${category.id}`}
+                    href={`/admin/configurator/import?category=${category.id}`}
                     className="flex-1 px-3 py-2 bg-transparent border border-black text-black text-sm rounded-none hover:bg-black hover:text-white text-center transition-all duration-200 font-medium"
                   >
                     Импорт
@@ -386,7 +386,7 @@ export default function AdminDashboard() {
           <h3 className="text-lg font-semibold text-black mb-4">Быстрые действия</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Link
-              href="/admin/import?category=doors"
+              href="/admin/configurator/import?category=doors"
               className="flex items-center p-4 bg-white border border-black/10 hover:border-black transition-all duration-200"
             >
               <span className="text-2xl mr-3">📥</span>

@@ -42,9 +42,19 @@ const menuItems: MenuItem[] = [
       { id: 'catalog-properties-moderate', label: 'Модерация свойств', href: '/admin/catalog/properties/moderate', icon: '✅' },
       { id: 'catalog-properties-assignments', label: 'Назначение свойств', href: '/admin/catalog/properties/assignments', icon: '🔗' },
       { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import', icon: '📥' },
-      { id: 'catalog-export', label: 'Настройки экспорта', href: '/admin/catalog/export', icon: '📤' },
-      { id: 'catalog-frontend', label: 'Категории конфигуратора', href: '/admin/catalog/frontend-categories', icon: '🌐' },
       { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products', icon: '📦' }
+    ]
+  },
+  {
+    id: 'configurator',
+    label: 'Категории конфигуратора',
+    href: '/admin/configurator',
+    icon: '🌐',
+    children: [
+      { id: 'configurator-list', label: 'Список категорий', href: '/admin/configurator', icon: '📋' },
+      { id: 'configurator-create', label: 'Создать категорию', href: '/admin/configurator/create', icon: '➕' },
+      { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import', icon: '📥' },
+      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export', icon: '📤' }
     ]
   },
   {
@@ -52,28 +62,6 @@ const menuItems: MenuItem[] = [
     label: 'Пользователи',
     href: '/admin/users',
     icon: '👥'
-  },
-  {
-    id: 'categories',
-    label: 'Категории фронта',
-    href: '/admin/categories',
-    icon: '📁',
-    children: [
-      { id: 'categories-list', label: 'Список', href: '/admin/categories', icon: '📋' },
-      { id: 'categories-new', label: 'Создать', href: '/admin/categories/new', icon: '➕' }
-    ]
-  },
-  {
-    id: 'products',
-    label: 'Товары',
-    href: '/admin/products',
-    icon: '📦'
-  },
-  {
-    id: 'import',
-    label: 'Импорт',
-    href: '/admin/import',
-    icon: '📥'
   },
   {
     id: 'settings',
