@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import AdminLayout from '../../../../components/layout/AdminLayout';
 
 export default function ProductsLayout({
   children,
@@ -9,11 +8,8 @@ export default function ProductsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AdminLayout 
-      title="Товары" 
-      subtitle="Управление товарами в каталоге"
-    >
+    <div>
       {children}
-    </AdminLayout>
+    </div>
   );
 }

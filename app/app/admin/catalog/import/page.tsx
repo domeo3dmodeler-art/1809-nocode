@@ -132,11 +132,7 @@ export default function CatalogImportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Импорт каталога</h1>
-          <p className="text-gray-600">Загрузка дерева категорий из Excel файла</p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex space-x-2">
           <Button
             variant="outline"

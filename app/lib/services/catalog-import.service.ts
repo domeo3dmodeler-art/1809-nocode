@@ -1,22 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { catalogService } from './catalog.service';
+import { CatalogImportResult } from '../types/catalog';
 
 const prisma = new PrismaClient();
 
-export interface CatalogImportResult {
-  success: boolean;
-  message: string;
-  imported: number;
-  errors: string[];
-  warnings: string[];
-  categories: Array<{
-    name: string;
-    level: number;
-    path: string;
-    parent?: string;
-  }>;
-}
 
 export interface ExcelRow {
   [key: string]: any;
@@ -94,7 +82,8 @@ export class CatalogImportService {
           name: cat.name,
           level: cat.level,
           path: cat.path,
-          parent: cat.parent
+          parent: cat.parent,
+          fullPath: cat.fullPath
         }))
       };
 
@@ -181,6 +170,7 @@ export class CatalogImportService {
     path: string;
     parent?: string;
     sortOrder: number;
+    fullPath: string; // Полный путь для проверки дубликатов
   }> {
     const categories: Array<{
       name: string;
@@ -188,6 +178,7 @@ export class CatalogImportService {
       path: string;
       parent?: string;
       sortOrder: number;
+      fullPath: string;
     }> = [];
 
     const parentStack: string[] = [];
@@ -197,16 +188,21 @@ export class CatalogImportService {
       
       if (!Array.isArray(row)) continue;
 
-      // Ищем первую непустую ячейку с названием
+      // Собираем все непустые ячейки в строке для построения полного пути
+      const rowValues: string[] = [];
       let categoryName = '';
       let level = 0;
       
       for (let colIndex = 0; colIndex < row.length; colIndex++) {
         const cellValue = row[colIndex];
         if (cellValue && typeof cellValue === 'string' && cellValue.trim()) {
-          categoryName = cellValue.trim();
-          level = colIndex + 1;
-          break;
+          rowValues[colIndex] = cellValue.trim();
+          if (!categoryName) {
+            categoryName = cellValue.trim();
+            level = colIndex + 1;
+          }
+        } else {
+          rowValues[colIndex] = '';
         }
       }
 
@@ -219,13 +215,17 @@ export class CatalogImportService {
 
       const parent = parentStack.length > 0 ? parentStack[parentStack.length - 1] : undefined;
       const path = parentStack.length > 0 ? parentStack.join('/') : '';
+      
+      // Создаем полный путь для проверки дубликатов
+      const fullPath = rowValues.filter(val => val).join('/');
 
       categories.push({
         name: categoryName,
         level,
         path,
         parent,
-        sortOrder: rowIndex + 1
+        sortOrder: rowIndex + 1,
+        fullPath
       });
 
       // Добавляем в стек родителей
@@ -244,6 +244,7 @@ export class CatalogImportService {
     path: string;
     parent?: string;
     sortOrder: number;
+    fullPath: string;
   }>): {
     isValid: boolean;
     errors: string[];
@@ -251,7 +252,8 @@ export class CatalogImportService {
   } {
     const errors: string[] = [];
     const warnings: string[] = [];
-    const nameSet = new Set<string>();
+    const fullPathSet = new Set<string>(); // Для проверки полных дубликатов
+    const nameSet = new Set<string>(); // Для статистики уникальных названий
 
     for (const category of categories) {
       // Проверка на пустое название
@@ -260,10 +262,14 @@ export class CatalogImportService {
         continue;
       }
 
-      // Проверка на дубликаты названий
-      if (nameSet.has(category.name)) {
-        warnings.push(`Дубликат названия: "${category.name}"`);
+      // Проверка на полные дубликаты (одинаковые пути)
+      if (fullPathSet.has(category.fullPath)) {
+        errors.push(`Строка ${category.sortOrder}: полный дубликат пути "${category.fullPath}"`);
+      } else {
+        fullPathSet.add(category.fullPath);
       }
+
+      // Добавляем в статистику названий (для информации)
       nameSet.add(category.name);
 
       // Проверка длины названия
@@ -275,6 +281,13 @@ export class CatalogImportService {
       if (/[<>:"/\\|?*]/.test(category.name)) {
         warnings.push(`Строка ${category.sortOrder}: название содержит специальные символы: "${category.name}"`);
       }
+    }
+
+    // Информационное сообщение о статистике
+    const totalCategories = categories.length;
+    const uniqueNames = nameSet.size;
+    if (totalCategories > uniqueNames) {
+      warnings.push(`Обнаружено ${totalCategories} категорий с ${uniqueNames} уникальными названиями. Повторяющиеся названия в разных ветках - это нормально.`);
     }
 
     return {
@@ -293,6 +306,7 @@ export class CatalogImportService {
     path: string;
     parent?: string;
     sortOrder: number;
+    fullPath: string;
   }>): Promise<{
     imported: number;
     errors: string[];
@@ -388,7 +402,25 @@ export class CatalogImportService {
       ['', '', 'МДФ', ''],
       ['', 'Фасады', '', ''],
       ['', '', 'Пластик', ''],
-      ['', '', 'Эмаль', '']
+      ['', '', 'Эмаль', ''],
+      ['', '', '', ''],
+      ['', '', '', ''],
+      ['ПРИМЕРЫ ПРАВИЛЬНОЙ СТРУКТУРЫ:', '', '', ''],
+      ['', '', '', ''],
+      ['Бытовая техника', '', '', ''],
+      ['', 'Холодильники', '', ''],
+      ['', '', 'Белые', ''],
+      ['', '', 'Серые', ''],
+      ['', 'Стиральные машины', '', ''],
+      ['', '', 'Белые', ''],
+      ['', '', 'Серые', ''],
+      ['Двери', '', '', ''],
+      ['', 'Межкомнатные', '', ''],
+      ['', '', 'Белые', ''],
+      ['', '', 'Серые', ''],
+      ['', 'Входные', '', ''],
+      ['', '', 'Белые', ''],
+      ['', '', 'Серые', '']
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);

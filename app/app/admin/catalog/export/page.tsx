@@ -168,12 +168,6 @@ export default function ExportSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Настройки экспорта</h1>
-          <p className="text-gray-600">Управление настройками экспорта документов</p>
-        </div>
-      </div>
 
       {/* Выбор категории */}
       <Card className="p-4">

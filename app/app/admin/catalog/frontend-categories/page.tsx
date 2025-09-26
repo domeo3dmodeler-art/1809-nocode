@@ -112,11 +112,7 @@ export default function FrontendCategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Категории фронта</h1>
-          <p className="text-gray-600">Управление категориями для отображения пользователям</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button
           onClick={() => setCreateDialogOpen(true)}
           className="flex items-center space-x-1"
@@ -142,7 +138,7 @@ export default function FrontendCategoriesPage() {
           <div className="flex items-center space-x-2">
             <Link className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-600">
-              {categories.length} категорий фронта
+              {categories.length} категорий конфигуратора
             </span>
           </div>
         </div>
@@ -153,7 +149,7 @@ export default function FrontendCategoriesPage() {
         <div className="space-y-2">
           {filteredCategories.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              {searchTerm ? 'Категории не найдены' : 'Категории фронта не созданы'}
+              {searchTerm ? 'Категории не найдены' : 'Категории конфигуратора не созданы'}
             </div>
           ) : (
             filteredCategories.map(category => {
@@ -314,7 +310,7 @@ function CreateFrontendCategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Создать категорию фронта</DialogTitle>
+          <DialogTitle>Создать категорию конфигуратора</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -538,7 +534,7 @@ function EditFrontendCategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Редактировать категорию фронта</DialogTitle>
+          <DialogTitle>Редактировать категорию конфигуратора</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

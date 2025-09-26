@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import AdminLayout from '../../../../components/layout/AdminLayout';
 
 export default function ExportLayout({
   children,
@@ -9,11 +8,8 @@ export default function ExportLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AdminLayout 
-      title="Настройки экспорта" 
-      subtitle="Управление настройками экспорта документов"
-    >
+    <div>
       {children}
-    </AdminLayout>
+    </div>
   );
 }

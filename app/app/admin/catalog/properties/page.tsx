@@ -127,11 +127,7 @@ export default function PropertiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Свойства товаров</h1>
-          <p className="text-gray-600">Модерация и управление свойствами товаров</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button
           onClick={() => setCreateDialogOpen(true)}
           className="flex items-center space-x-1"

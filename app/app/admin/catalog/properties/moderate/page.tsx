@@ -155,11 +155,7 @@ export default function PropertyModerationPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Модерация свойств</h1>
-          <p className="text-gray-600">Назначение свойств товаров категориям каталога</p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-600">
             <span className="font-medium text-yellow-600">{pendingCount}</span> требуют модерации

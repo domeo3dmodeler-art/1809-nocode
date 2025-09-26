@@ -43,7 +43,7 @@ const menuItems: MenuItem[] = [
       { id: 'catalog-properties-assignments', label: 'Назначение свойств', href: '/admin/catalog/properties/assignments', icon: '🔗' },
       { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import', icon: '📥' },
       { id: 'catalog-export', label: 'Настройки экспорта', href: '/admin/catalog/export', icon: '📤' },
-      { id: 'catalog-frontend', label: 'Категории фронта', href: '/admin/catalog/frontend-categories', icon: '🌐' },
+      { id: 'catalog-frontend', label: 'Категории конфигуратора', href: '/admin/catalog/frontend-categories', icon: '🌐' },
       { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products', icon: '📦' }
     ]
   },

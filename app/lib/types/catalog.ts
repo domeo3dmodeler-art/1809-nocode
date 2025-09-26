@@ -1,5 +1,20 @@
 // Типы для системы каталога товаров
 
+export interface CatalogImportResult {
+  success: boolean;
+  message: string;
+  imported: number;
+  errors: string[];
+  warnings: string[];
+  categories: Array<{
+    name: string;
+    level: number;
+    path: string;
+    parent?: string;
+    fullPath?: string;
+  }>;
+}
+
 export interface CatalogCategory {
   id: string;
   name: string;

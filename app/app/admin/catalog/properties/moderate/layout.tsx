@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import AdminLayout from '../../../../../components/layout/AdminLayout';
 
 export default function PropertyModerationLayout({
   children,
@@ -9,11 +8,8 @@ export default function PropertyModerationLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AdminLayout 
-      title="Модерация свойств" 
-      subtitle="Назначение свойств товаров категориям каталога"
-    >
+    <div>
       {children}
-    </AdminLayout>
+    </div>
   );
 }
