@@ -166,7 +166,7 @@ export default function PropertyMapper({
               <div key={mapping.fieldName} className="flex items-center space-x-4 p-3 border border-gray-200 rounded">
                 <Checkbox
                   checked={selectedFields.includes(mapping.fieldName)}
-                  onCheckedChange={() => toggleFieldSelection(mapping.fieldName)}
+                  onChange={() => toggleFieldSelection(mapping.fieldName)}
                 />
                 
                 <div className="flex-1">
@@ -224,7 +224,7 @@ export default function PropertyMapper({
                     <label className="flex items-center">
                       <Checkbox
                         checked={mapping.isRequired}
-                        onCheckedChange={(checked) => updateMapping(mapping.fieldName, { isRequired: checked })}
+                        onChange={(e) => updateMapping(mapping.fieldName, { isRequired: e.target.checked })}
                       />
                       <span className="ml-2 text-sm text-gray-600">Обязательное</span>
                     </label>
@@ -232,7 +232,7 @@ export default function PropertyMapper({
                     <label className="flex items-center">
                       <Checkbox
                         checked={mapping.isFilterable}
-                        onCheckedChange={(checked) => updateMapping(mapping.fieldName, { isFilterable: checked })}
+                        onChange={(e) => updateMapping(mapping.fieldName, { isFilterable: e.target.checked })}
                       />
                       <span className="ml-2 text-sm text-gray-600">Для фильтрации</span>
                     </label>
@@ -240,7 +240,7 @@ export default function PropertyMapper({
                     <label className="flex items-center">
                       <Checkbox
                         checked={mapping.isVisible}
-                        onCheckedChange={(checked) => updateMapping(mapping.fieldName, { isVisible: checked })}
+                        onChange={(e) => updateMapping(mapping.fieldName, { isVisible: e.target.checked })}
                       />
                       <span className="ml-2 text-sm text-gray-600">Показывать в карточке</span>
                     </label>

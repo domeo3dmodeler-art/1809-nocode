@@ -14,5 +14,5 @@ export { DataTable } from './DataTable';
 export { Pagination } from './Pagination';
 export { FormValidator, useFormValidation, ErrorMessage } from './FormValidation';
 
-// Экспорт дизайн-токенов
-export { designTokens, createStyle } from '@/lib/design/DesignTokens';
+// Временно закомментированы дизайн-токены до создания файла
+// export { designTokens, createStyle } from '@/lib/design/DesignTokens';

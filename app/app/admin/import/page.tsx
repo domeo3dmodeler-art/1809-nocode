@@ -232,7 +232,7 @@ export default function UniversalImportPage() {
             <div className="flex items-center space-x-3">
               <Link 
                 href="/admin"
-                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
+                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-none hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
               >
                 Назад в админку
               </Link>
@@ -257,7 +257,7 @@ export default function UniversalImportPage() {
                   <h3 className="text-lg font-semibold text-gray-900">Категория товаров</h3>
                   <Link
                     href="/admin/categories"
-                    className="px-3 py-1 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 transition-colors"
+                    className="px-3 py-1 bg-black text-white text-sm rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
                   >
                     Управление
                   </Link>
@@ -518,7 +518,7 @@ export default function UniversalImportPage() {
                   setFile(null);
                   setFileHeaders([]);
                 }}
-                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-none hover:bg-gray-300 transition-all duration-200 font-medium"
               >
                 Назад
               </button>
@@ -526,7 +526,7 @@ export default function UniversalImportPage() {
               <button
                 onClick={handleImport}
                 disabled={loading || !priceSettings.frontendPrice}
-                className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
               >
                 {loading ? 'Импортируем...' : 'Загрузить прайс'}
               </button>

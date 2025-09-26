@@ -80,7 +80,7 @@ export default function ProductsPage() {
           <p className="text-gray-600 text-xl mb-4">{error}</p>
           <button 
             onClick={fetchProducts}
-            className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+            className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
           >
             Попробовать снова
           </button>
@@ -108,7 +108,7 @@ export default function ProductsPage() {
             <div className="flex items-center space-x-3">
               <Link 
                 href="/admin"
-                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
+                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-none hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
               >
                 ← Админка
               </Link>
@@ -180,7 +180,7 @@ export default function ProductsPage() {
               </p>
               <Link
                 href="/admin/categories/doors"
-                className="inline-flex items-center px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
               >
                 Загрузить прайс
               </Link>

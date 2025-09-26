@@ -145,7 +145,7 @@ export default function AdminDashboard() {
           <p className="text-gray-600 text-xl mb-4">{error}</p>
           <button 
             onClick={fetchCategories}
-            className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+            className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
           >
             Попробовать снова
           </button>
@@ -216,13 +216,13 @@ export default function AdminDashboard() {
                 <div className="flex space-x-2">
                   <Link
                     href={`/admin/categories/${category.id}`}
-                    className="flex-1 px-3 py-2 bg-black text-white text-sm rounded-none hover:bg-yellow-400 hover:text-black text-center transition-colors"
+                    className="flex-1 px-3 py-2 bg-black text-white text-sm rounded-none hover:bg-yellow-400 hover:text-black text-center transition-all duration-200 font-medium"
                   >
                     Управление
                   </Link>
                   <Link
                     href={`/admin/import?category=${category.id}`}
-                    className="flex-1 px-3 py-2 bg-transparent border border-black text-black text-sm rounded-none hover:bg-black hover:text-white text-center transition-colors"
+                    className="flex-1 px-3 py-2 bg-transparent border border-black text-black text-sm rounded-none hover:bg-black hover:text-white text-center transition-all duration-200 font-medium"
                   >
                     Импорт
                   </Link>
@@ -531,7 +531,7 @@ export default function AdminDashboard() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowImportModal(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                  className="px-4 py-2 bg-gray-600 text-white rounded-none hover:bg-gray-700 transition-all duration-200 font-medium"
                 >
                   Закрыть
                 </button>

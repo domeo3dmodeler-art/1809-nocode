@@ -51,7 +51,7 @@ model Client {
 }
 
 // ===========================================
-// КАТЕГОРИИ ТОВАРОВ
+// КАТЕГОРИИ ТОВАРОВ (NoCode платформа)
 // ===========================================
 
 model Category {
@@ -64,12 +64,28 @@ model Category {
   level          Int      @default(0)
   sort_order     Int      @default(0)
   is_active      Boolean  @default(true)
-  properties     String   @default("[]") // JSON as string for SQLite
-  import_mapping String   @default("{}") // JSON as string for SQLite
+  
+  // NoCode конфигурация
+  configurator_config String @default("{}") // JSON конфигурация конфигуратора
+  page_template   String? // ID шаблона страницы
+  custom_layout   String? // JSON кастомного лейаута
+  
+  // Свойства товаров
+  properties     String   @default("[]") // JSON схема свойств товаров
+  import_mapping String   @default("{}") // JSON маппинг для импорта
+  
+  // Метаданные
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
+  
+  // Связи
+  products       Product[]
+  subcategories  Category[] @relation("CategoryHierarchy")
+  parent         Category? @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
 
   @@map("categories")
+  @@index([parent_id])
+  @@index([slug])
 }
 
 // ===========================================
@@ -97,6 +113,9 @@ model Product {
   is_featured     Boolean  @default(false)
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
+
+  // Связи
+  category        Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
 
   @@map("products")
 }

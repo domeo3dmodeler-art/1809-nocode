@@ -2,7 +2,6 @@
 // Унифицированные кнопки в стиле Domeo
 
 import React from 'react';
-import { createStyle } from '@/lib/design/DesignTokens';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'compact';
@@ -20,11 +19,17 @@ export function Button({
   disabled,
   ...props 
 }: ButtonProps) {
-  const baseClasses = createStyle.button[variant];
+  // Базовые стили в соответствии со скриншотом
+  const baseClasses = {
+    primary: 'bg-black text-white border border-black hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium',
+    secondary: 'bg-transparent border border-black text-black hover:bg-black hover:text-white transition-all duration-200 font-medium',
+    ghost: 'bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium',
+    compact: 'bg-gray-600 text-white border border-gray-600 hover:bg-gray-700 transition-all duration-200 font-medium'
+  };
   
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
-    md: 'px-4 py-2 text-sm',
+    md: 'px-3 py-2 text-sm',
     lg: 'px-6 py-3 text-base'
   };
   
@@ -32,7 +37,7 @@ export function Button({
   
   return (
     <button
-      className={`${baseClasses} ${sizeClasses[size]} ${className}`}
+      className={`${baseClasses[variant]} ${sizeClasses[size]} rounded-none ${className}`}
       disabled={isDisabled}
       {...props}
     >

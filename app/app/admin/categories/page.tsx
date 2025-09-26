@@ -14,13 +14,38 @@ type FieldMapping = {
 type Category = { 
   id: string; 
   name: string; 
-  description: string; 
-  icon: string; 
-  is_main: boolean;
-  parent_id?: string;
+  slug: string;
+  description?: string; 
+  icon?: string; 
+  parentId?: string;
+  level: number;
+  sortOrder: number;
+  isActive: boolean;
+  
+  // NoCode конфигурация
+  configuratorConfig: any;
+  pageTemplate?: string;
+  customLayout?: any;
+  
+  // Свойства товаров
   properties: FieldMapping[];
-  import_mapping: Record<string, string>;
+  importMapping: Record<string, string>;
+  
+  // Статистика
+  productsCount: number;
+  subcategoriesCount: number;
+  
+  // Связи
   subcategories?: Category[];
+  parent?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  
+  // Метаданные
+  createdAt: string;
+  updatedAt: string;
 };
 
 export default function CategoriesPage() {
@@ -33,15 +58,43 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/admin/categories');
       const data = await response.json();
-      // Фильтруем только активные категории (только "Двери")
-      const activeCategories = (data.categories || []).filter((cat: Category) => cat.id === 'doors');
-      setCategories(activeCategories);
+      
+      if (data.success) {
+        setCategories(data.categories || []);
+      } else {
+        console.error('Error fetching categories:', data.error);
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+    if (!confirm(`Вы уверены, что хотите удалить категорию "${categoryName}"? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/categories/${categoryId}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Обновляем список категорий
+        setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+        alert('Категория успешно удалена');
+      } else {
+        alert('Ошибка при удалении категории: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Ошибка при удалении категории');
     }
   };
 
@@ -76,7 +129,7 @@ export default function CategoriesPage() {
             <div className="flex items-center space-x-3">
               <Link 
                 href="/admin"
-                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
+                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-none hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
               >
                 Назад в админку
               </Link>
@@ -95,7 +148,7 @@ export default function CategoriesPage() {
             </div>
                   <Link
                     href="/admin/categories/builder"
-                    className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-md hover:shadow-lg"
+                    className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
                   >
                     + Создать категорию
                   </Link>
@@ -109,28 +162,75 @@ export default function CategoriesPage() {
                 <div className="p-6">
                   <div className="flex items-center mb-4">
                     <div className="bg-gray-100 p-3 rounded-lg mr-4">
-                      <span className="text-3xl">{category.icon}</span>
+                      <span className="text-3xl">{category.icon || '📦'}</span>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900">{category.name}</h3>
-                      <p className="text-sm text-gray-500">{category.description}</p>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="text-xl font-semibold text-gray-900">{category.name}</h3>
+                        <span className="text-sm text-gray-500">({category.slug})</span>
+                        {!category.isActive && (
+                          <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                            Неактивна
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">{category.description || 'Без описания'}</p>
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
+                        <span>Товаров: {category.productsCount}</span>
+                        <span>Подкатегорий: {category.subcategoriesCount}</span>
+                        <span>Уровень: {category.level}</span>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <Link
-                        href={`/admin/import?category=${category.id}`}
-                        className="px-3 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 text-center transition-colors"
+                        href={`/admin/categories/${category.id}/configurator`}
+                        className="px-3 py-2 bg-black text-white text-sm rounded-none hover:bg-yellow-400 hover:text-black text-center transition-all duration-200 font-medium"
+                        title="Настроить конфигуратор"
                       >
-                        Импорт
+                        🎨 Конфигуратор
                       </Link>
                       <Link
                         href={`/admin/categories/${category.id}`}
-                        className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 text-center transition-colors"
+                        className="px-3 py-2 bg-transparent border border-black text-black text-sm rounded-none hover:bg-black hover:text-white text-center transition-all duration-200 font-medium"
                       >
                         Редактировать
                       </Link>
+                      <button
+                        onClick={() => handleDeleteCategory(category.id, category.name)}
+                        className="px-3 py-2 bg-red-600 text-white text-sm rounded-none hover:bg-red-700 text-center transition-all duration-200 font-medium"
+                        title="Удалить категорию"
+                      >
+                        🗑️ Удалить
+                      </button>
                     </div>
                   </div>
 
+                  {/* NoCode конфигурация */}
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold text-blue-900">NoCode конфигурация</h4>
+                      <div className="flex items-center space-x-2">
+                        {category.pageTemplate && (
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            Шаблон: {category.pageTemplate}
+                          </span>
+                        )}
+                        {category.customLayout && (
+                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                            Кастомный лейаут
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      {Object.keys(category.configuratorConfig).length > 0 
+                        ? `Настроено: ${Object.keys(category.configuratorConfig).join(', ')}`
+                        : 'Конфигуратор не настроен'
+                      }
+                    </div>
+                  </div>
+
+                  {/* Свойства товаров */}
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-2">Свойства товаров:</p>
                     <div className="flex flex-wrap gap-1">
@@ -198,14 +298,14 @@ export default function CategoriesPage() {
                           </div>
 
                           <div className="flex space-x-2">
-                            <Link
-                              href={`/admin/import?category=${subcategory.id}`}
-                              className="flex-1 px-2 py-1 bg-gray-800 text-white text-xs rounded hover:bg-gray-900 text-center transition-colors"
-                            >
-                              Импорт
-                            </Link>
-                            <button className="flex-1 px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 text-center transition-colors">
+                            <button className="flex-1 px-2 py-1 bg-transparent border border-black text-black text-xs rounded-none hover:bg-black hover:text-white text-center transition-all duration-200 font-medium">
                               Редактировать
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCategory(subcategory.id, subcategory.name)}
+                              className="flex-1 px-2 py-1 bg-red-600 text-white text-xs rounded-none hover:bg-red-700 text-center transition-all duration-200 font-medium"
+                            >
+                              Удалить
                             </button>
                           </div>
                         </div>

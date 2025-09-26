@@ -131,7 +131,7 @@ export default function Home() {
                 <>
                   {/* Показываем ФИО пользователя */}
                   <div className="text-sm text-gray-600">
-                    {getUserDisplayName()} ({getRoleText(user.role)})
+                    {formatUserName(user)} ({getRoleDisplayName(user.role)})
                   </div>
                   
                   {/* Кнопка выхода */}
