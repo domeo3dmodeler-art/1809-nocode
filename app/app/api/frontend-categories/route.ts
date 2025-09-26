@@ -5,8 +5,21 @@ import { CreateFrontendCategoryDto } from '@/lib/types/catalog';
 // GET /api/frontend-categories - Получить категории фронта
 export async function GET(request: NextRequest) {
   try {
-    const categories = await catalogService.getFrontendCategories();
-    return NextResponse.json(categories);
+    const { searchParams } = new URL(request.url);
+    const slug = searchParams.get('slug');
+    
+    if (slug) {
+      // Поиск по slug
+      const category = await catalogService.getFrontendCategoryBySlug(slug);
+      return NextResponse.json({
+        success: true,
+        categories: category ? [category] : []
+      });
+    } else {
+      // Получить все категории
+      const categories = await catalogService.getFrontendCategories();
+      return NextResponse.json(categories);
+    }
   } catch (error) {
     console.error('Error fetching frontend categories:', error);
     return NextResponse.json(

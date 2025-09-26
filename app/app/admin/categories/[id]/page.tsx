@@ -502,7 +502,7 @@ export default function CategoryEditorPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
             {/* Настройки импорта прайса */}
             <Card variant="base" padding="md">
@@ -541,10 +541,10 @@ export default function CategoryEditorPage() {
                   </div>
                 </div>
 
-                {/* Цена для фронтенда */}
+                {/* Цена для заказчика */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Цена для корзины
+                    Цена для заказчика (РРЦ)
                   </label>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {formData.properties.map((property, index) => (
@@ -564,6 +564,9 @@ export default function CategoryEditorPage() {
                       </label>
                     ))}
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Выберите поле из прайса, которое содержит розничную цену для заказчика
+                  </p>
                 </div>
 
                 {/* Поля для экспорта */}
@@ -713,10 +716,10 @@ export default function CategoryEditorPage() {
                       </div>
                     </div>
 
-                    {/* Цена для фронтенда */}
+                    {/* Цена для заказчика */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Цена для корзины
+                        Цена для заказчика (РРЦ)
                       </label>
                       <div className="space-y-2">
                         {priceHeaders.map((header, index) => (
@@ -736,6 +739,9 @@ export default function CategoryEditorPage() {
                           </label>
                         ))}
                       </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Выберите колонку из прайса, которая содержит розничную цену для заказчика
+                      </p>
                     </div>
 
                     {/* Поля для экспорта */}

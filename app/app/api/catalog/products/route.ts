@@ -1,80 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { catalogService } from '@/lib/services/catalog.service';
+import { PrismaClient } from '@prisma/client';
 
-// GET /api/catalog/products - Получить товары
+const prisma = new PrismaClient();
+
+// GET /api/catalog/products - Получить все товары
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const catalogCategoryId = searchParams.get('catalogCategoryId');
+    const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const sortBy = searchParams.get('sortBy') || 'name';
-    const sortOrder = searchParams.get('sortOrder') || 'asc';
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const products = await catalogService.getProducts({
-      catalogCategoryId,
-      search,
-      page,
+    const where: any = {};
+    
+    if (categoryId) {
+      where.catalog_category_id = categoryId;
+    }
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          catalog_category: {
+            select: {
+              id: true,
+              name: true,
+              level: true,
+              path: true
+            }
+          }
+        },
+        orderBy: {
+          name: 'asc'
+        },
+        take: limit,
+        skip: offset
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      products,
+      total,
       limit,
-      sortBy,
-      sortOrder
+      offset
     });
-
-    return NextResponse.json(products);
-
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { success: false, message: 'Ошибка при получении товаров' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/catalog/products - Создать товар
+// POST /api/catalog/products - Создать новый товар
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
+    const body = await request.json();
+    const { 
+      catalog_category_id, 
+      sku, 
+      name, 
+      description, 
+      brand, 
+      model, 
+      series, 
+      price, 
+      properties_data 
+    } = body;
 
-    // Валидация
-    if (!data.sku || data.sku.trim().length === 0) {
+    if (!catalog_category_id || !sku || !name || !price) {
       return NextResponse.json(
-        { error: 'SKU is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!data.name || data.name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!data.catalog_category_id) {
-      return NextResponse.json(
-        { error: 'Catalog category ID is required' },
+        { success: false, message: 'Не указаны обязательные поля' },
         { status: 400 }
       );
     }
 
     // Проверяем уникальность SKU
-    const existingProduct = await catalogService.getProductBySku(data.sku);
+    const existingProduct = await prisma.product.findUnique({
+      where: { sku }
+    });
+
     if (existingProduct) {
       return NextResponse.json(
-        { error: 'Product with this SKU already exists' },
+        { success: false, message: 'Товар с таким SKU уже существует' },
         { status: 400 }
       );
     }
 
-    const product = await catalogService.createProduct(data);
-    return NextResponse.json(product, { status: 201 });
+    const product = await prisma.product.create({
+      data: {
+        catalog_category_id,
+        sku,
+        name,
+        description,
+        brand,
+        model,
+        series,
+        price: parseFloat(price),
+        properties_data: properties_data ? JSON.stringify(properties_data) : null
+      },
+      include: {
+        catalog_category: {
+          select: {
+            id: true,
+            name: true,
+            level: true,
+            path: true
+          }
+        }
+      }
+    });
 
+    return NextResponse.json({
+      success: true,
+      product
+    });
   } catch (error) {
     console.error('Error creating product:', error);
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { success: false, message: 'Ошибка при создании товара' },
       { status: 500 }
     );
   }

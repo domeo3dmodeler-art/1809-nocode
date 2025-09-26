@@ -74,6 +74,9 @@ model CatalogCategory {
   property_assignments CategoryPropertyAssignment[]
   import_templates     ImportTemplate[]
   export_settings      ExportSetting[]
+  configurator_links   ConfiguratorCategoryLink[]
+  parent_hierarchies   AdditionalCategoryHierarchy[] @relation("ParentCategory")
+  child_hierarchies    AdditionalCategoryHierarchy[] @relation("ChildCategory")
 
   @@map("catalog_categories")
   @@index([parent_id])
@@ -145,6 +148,54 @@ model ImportTemplate {
 }
 
 // ===========================================
+// СВЯЗИ КАТЕГОРИЙ В КОНФИГУРАТОРЕ
+// ===========================================
+
+model ConfiguratorCategoryLink {
+  id                      String   @id @default(cuid())
+  configurator_category_id String
+  catalog_category_id     String
+  link_type               String   // 'main' | 'additional'
+  display_order           Int      @default(0)
+  is_required             Boolean  @default(false)
+  pricing_type            String   // 'separate' | 'included' | 'formula'
+  formula                 String?  // формула расчета (например, "price * 1.1")
+  export_as_separate      Boolean  @default(true)
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+  
+  // Связи
+  configurator_category FrontendCategory @relation(fields: [configurator_category_id], references: [id], onDelete: Cascade)
+  catalog_category      CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+  hierarchies           AdditionalCategoryHierarchy[]
+
+  @@map("configurator_category_links")
+  @@unique([configurator_category_id, catalog_category_id])
+}
+
+// ===========================================
+// ИЕРАРХИЯ ДОПОЛНИТЕЛЬНЫХ КАТЕГОРИЙ
+// ===========================================
+
+model AdditionalCategoryHierarchy {
+  id                    String   @id @default(cuid())
+  configurator_link_id  String
+  parent_category_id    String
+  child_category_id     String
+  display_order         Int      @default(0)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  
+  // Связи
+  configurator_link ConfiguratorCategoryLink @relation(fields: [configurator_link_id], references: [id], onDelete: Cascade)
+  parent_category   CatalogCategory @relation("ParentCategory", fields: [parent_category_id], references: [id], onDelete: Cascade)
+  child_category    CatalogCategory @relation("ChildCategory", fields: [child_category_id], references: [id], onDelete: Cascade)
+
+  @@map("additional_category_hierarchies")
+  @@unique([configurator_link_id, parent_category_id, child_category_id])
+}
+
+// ===========================================
 // НАСТРОЙКИ ЭКСПОРТА ДЛЯ КАТЕГОРИЙ
 // ===========================================
 
@@ -179,6 +230,9 @@ model FrontendCategory {
   is_active           Boolean  @default(true)
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
+
+  // Связи
+  category_links ConfiguratorCategoryLink[]
 
   @@map("frontend_categories")
   @@index([slug])

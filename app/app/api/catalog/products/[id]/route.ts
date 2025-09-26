@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { catalogService } from '@/lib/services/catalog.service';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // GET /api/catalog/products/[id] - Получить товар по ID
 export async function GET(
@@ -7,21 +9,35 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const product = await catalogService.getProductById(params.id);
-    
+    const product = await prisma.product.findUnique({
+      where: { id: params.id },
+      include: {
+        catalog_category: {
+          select: {
+            id: true,
+            name: true,
+            level: true,
+            path: true
+          }
+        }
+      }
+    });
+
     if (!product) {
       return NextResponse.json(
-        { error: 'Product not found' },
+        { success: false, message: 'Товар не найден' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(product);
-
+    return NextResponse.json({
+      success: true,
+      product
+    });
   } catch (error) {
     console.error('Error fetching product:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch product' },
+      { success: false, message: 'Ошибка при получении товара' },
       { status: 500 }
     );
   }
@@ -33,41 +49,69 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const data = await request.json();
+    const body = await request.json();
+    const { 
+      catalog_category_id, 
+      sku, 
+      name, 
+      description, 
+      brand, 
+      model, 
+      series, 
+      price, 
+      properties_data 
+    } = body;
 
-    // Валидация
-    if (data.sku !== undefined && (!data.sku || data.sku.trim().length === 0)) {
-      return NextResponse.json(
-        { error: 'SKU cannot be empty' },
-        { status: 400 }
-      );
-    }
+    // Проверяем уникальность SKU (кроме текущего товара)
+    if (sku) {
+      const existingProduct = await prisma.product.findFirst({
+        where: { 
+          sku,
+          id: { not: params.id }
+        }
+      });
 
-    if (data.name !== undefined && (!data.name || data.name.trim().length === 0)) {
-      return NextResponse.json(
-        { error: 'Name cannot be empty' },
-        { status: 400 }
-      );
-    }
-
-    // Проверяем уникальность SKU (если изменился)
-    if (data.sku) {
-      const existingProduct = await catalogService.getProductBySku(data.sku);
-      if (existingProduct && existingProduct.id !== params.id) {
+      if (existingProduct) {
         return NextResponse.json(
-          { error: 'Product with this SKU already exists' },
+          { success: false, message: 'Товар с таким SKU уже существует' },
           { status: 400 }
         );
       }
     }
 
-    const product = await catalogService.updateProduct(params.id, data);
-    return NextResponse.json(product);
+    const product = await prisma.product.update({
+      where: { id: params.id },
+      data: {
+        catalog_category_id,
+        sku,
+        name,
+        description,
+        brand,
+        model,
+        series,
+        price: price ? parseFloat(price) : undefined,
+        properties_data: properties_data ? JSON.stringify(properties_data) : null
+      },
+      include: {
+        catalog_category: {
+          select: {
+            id: true,
+            name: true,
+            level: true,
+            path: true
+          }
+        }
+      }
+    });
 
+    return NextResponse.json({
+      success: true,
+      product
+    });
   } catch (error) {
     console.error('Error updating product:', error);
     return NextResponse.json(
-      { error: 'Failed to update product' },
+      { success: false, message: 'Ошибка при обновлении товара' },
       { status: 500 }
     );
   }
@@ -79,21 +123,18 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await catalogService.deleteProduct(params.id);
-    return NextResponse.json({ success: true });
+    await prisma.product.delete({
+      where: { id: params.id }
+    });
 
+    return NextResponse.json({
+      success: true,
+      message: 'Товар удален'
+    });
   } catch (error) {
     console.error('Error deleting product:', error);
-    
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { success: false, message: 'Ошибка при удалении товара' },
       { status: 500 }
     );
   }
