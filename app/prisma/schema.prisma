@@ -51,40 +51,136 @@ model Client {
 }
 
 // ===========================================
-// КАТЕГОРИИ ТОВАРОВ (NoCode платформа)
+// КАТАЛОГ ТОВАРОВ (дерево категорий)
 // ===========================================
 
-model Category {
+model CatalogCategory {
   id             String   @id @default(cuid())
   name           String
-  slug           String   @unique
-  description    String?
-  icon           String?
   parent_id      String?
   level          Int      @default(0)
+  path           String   // Полный путь категории (например: "1/2/3")
   sort_order     Int      @default(0)
   is_active      Boolean  @default(true)
-  
-  // NoCode конфигурация
-  configurator_config String @default("{}") // JSON конфигурация конфигуратора
-  page_template   String? // ID шаблона страницы
-  custom_layout   String? // JSON кастомного лейаута
-  
-  // Свойства товаров
-  properties     String   @default("[]") // JSON схема свойств товаров
-  import_mapping String   @default("{}") // JSON маппинг для импорта
-  
-  // Метаданные
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
   
   // Связи
   products       Product[]
-  subcategories  Category[] @relation("CategoryHierarchy")
-  parent         Category? @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
+  subcategories  CatalogCategory[] @relation("CatalogHierarchy")
+  parent         CatalogCategory? @relation("CatalogHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
+  
+  // Связи с другими таблицами
+  property_assignments CategoryPropertyAssignment[]
+  import_templates     ImportTemplate[]
+  export_settings      ExportSetting[]
 
-  @@map("categories")
+  @@map("catalog_categories")
   @@index([parent_id])
+  @@index([path])
+}
+
+// ===========================================
+// СВОЙСТВА ТОВАРОВ (из загружаемых файлов)
+// ===========================================
+
+model ProductProperty {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // text, number, select, boolean, date, file
+  description String?
+  options     String?  // JSON для select полей
+  is_required Boolean  @default(false)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Связи
+  category_assignments CategoryPropertyAssignment[]
+
+  @@map("product_properties")
+}
+
+// ===========================================
+// СВЯЗЬ СВОЙСТВ С КАТЕГОРИЯМИ КАТАЛОГА
+// ===========================================
+
+model CategoryPropertyAssignment {
+  id                  String   @id @default(cuid())
+  catalog_category_id String
+  product_property_id String
+  is_required         Boolean  @default(false)
+  is_for_calculator   Boolean  @default(false)
+  is_for_export       Boolean  @default(false)
+  sort_order          Int      @default(0)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  // Связи
+  catalog_category CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+  product_property ProductProperty @relation(fields: [product_property_id], references: [id], onDelete: Cascade)
+
+  @@map("category_property_assignments")
+  @@unique([catalog_category_id, product_property_id])
+}
+
+// ===========================================
+// ШАБЛОНЫ ЗАГРУЗКИ ДЛЯ КАТЕГОРИЙ
+// ===========================================
+
+model ImportTemplate {
+  id                  String   @id @default(cuid())
+  catalog_category_id String
+  name                String
+  required_fields     String   @default("[]") // JSON массив обязательных полей
+  calculator_fields   String   @default("[]") // JSON массив полей для калькулятора
+  export_fields       String   @default("[]") // JSON массив полей для экспорта
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  // Связи
+  catalog_category CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+
+  @@map("import_templates")
+}
+
+// ===========================================
+// НАСТРОЙКИ ЭКСПОРТА ДЛЯ КАТЕГОРИЙ
+// ===========================================
+
+model ExportSetting {
+  id                  String   @id @default(cuid())
+  catalog_category_id String
+  export_type         String   // quote, invoice, supplier_order
+  fields_config       String   @default("[]") // JSON конфигурация полей
+  display_config      String   @default("{}") // JSON настройки отображения
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  // Связи
+  catalog_category CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+
+  @@map("export_settings")
+  @@unique([catalog_category_id, export_type])
+}
+
+// ===========================================
+// КАТЕГОРИИ ФРОНТА (могут объединять несколько узлов каталога)
+// ===========================================
+
+model FrontendCategory {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  description         String?
+  icon                String?
+  catalog_category_ids String  @default("[]") // JSON массив ID узлов каталога
+  display_config      String   @default("{}") // JSON конфигурация отображения
+  is_active           Boolean  @default(true)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@map("frontend_categories")
   @@index([slug])
 }
 
@@ -93,29 +189,30 @@ model Category {
 // ===========================================
 
 model Product {
-  id              String   @id @default(cuid())
-  category_id     String
-  sku             String   @unique
-  name            String
-  description     String?
-  brand           String?
-  model           String?
-  series          String?
-  base_price      Float
-  currency        String   @default("RUB")
-  stock_quantity  Int      @default(0)
-  min_order_qty   Int      @default(1)
-  weight          Float?
-  dimensions      String   @default("{}") // JSON as string for SQLite
-  specifications  String   @default("{}") // JSON as string for SQLite
-  tags            String   @default("[]") // JSON as string for SQLite
-  is_active       Boolean  @default(true)
-  is_featured     Boolean  @default(false)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  catalog_category_id String
+  sku                 String   @unique
+  name                String
+  description         String?
+  brand               String?
+  model               String?
+  series              String?
+  base_price          Float
+  currency            String   @default("RUB")
+  stock_quantity      Int      @default(0)
+  min_order_qty       Int      @default(1)
+  weight              Float?
+  dimensions          String   @default("{}") // JSON as string for SQLite
+  specifications      String   @default("{}") // JSON as string for SQLite
+  properties_data     String   @default("{}") // JSON данные свойств товара
+  tags                String   @default("[]") // JSON as string for SQLite
+  is_active           Boolean  @default(true)
+  is_featured         Boolean  @default(false)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
   // Связи
-  category        Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
 
   @@map("products")
 }
@@ -292,15 +389,15 @@ model Notification {
 // ===========================================
 
 model ImportHistory {
-  id              String   @id @default(cuid())
-  category_id     String
-  filename        String
-  file_size       Int?
-  imported_count  Int      @default(0)
-  error_count     Int      @default(0)
-  status          String   @default("pending")
-  errors          String   @default("[]") // JSON as string for SQLite
-  created_at      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  catalog_category_id String
+  filename            String
+  file_size           Int?
+  imported_count      Int      @default(0)
+  error_count         Int      @default(0)
+  status              String   @default("pending")
+  errors              String   @default("[]") // JSON as string for SQLite
+  created_at          DateTime @default(now())
 
   @@map("import_history")
 }

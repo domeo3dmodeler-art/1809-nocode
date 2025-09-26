@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Badge } from '../components/ui';
+import { Button, Card, Badge } from '../../components/ui';
 import { formatUserName, getRoleDisplayName, User } from '../lib/utils/user-display';
 
 export default function Home() {

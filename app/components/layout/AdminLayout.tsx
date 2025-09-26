@@ -32,6 +32,22 @@ const menuItems: MenuItem[] = [
     icon: '🏠'
   },
   {
+    id: 'catalog',
+    label: 'Каталог товаров',
+    href: '/admin/catalog',
+    icon: '📚',
+    children: [
+      { id: 'catalog-tree', label: 'Дерево каталога', href: '/admin/catalog', icon: '🌳' },
+      { id: 'catalog-properties', label: 'Свойства товаров', href: '/admin/catalog/properties', icon: '🏷️' },
+      { id: 'catalog-properties-moderate', label: 'Модерация свойств', href: '/admin/catalog/properties/moderate', icon: '✅' },
+      { id: 'catalog-properties-assignments', label: 'Назначение свойств', href: '/admin/catalog/properties/assignments', icon: '🔗' },
+      { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import', icon: '📥' },
+      { id: 'catalog-export', label: 'Настройки экспорта', href: '/admin/catalog/export', icon: '📤' },
+      { id: 'catalog-frontend', label: 'Категории фронта', href: '/admin/catalog/frontend-categories', icon: '🌐' },
+      { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products', icon: '📦' }
+    ]
+  },
+  {
     id: 'users',
     label: 'Пользователи',
     href: '/admin/users',
@@ -39,7 +55,7 @@ const menuItems: MenuItem[] = [
   },
   {
     id: 'categories',
-    label: 'Категории',
+    label: 'Категории фронта',
     href: '/admin/categories',
     icon: '📁',
     children: [
