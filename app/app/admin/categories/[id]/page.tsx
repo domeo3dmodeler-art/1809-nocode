@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '../../../../components/ui';
+import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '../../../../components/ui/index';
 
 interface Category {
   id: string;

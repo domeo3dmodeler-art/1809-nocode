@@ -107,6 +107,17 @@ model ImportTemplate {
   @@map("import_templates")
 }
 
+model ConstructorConfiguration {
+  id            String   @id @default(cuid())
+  categoryId    String
+  name          String
+  configuration String   // JSON configuration of the constructor
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("constructor_configurations")
+}
+
 model ExportSetting {
   id                  String          @id @default(cuid())
   catalog_category_id String

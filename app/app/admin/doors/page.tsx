@@ -4,7 +4,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Button, Card } from '../../components/ui';
+import { Button, Card } from '../../components/ui/index';
 
 export default function DoorsAdminPage() {
   return (

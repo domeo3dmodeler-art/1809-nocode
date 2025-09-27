@@ -273,11 +273,11 @@ export async function POST(request: NextRequest) {
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
     // Возвращаем файл
-    const headers = new Headers();
-    headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    headers.set('Content-Disposition', `attachment; filename="${documentTitles[export_type]}.xlsx"`);
+    const responseHeaders = new Headers();
+    responseHeaders.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    responseHeaders.set('Content-Disposition', `attachment; filename="${documentTitles[export_type]}.xlsx"`);
 
-    return new NextResponse(buffer, { headers });
+    return new NextResponse(buffer, { headers: responseHeaders });
 
   } catch (error) {
     console.error('Error exporting document:', error);

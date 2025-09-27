@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, Button } from '../ui';
+// import Constructor from '../constructor/Constructor';
 
 interface CategoryBuilderProps {
   categoryData: any;
@@ -12,7 +13,7 @@ export default function CategoryBuilder({
   categoryData, 
   onComplete 
 }: CategoryBuilderProps) {
-  const [components, setComponents] = useState([]);
+  const [showConstructor, setShowConstructor] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -21,7 +22,7 @@ export default function CategoryBuilder({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: categoryData?.id,
-          template: { name: 'Basic Template', components: [] }
+          template: { name: 'Advanced Template', components: [] }
         }),
       });
 
@@ -33,21 +34,83 @@ export default function CategoryBuilder({
     }
   };
 
+  if (showConstructor) {
+    return (
+      <div className="h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🚧</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Конструктор в разработке
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Профессиональный drag & drop конструктор будет доступен в ближайшее время
+          </p>
+          <button
+            onClick={() => setShowConstructor(false)}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Вернуться
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900">Конструктор категории</h2>
-        <Button onClick={handleSave} variant="primary">
-          Сохранить
-        </Button>
+        <div className="flex space-x-3">
+          <Button 
+            onClick={() => setShowConstructor(true)} 
+            variant="primary"
+          >
+            Открыть конструктор
+          </Button>
+          <Button onClick={handleSave} variant="secondary">
+            Сохранить
+          </Button>
+        </div>
       </div>
       
-      <div className="bg-gray-100 p-8 rounded-lg">
-        <div className="text-center text-gray-500">
-          <div className="text-4xl mb-4">🎨</div>
-          <h3 className="text-xl font-medium mb-2">Профессиональный конструктор</h3>
-          <p className="text-sm">Здесь будет профессиональный drag & drop конструктор</p>
-          <p className="text-sm mt-2">С компонентами: сетка товаров, фильтры, поиск, корзина</p>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-8 rounded-lg border-2 border-dashed border-blue-300">
+        <div className="text-center">
+          <div className="text-6xl mb-6">🎨</div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">
+            Профессиональный No-Code конструктор
+          </h3>
+          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+            Создавайте уникальные конфигураторы товаров с помощью drag & drop интерфейса. 
+            Без программирования, с профессиональными результатами.
+          </p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🛍️</div>
+              <div className="text-sm font-medium">Сетка товаров</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🔍</div>
+              <div className="text-sm font-medium">Фильтры</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">🛒</div>
+              <div className="text-sm font-medium">Корзина</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="text-2xl mb-2">💰</div>
+              <div className="text-sm font-medium">Калькулятор</div>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => setShowConstructor(true)} 
+            variant="primary"
+            size="lg"
+            className="text-lg px-8 py-3"
+          >
+            🚀 Запустить конструктор
+          </Button>
         </div>
       </div>
     </Card>
