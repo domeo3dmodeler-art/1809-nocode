@@ -1,4 +1,4 @@
-import './globals.css'
+import '../globals.css'
 import React from 'react'
 export const metadata = { title: 'Domeo', description: 'No‑Code Calculators MVP' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {

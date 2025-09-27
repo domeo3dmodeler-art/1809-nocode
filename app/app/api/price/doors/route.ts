@@ -1,63 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-
-type Sel = {
-  model?: string; finish?: string; color?: string; type?: string;
-  width?: number; height?: number;
-  hardware_kit?: { id: string } | undefined;
-  handle?: { id: string } | undefined;
-};
+import { mockDoorsData } from "@/lib/mock-data";
 
 export async function POST(req: NextRequest) {
-  const { selection } = await req.json().catch(()=>({ selection: {} as Sel }));
-  const s: Sel = selection || {};
-  if(!s.model || !s.finish || !s.color || !s.type || !s.width || !s.height){
-    return NextResponse.json({ ok:false, error:"incomplete selection" }, { status: 400 });
-  }
+  try {
+    const body = await req.json();
+    const { selection } = body;
 
-  const prod = (await prisma.$queryRaw<any[]>`
-    SELECT rrc_price, sku_1c
-    FROM doors_catalog
-    WHERE model=${s.model} AND finish=${s.finish} AND color=${s.color}
-      AND type=${s.type} AND width=${s.width} AND height=${s.height}
-    LIMIT 1
-  `)[0];
-
-  if(!prod) return NextResponse.json({ ok:false, error:"not found" }, { status: 404 });
-
-  const base = Number(prod.rrc_price||0);
-  const breakdown: { label:string; amount:number }[] = [];
-  let total = base;
-
-  if(s.hardware_kit?.id){
-    const kit = (await prisma.$queryRaw<any[]>`
-      SELECT name, price_rrc FROM doors_kits WHERE id=${s.hardware_kit.id} LIMIT 1
-    `)[0];
-    if(kit){
-      const add = Number(kit.price_rrc||0);
-      breakdown.push({ label: `Комплект: ${kit.name}`, amount: add });
-      total += add;
+    if (!selection) {
+      return NextResponse.json(
+        { error: "Данные для расчета не предоставлены" },
+        { status: 400 }
+      );
     }
-  }
 
-  if(s.handle?.id){
-    const h = (await prisma.$queryRaw<any[]>`
-      SELECT name, price_opt, COALESCE(price_group_multiplier,1.0) AS mul
-      FROM doors_handles WHERE id=${s.handle.id} LIMIT 1
-    `)[0];
-    if(h){
-      const add = Math.round(Number(h.price_opt||0) * Number(h.mul||1));
-      breakdown.push({ label: `Ручка: ${h.name}`, amount: add });
-      total += add;
+    // Ищем продукт в mock данных
+    const product = mockDoorsData.catalog.find(p => 
+      p.series === selection.model &&
+      p.material === selection.finish &&
+      p.color === selection.color &&
+      p.width_mm === selection.width &&
+      p.height_mm === selection.height
+    );
+
+    if (!product) {
+      return NextResponse.json(
+        { error: "Продукт не найден" },
+        { status: 404 }
+      );
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    currency: "RUB",
-    base,
-    breakdown,
-    total,
-    sku_1c: prod.sku_1c || null,
-  });
+    // Рассчитываем цену
+    let total = product.price_rrc;
+    const breakdown = [
+      { label: "Базовая цена", amount: product.price_rrc }
+    ];
+
+    // Добавляем комплект фурнитуры если выбран
+    if (selection.hardware_kit?.id) {
+      const kit = mockDoorsData.kits.find(k => k.id === selection.hardware_kit.id);
+      if (kit) {
+        total += kit.price_rrc || 0;
+        breakdown.push({ 
+          label: `Комплект: ${kit.name}`, 
+          amount: kit.price_rrc || 0 
+        });
+      }
+    }
+
+    // Добавляем ручку если выбрана
+    if (selection.handle?.id) {
+      const handle = mockDoorsData.handles.find(h => h.id === selection.handle.id);
+      if (handle) {
+        total += handle.price_rrc || 0;
+        breakdown.push({ 
+          label: `Ручка: ${handle.name}`, 
+          amount: handle.price_rrc || 0 
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      currency: "RUB",
+      base: product.price_rrc,
+      breakdown,
+      total: Math.round(total),
+      sku_1c: product.sku
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Ошибка расчета цены" },
+      { status: 500 }
+    );
+  }
 }

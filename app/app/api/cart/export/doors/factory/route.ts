@@ -1,49 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyPricing } from "@/lib/doors/pricing";
-import { toFactoryRows } from "@/lib/doors/factory-map";
-import { buildFactoryXLSX } from "@/lib/xlsx/buildWorkbook";
-
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs"; // exceljs требует nodejs-рантайм
 
 export async function POST(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const format = (url.searchParams.get("format") || "xlsx").toLowerCase();
+    const body = await req.json();
+    const { cart } = body;
 
-    const parsed = await req.json().catch(() => ({} as any));
-    const cart = Array.isArray(parsed?.cart) ? parsed.cart : [];
-    if (!cart.length) {
+    if (!cart || !cart.items || cart.items.length === 0) {
       return NextResponse.json(
-        { type: "about:blank", title: "Empty cart", detail: "Поле cart пусто.", status: 400 },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
-    }
-    if (format !== "xlsx") {
-      return NextResponse.json(
-        { type: "about:blank", title: "Unsupported format", detail: "Factory поддерживает только XLSX.", status: 400 },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
+        { error: "Корзина пуста" },
+        { status: 400 }
       );
     }
 
-    const priced = applyPricing(cart);
-    const rows = toFactoryRows(priced);
+    // Генерируем CSV для заказа на фабрику
+    const header = [
+      "N",
+      "Supplier",
+      "Collection", 
+      "SupplierItemName",
+      "SupplierColorFinish",
+      "Width",
+      "Height",
+      "HardwareKit",
+      "OptPrice",
+      "RetailPrice",
+      "Qty",
+      "SumOpt",
+      "SumRetail"
+    ];
 
-    const buf = await buildFactoryXLSX(rows);
-    const safeNum = (parsed?.doc?.number || "factory").toString().replace(/[^0-9A-Za-z._-]+/g, "_");
-    const date = new Date().toISOString().slice(0, 10);
+    const lines = [header.join(",")];
 
-    return new NextResponse(buf, {
+    cart.items.forEach((item: any, index: number) => {
+      const optPrice = Math.round(item.unitPrice * 0.65); // Примерная оптовая цена
+      const retailPrice = item.unitPrice;
+      const sumOpt = optPrice * item.qty;
+      const sumRetail = retailPrice * item.qty;
+
+      const line = [
+        String(index + 1),
+        "Supplier1", // Демо данные
+        "Collection A",
+        item.model,
+        `${item.color || ""}/${item.finish || ""}`,
+        String(item.width || ""),
+        String(item.height || ""),
+        item.hardwareKitId || "",
+        optPrice.toFixed(2),
+        retailPrice.toFixed(2),
+        String(item.qty),
+        sumOpt.toFixed(2),
+        sumRetail.toFixed(2)
+      ].join(",");
+
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+
+    return new Response(csv, {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Domeo_factory_${safeNum}_${date}.xlsx"`,
-        "Cache-Control": "no-store",
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="factory_order.csv"',
       },
     });
-  } catch (e: any) {
+  } catch (error) {
     return NextResponse.json(
-      { type: "about:blank", title: "Export error (Factory)", detail: e?.message ?? "unknown", status: 500 },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { error: "Ошибка генерации заказа на фабрику" },
+      { status: 500 }
     );
   }
 }

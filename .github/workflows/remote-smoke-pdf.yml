@@ -9,52 +9,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 7
     env:
-      BASE_URL: ${{ secrets.DEV_BASE_URL }}   # напр. http://89.169.189.66
-      TOKEN:    ${{ secrets.SMOKE_TOKEN }}    # smoke (для /api/admin/ping)
+      BASE_URL: ${{ secrets.DEV_BASE_URL }}
+      TOKEN:    ${{ secrets.SMOKE_TOKEN }}
       CART: >-
-        {"cart":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","rrc_price":22900,"qty":1}]}
+        {"cart":{"items":[{"model":"PO Base 1/1","width":800,"height":2000,"color":"Белый","qty":1}]}}
     steps:
       - name: Health 204
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
-          echo "health: $code"
           test "$code" = "204"
 
       - name: Admin ping 200
         run: |
-          code=$(curl -sS -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}" "$BASE_URL/api/admin/ping")
-          echo "admin/ping: $code"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/admin/ping")
           test "$code" = "200"
 
       - name: KP PDF
         run: |
-          curl -sS -X POST \
-               -H 'Content-Type: application/json' \
-               -d "$CART" \
-               "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
-               -D /tmp/h -o /tmp/b || true
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[KP] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
-          grep -qi '^HTTP/1\.[01] 200' /tmp/h
-          grep -qi 'content-type:.*application/pdf' /tmp/h
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/kp?format=pdf" \
+            | grep -qi 'application/pdf'
 
       - name: Invoice PDF
         run: |
-          curl -sS -X POST \
-               -H 'Content-Type: application/json' \
-               -d "$CART" \
-               "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
-               -D /tmp/h -o /tmp/b || true
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[INVOICE] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
-          grep -qi '^HTTP/1\.[01] 200' /tmp/h
-          grep -qi 'content-type:.*application/pdf' /tmp/h
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/invoice?format=pdf" \
+            | grep -qi 'application/pdf'
 
       - name: Factory XLSX
         run: |
-          curl -sS -X POST \
-               -H 'Content-Type: application/json' \
-               -d "$CART" \
-               "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
-               -D /tmp/h -o /tmp/b || true
-          awk 'BEGIN{RS="\r\n\r\n";FS="\r\n"} NR==1{print "[FACTORY] " $1; for(i=2;i<=NF;i++) print $i}' /tmp/h
-          grep -qi '^HTTP/1\.[01] 200' /tmp/h
-          grep -Eqi 'content-type:.*(spreadsheetml|application/vnd.openxmlformats)' /tmp/h
+          curl -fsSI -X POST -H 'Content-Type: application/json' \
+            -d "$CART" "$BASE_URL/api/cart/export/doors/factory?format=xlsx" \
+            | grep -Ei 'spreadsheetml|application/vnd.openxmlformats'
