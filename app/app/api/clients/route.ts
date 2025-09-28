@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         where,
         skip: offset,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
         include: {
           _count: {
             select: {

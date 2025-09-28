@@ -158,26 +158,20 @@ export default function CanvasArea() {
           }}
         >
           {/* Элементы */}
-          {elements.map((element) => (
+          {elements && elements.length > 0 ? elements.map((element) => (
             <ElementRenderer
               key={element.id}
               element={element}
               isSelected={selectedElementId === element.id}
             />
-          ))}
-
-          {/* Подсказка при пустом канвасе */}
-          {elements.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <div className="text-6xl mb-4">🎨</div>
-                <h3 className="text-xl font-medium mb-2">Начните создавать</h3>
-                <p className="text-sm">
-                  Перетащите элементы из панели слева или кликните по ним
-                </p>
-              </div>
+          )) : (
+            <div className="text-center text-gray-500 py-12">
+              <div className="text-4xl mb-4">🎨</div>
+              <p className="text-lg font-medium mb-2">Пустой холст</p>
+              <p className="text-sm">Перетащите элементы из панели слева</p>
             </div>
           )}
+
         </div>
       </div>
     </div>
