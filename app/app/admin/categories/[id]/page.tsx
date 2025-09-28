@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '../../../../components/ui/index';
+import { Button, Card, Input, Select, Checkbox, Alert, LoadingSpinner } from '@/components/ui';
 
 interface Category {
   id: string;
@@ -623,7 +623,7 @@ export default function CategoryEditorPage() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Правая колонка - Импорт прайса и Фото */}
@@ -907,10 +907,10 @@ export default function CategoryEditorPage() {
                         Закрыть отчет
                       </Button>
                     </div>
-                  </div>
+                  </Card>
                 )}
               </div>
-            </div>
+            </Card>
             {/* Загрузка фото */}
             <Card variant="base" padding="md">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Загрузка фото</h3>
@@ -959,7 +959,7 @@ export default function CategoryEditorPage() {
                   Загрузить фото
                 </Button>
               </div>
-            </div>
+            </Card>
 
             {/* Галерея фото */}
             <Card variant="base" padding="md">
@@ -988,7 +988,7 @@ export default function CategoryEditorPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
         </div>
       </main>

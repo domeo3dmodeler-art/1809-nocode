@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
-// GET /api/configurator/category-links/[id] - Получить связь по ID
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const link = await prisma.configuratorCategoryLink.findUnique({
+    const link = await prisma.categoryLink.findUnique({
       where: { id: params.id },
       include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        },
         catalog_category: {
           select: {
             id: true,
@@ -27,20 +17,11 @@ export async function GET(
             path: true
           }
         },
-        hierarchies: {
-          include: {
-            parent_category: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            child_category: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
+        configurator_category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
           }
         }
       }
@@ -48,7 +29,7 @@ export async function GET(
 
     if (!link) {
       return NextResponse.json(
-        { success: false, message: 'Связь не найдена' },
+        { error: 'Category link not found' },
         { status: 404 }
       );
     }
@@ -57,49 +38,43 @@ export async function GET(
       success: true,
       link
     });
+
   } catch (error) {
     console.error('Error fetching category link:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при получении связи категорий' },
+      { error: 'Failed to fetch category link' },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/configurator/category-links/[id] - Обновить связь
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
-    const { 
-      link_type, 
-      display_order, 
-      is_required, 
-      pricing_type, 
-      formula, 
-      export_as_separate 
-    } = body;
+    const data = await request.json();
+    
+    const {
+      link_type,
+      display_order,
+      is_required,
+      pricing_type,
+      formula,
+      export_as_separate
+    } = data;
 
-    const link = await prisma.configuratorCategoryLink.update({
+    const link = await prisma.categoryLink.update({
       where: { id: params.id },
       data: {
-        link_type,
-        display_order,
-        is_required,
-        pricing_type,
-        formula,
-        export_as_separate
+        ...(link_type && { link_type }),
+        ...(display_order !== undefined && { display_order }),
+        ...(is_required !== undefined && { is_required }),
+        ...(pricing_type && { pricing_type }),
+        ...(formula !== undefined && { formula }),
+        ...(export_as_separate !== undefined && { export_as_separate })
       },
       include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        },
         catalog_category: {
           select: {
             id: true,
@@ -115,33 +90,34 @@ export async function PUT(
       success: true,
       link
     });
+
   } catch (error) {
     console.error('Error updating category link:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при обновлении связи категорий' },
+      { error: 'Failed to update category link' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/configurator/category-links/[id] - Удалить связь
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.configuratorCategoryLink.delete({
+    await prisma.categoryLink.delete({
       where: { id: params.id }
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Связь удалена'
+      message: 'Category link deleted successfully'
     });
+
   } catch (error) {
     console.error('Error deleting category link:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при удалении связи категорий' },
+      { error: 'Failed to delete category link' },
       { status: 500 }
     );
   }

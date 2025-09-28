@@ -24,17 +24,24 @@ model User {
 }
 
 model Client {
-  id         String   @id @default(cuid())
-  name       String
-  email      String?
-  phone      String?
-  company    String?
-  address    String?
-  tax_number String?
-  notes      String?
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  middleName    String?
+  phone         String
+  address       String
+  objectId      String   // ID объекта
+  customFields  String   @default("{}") // JSON с произвольными полями
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Связи с документами
+  quotes        Quote[]
+  invoices      Invoice[]
+  orders        Order[]
+  documents     Document[]
+  notifications Notification[]
 
   @@map("clients")
 }
@@ -116,6 +123,22 @@ model ConstructorConfiguration {
   updatedAt     DateTime @updatedAt
 
   @@map("constructor_configurations")
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  clientId      String
+  type          String   // 'quote', 'invoice', 'order'
+  status        String   @default("draft") // 'draft', 'sent', 'paid', 'cancelled'
+  content       String   // JSON содержимого документа
+  documentData  String?  // JSON дополнительных данных
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Связи
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
 }
 
 model ExportSetting {
@@ -208,6 +231,9 @@ model Quote {
   terms        String?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
+  
+  // Связи
+  client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
 
   @@map("quotes")
 }
@@ -240,6 +266,9 @@ model Order {
   notes         String?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
+  
+  // Связи
+  client        Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
 
   @@map("orders")
 }
@@ -272,6 +301,9 @@ model Invoice {
   notes        String?
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
+  
+  // Связи
+  client       Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
 
   @@map("invoices")
 }

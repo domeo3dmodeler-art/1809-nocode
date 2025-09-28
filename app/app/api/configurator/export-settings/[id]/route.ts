@@ -1,119 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
-// GET /api/configurator/export-settings/[id] - Получить настройку экспорта по ID
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const setting = await prisma.exportSetting.findUnique({
-      where: { id: params.id },
-      include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        }
-      }
+      where: { id: params.id }
     });
 
     if (!setting) {
       return NextResponse.json(
-        { success: false, message: 'Настройка экспорта не найдена' },
+        { error: 'Export setting not found' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      setting
+      setting: {
+        ...setting,
+        template_config: JSON.parse(setting.template_config)
+      }
     });
+
   } catch (error) {
     console.error('Error fetching export setting:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при получении настройки экспорта' },
+      { error: 'Failed to fetch export setting' },
       { status: 500 }
     );
   }
 }
 
-// PUT /api/configurator/export-settings/[id] - Обновить настройку экспорта
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
-    const {
-      name,
-      document_type,
-      configurator_category_id,
-      fields_config,
-      display_options,
-      header_config,
-      footer_config
-    } = body;
-
-    // Проверяем уникальность названия (кроме текущей настройки)
-    if (name) {
-      const existingSetting = await prisma.exportSetting.findFirst({
-        where: {
-          name,
-          configurator_category_id,
-          document_type,
-          id: { not: params.id }
-        }
-      });
-
-      if (existingSetting) {
-        return NextResponse.json(
-          { success: false, message: 'Настройка с таким названием уже существует для данной категории и типа документа' },
-          { status: 400 }
-        );
-      }
-    }
+    const data = await request.json();
+    
+    const { name, document_type, template_config } = data;
 
     const setting = await prisma.exportSetting.update({
       where: { id: params.id },
       data: {
-        name,
-        document_type,
-        configurator_category_id,
-        fields_config: fields_config ? JSON.stringify(fields_config) : undefined,
-        display_options: display_options ? JSON.stringify(display_options) : undefined,
-        header_config: header_config ? JSON.stringify(header_config) : undefined,
-        footer_config: footer_config ? JSON.stringify(footer_config) : undefined
-      },
-      include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        }
+        ...(name && { name }),
+        ...(document_type && { document_type }),
+        ...(template_config && { template_config: JSON.stringify(template_config) })
       }
     });
 
     return NextResponse.json({
       success: true,
-      setting
+      setting: {
+        ...setting,
+        template_config: JSON.parse(setting.template_config)
+      }
     });
+
   } catch (error) {
     console.error('Error updating export setting:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при обновлении настройки экспорта' },
+      { error: 'Failed to update export setting' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/configurator/export-settings/[id] - Удалить настройку экспорта
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -125,12 +80,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Настройка экспорта удалена'
+      message: 'Export setting deleted successfully'
     });
+
   } catch (error) {
     console.error('Error deleting export setting:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при удалении настройки экспорта' },
+      { error: 'Failed to delete export setting' },
       { status: 500 }
     );
   }

@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
-
-// GET /api/configurator/category-links - Получить все связи категорий
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const configuratorCategoryId = searchParams.get('configuratorCategoryId');
 
-    const where = configuratorCategoryId ? { configurator_category_id: configuratorCategoryId } : {};
+    if (!configuratorCategoryId) {
+      return NextResponse.json(
+        { error: 'configuratorCategoryId is required' },
+        { status: 400 }
+      );
+    }
 
-    const links = await prisma.configuratorCategoryLink.findMany({
-      where,
+    const links = await prisma.categoryLink.findMany({
+      where: { configurator_category_id: configuratorCategoryId },
       include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        },
         catalog_category: {
           select: {
             id: true,
@@ -28,82 +23,81 @@ export async function GET(request: NextRequest) {
             level: true,
             path: true
           }
-        },
-        hierarchies: {
-          include: {
-            parent_category: {
-              select: {
-                id: true,
-                name: true
-              }
-            },
-            child_category: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
         }
       },
-      orderBy: {
-        display_order: 'asc'
-      }
+      orderBy: { display_order: 'asc' }
     });
 
     return NextResponse.json({
       success: true,
       links
     });
+
   } catch (error) {
     console.error('Error fetching category links:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при получении связей категорий' },
+      { error: 'Failed to fetch category links' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/configurator/category-links - Создать новую связь категорий
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      configurator_category_id, 
-      catalog_category_id, 
-      link_type, 
-      display_order, 
-      is_required, 
-      pricing_type, 
-      formula, 
-      export_as_separate 
-    } = body;
+    const data = await request.json();
+    
+    const {
+      configurator_category_id,
+      catalog_category_id,
+      link_type,
+      display_order,
+      is_required,
+      pricing_type,
+      formula,
+      export_as_separate
+    } = data;
 
     if (!configurator_category_id || !catalog_category_id || !link_type) {
       return NextResponse.json(
-        { success: false, message: 'Не указаны обязательные поля' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
     // Проверяем, что связь не существует
-    const existingLink = await prisma.configuratorCategoryLink.findUnique({
+    const existingLink = await prisma.categoryLink.findFirst({
       where: {
-        configurator_category_id_catalog_category_id: {
-          configurator_category_id,
-          catalog_category_id
-        }
+        configurator_category_id,
+        catalog_category_id,
+        link_type
       }
     });
 
     if (existingLink) {
       return NextResponse.json(
-        { success: false, message: 'Связь уже существует' },
+        { error: 'Link already exists' },
         { status: 400 }
       );
     }
 
-    const link = await prisma.configuratorCategoryLink.create({
+    // Проверяем, что не более одной основной категории
+    if (link_type === 'main') {
+      const existingMainLink = await prisma.categoryLink.findFirst({
+        where: {
+          configurator_category_id,
+          link_type: 'main'
+        }
+      });
+
+      if (existingMainLink) {
+        return NextResponse.json(
+          { error: 'Only one main category is allowed per configurator' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const link = await prisma.categoryLink.create({
       data: {
         configurator_category_id,
         catalog_category_id,
@@ -115,13 +109,6 @@ export async function POST(request: NextRequest) {
         export_as_separate: export_as_separate !== undefined ? export_as_separate : true
       },
       include: {
-        configurator_category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        },
         catalog_category: {
           select: {
             id: true,
@@ -137,11 +124,13 @@ export async function POST(request: NextRequest) {
       success: true,
       link
     });
+
   } catch (error) {
     console.error('Error creating category link:', error);
     return NextResponse.json(
-      { success: false, message: 'Ошибка при создании связи категорий' },
+      { error: 'Failed to create category link' },
       { status: 500 }
     );
   }
 }
+

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Badge } from '../ui';
-import { ShoppingCart, Plus, Minus, Trash2, Package, Settings, Calculator, FileText } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Package, Settings, Calculator, FileText, User } from 'lucide-react';
+import ExportToClient from '../cart/ExportToClient';
 
 interface ConfiguratorCategory {
   id: string;
@@ -87,6 +88,7 @@ export default function ConfiguratorCart({
   const [viewMode, setViewMode] = useState<'separated' | 'grouped'>('separated');
   const [exportSettings, setExportSettings] = useState<ExportSetting[]>([]);
   const [selectedExportSettings, setSelectedExportSettings] = useState<Record<string, string>>({});
+  const [showExportToClient, setShowExportToClient] = useState(false);
 
   useEffect(() => {
     if (showGrouped) {
@@ -440,7 +442,15 @@ export default function ConfiguratorCart({
         
         <div className="space-y-3">
           {/* Кнопки экспорта */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              onClick={() => setShowExportToClient(true)}
+              className="flex items-center space-x-1"
+            >
+              <User className="h-4 w-4" />
+              <span>Сохранить в заказчика</span>
+            </Button>
             <Button
               onClick={() => onExport('quote', selectedExportSettings.quote)}
               className="flex items-center space-x-1"
@@ -504,6 +514,24 @@ export default function ConfiguratorCart({
           )}
         </div>
       </Card>
+
+      {/* Export to Client Modal */}
+      {showExportToClient && (
+        <ExportToClient
+          cartItems={cartItems.map(item => ({
+            id: item.id,
+            name: item.product.name,
+            price: item.calculated_price || item.product.price,
+            quantity: item.quantity,
+            productId: item.product.id
+          }))}
+          onSuccess={() => {
+            onClearCart();
+            setShowExportToClient(false);
+          }}
+          onClose={() => setShowExportToClient(false)}
+        />
+      )}
     </div>
   );
 }

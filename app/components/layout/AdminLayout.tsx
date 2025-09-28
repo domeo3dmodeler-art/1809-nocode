@@ -48,10 +48,20 @@ const menuItems: MenuItem[] = [
     children: [
       { id: 'configurator-list', label: 'Список категорий', href: '/admin/configurator' },
       { id: 'configurator-create', label: 'Создать категорию', href: '/admin/configurator/create' },
-              { id: 'configurator-links', label: 'Связи категорий', href: '/admin/configurator/category-links' },
-              { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import' },
-              { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export-settings' }
+      { id: 'configurator-links', label: 'Связи категорий', href: '/admin/configurator/category-links' },
+      { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import' },
+      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export-settings' }
     ]
+  },
+  {
+    id: 'clients',
+    label: 'Заказчики',
+    href: '/admin/clients'
+  },
+  {
+    id: 'test-configurator',
+    label: 'Тест конфигуратора',
+    href: '/doors-configurator'
   },
   {
     id: 'users',

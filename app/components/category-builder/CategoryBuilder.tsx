@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, Button } from '../ui';
-// import Constructor from '../constructor/Constructor';
+import Constructor from '../constructor/Constructor';
 
 interface CategoryBuilderProps {
   categoryData: any;
@@ -34,27 +34,13 @@ export default function CategoryBuilder({
     }
   };
 
-  if (showConstructor) {
-    return (
-      <div className="h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🚧</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Конструктор в разработке
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Профессиональный drag & drop конструктор будет доступен в ближайшее время
-          </p>
-          <button
-            onClick={() => setShowConstructor(false)}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Вернуться
-          </button>
-        </div>
-      </div>
-    );
-  }
+      if (showConstructor) {
+        return (
+          <div className="h-screen">
+            <Constructor />
+          </div>
+        );
+      }
 
   return (
     <Card className="p-6">
