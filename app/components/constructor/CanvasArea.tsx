@@ -157,6 +157,22 @@ export default function CanvasArea() {
             borderRadius: '8px'
           }}
         >
+          {/* Отладочная информация */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white text-xs p-2 rounded z-50">
+              Элементов: {elements?.length || 0}
+              {elements && elements.length > 0 && (
+                <div className="mt-1">
+                  {elements.map(el => (
+                    <div key={el.id} className="text-xs">
+                      {el.component} ({el.position.x}, {el.position.y})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Элементы */}
           {elements && elements.length > 0 ? elements.map((element) => (
             <ElementRenderer
@@ -168,7 +184,7 @@ export default function CanvasArea() {
             <div className="text-center text-gray-500 py-12">
               <div className="text-4xl mb-4">🎨</div>
               <p className="text-lg font-medium mb-2">Пустой холст</p>
-              <p className="text-sm">Перетащите элементы из панели слева</p>
+              <p className="text-sm">Перетащите элементы из панели слева или кликните по ним</p>
             </div>
           )}
 

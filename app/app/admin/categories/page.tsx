@@ -16,7 +16,6 @@ type Category = {
   name: string; 
   slug: string;
   description?: string; 
-  icon?: string; 
   parentId?: string;
   level: number;
   sortOrder: number;
@@ -142,27 +141,61 @@ export default function CategoriesPage() {
         <div className="space-y-8">
           {/* Заголовок */}
           <div className="flex justify-between items-center">
-    <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Категории товаров</h1>
-              <p className="text-gray-600">Управляйте группами товаров и их свойствами</p>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Категории конфигуратора</h1>
+              <p className="text-gray-600">Управление категориями для пользователей</p>
             </div>
-                  <Link
-                    href="/admin/categories/builder"
-                    className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
-                  >
-                    + Создать категорию
-                  </Link>
+            <Link
+              href="/admin/categories/builder"
+              className="px-6 py-3 bg-black text-white rounded-none hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
+            >
+              + Создать категорию
+            </Link>
+          </div>
+
+          {/* Поиск и статистика */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Поиск категорий..."
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="text-sm text-gray-500">
+              {categories.length} категорий конфигуратора
+            </div>
           </div>
 
           {/* Список категорий */}
           <div className="space-y-6">
-            {categories.map(category => (
+            {categories.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📋</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Категории конфигуратора не созданы</h3>
+                <p className="text-gray-600 mb-6">Создайте первую категорию для начала работы</p>
+                <Link
+                  href="/admin/categories/builder"
+                  className="inline-flex items-center px-6 py-3 bg-black text-white rounded-lg hover:bg-yellow-400 hover:text-black transition-all duration-200 font-medium"
+                >
+                  + Создать первую категорию
+                </Link>
+              </div>
+            ) : (
+              categories.map(category => (
               <div key={category.id} className="bg-white rounded-xl shadow-md border border-gray-200">
                 {/* Основная категория */}
                 <div className="p-6">
                   <div className="flex items-center mb-4">
                     <div className="bg-gray-100 p-3 rounded-lg mr-4">
-                      <span className="text-3xl">{category.icon || '📦'}</span>
+                      <span className="text-3xl">📦</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
@@ -190,7 +223,7 @@ export default function CategoriesPage() {
                         🎨 Конфигуратор
                       </Link>
                       <Link
-                        href={`/admin/categories/${category.id}`}
+                        href={`/admin/categories/builder?id=${category.id}`}
                         className="px-3 py-2 bg-transparent border border-black text-black text-sm rounded-none hover:bg-black hover:text-white text-center transition-all duration-200 font-medium"
                       >
                         Редактировать
@@ -265,7 +298,7 @@ export default function CategoriesPage() {
                         <div key={subcategory.id} className="bg-white rounded-lg p-4 border border-gray-200">
                           <div className="flex items-center mb-3">
                             <div className="bg-gray-100 p-2 rounded-lg mr-3">
-                              <span className="text-xl">{subcategory.icon}</span>
+                              <span className="text-xl">📦</span>
                             </div>
                             <div className="flex-1">
                               <h5 className="font-semibold text-gray-900">{subcategory.name}</h5>
@@ -314,7 +347,8 @@ export default function CategoriesPage() {
                   </div>
                 )}
               </div>
-            ))}
+              ))
+            )}
           </div>
 
         </div>

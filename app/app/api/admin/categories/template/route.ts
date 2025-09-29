@@ -17,12 +17,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Обновляем категорию с шаблоном конфигуратора
-    const updatedCategory = await prisma.category.update({
+    const updatedCategory = await prisma.frontendCategory.update({
       where: { id: categoryId },
       data: {
-        configurator_config: JSON.stringify(template),
-        page_template: template.id,
-        custom_layout: JSON.stringify(template.layout),
+        display_config: JSON.stringify(template),
         updated_at: new Date()
       }
     });
@@ -58,7 +56,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const category = await prisma.category.findUnique({
+    const category = await prisma.frontendCategory.findUnique({
       where: { id: categoryId }
     });
 
@@ -71,9 +69,9 @@ export async function GET(req: NextRequest) {
 
     let template = null;
     
-    if (category.configurator_config) {
+    if (category.display_config) {
       try {
-        template = JSON.parse(category.configurator_config);
+        template = JSON.parse(category.display_config);
       } catch (error) {
         console.error('Error parsing template:', error);
       }

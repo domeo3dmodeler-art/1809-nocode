@@ -53,10 +53,15 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
         return (
           <div 
             style={{ 
-              fontSize: element.props.fontSize, 
-              color: element.props.color,
+              fontSize: element.props.fontSize || '16px', 
+              color: element.props.color || '#333333',
+              padding: '8px',
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
               ...element.styles 
             }}
+            className="w-full"
           >
             {element.props.content || 'Напишите ваш текст здесь'}
           </div>
@@ -64,16 +69,26 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
         
       case 'ImageBlock':
         return (
-          <img 
-            src={element.props.src || '/placeholder.jpg'} 
-            alt={element.props.alt || 'Изображение'} 
-            style={{ 
-              width: element.props.width || '100%', 
-              height: element.props.height || 'auto',
-              ...element.styles 
-            }}
-            className="object-cover"
-          />
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded">
+            {element.props.src && element.props.src !== '/placeholder.jpg' ? (
+              <img 
+                src={element.props.src} 
+                alt={element.props.alt || 'Изображение'} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%',
+                  objectFit: 'cover',
+                  ...element.styles 
+                }}
+                className="rounded"
+              />
+            ) : (
+              <div className="text-gray-400 text-center p-4">
+                <div className="text-2xl mb-2">🖼️</div>
+                <div className="text-sm">Изображение</div>
+              </div>
+            )}
+          </div>
         );
         
       case 'ProductGridBlock':
@@ -160,16 +175,18 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
         
       case 'ButtonBlock':
         return (
-          <button 
-            className={`px-4 py-2 rounded font-medium transition-colors ${
-              element.props.variant === 'primary' 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
-            style={element.styles}
-          >
-            {element.props.text || 'Кнопка'}
-          </button>
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <button 
+              className={`px-4 py-2 rounded font-medium transition-colors min-w-[80px] ${
+                element.props.variant === 'primary' 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
+              style={element.styles}
+            >
+              {element.props.text || 'Кнопка'}
+            </button>
+          </div>
         );
         
       case 'FormBlock':
@@ -294,8 +311,15 @@ const ElementRenderer: React.FC<ElementRendererProps> = ({ element, isSelected =
         height: element.size.height,
         cursor: isSelected ? 'move' : 'pointer',
         zIndex: isSelected ? 10 : 1,
+        minWidth: '100px',
+        minHeight: '40px',
+        border: isSelected ? '3px solid #3b82f6' : '2px dashed #d1d5db',
+        borderRadius: '6px',
+        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.9)',
+        boxShadow: isSelected ? '0 4px 12px rgba(59, 130, 246, 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+        transition: 'all 0.2s ease',
       }}
-      className={`group ${isDragging ? 'z-50' : ''}`}
+      className={`group ${isDragging ? 'z-50 opacity-50' : ''} hover:border-blue-300 hover:shadow-md`}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}

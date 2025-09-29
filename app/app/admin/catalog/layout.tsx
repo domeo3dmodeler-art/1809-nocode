@@ -33,8 +33,8 @@ export default function CatalogLayout({
     }
     if (pathname.includes('/import')) {
       return {
-        title: 'Импорт каталога',
-        subtitle: 'Загрузка дерева категорий из Excel файла'
+        title: 'Импорт товаров',
+        subtitle: 'Загрузка товаров и их свойств из Excel файла'
       };
     }
     if (pathname.includes('/properties/moderate')) {

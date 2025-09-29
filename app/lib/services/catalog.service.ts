@@ -34,19 +34,24 @@ export class CatalogService {
         { level: 'asc' },
         { sort_order: 'asc' },
         { name: 'asc' }
-      ],
-      include: {
-        _count: {
-          select: { products: true }
-        }
-      }
+      ]
     });
 
-    // Добавляем счетчики товаров
-    const categoriesWithCounts = categories.map(category => ({
-      ...category,
-      products_count: category._count.products
-    }));
+    // Подсчитываем товары для каждой категории напрямую из базы данных
+    const categoriesWithCounts = await Promise.all(
+      categories.map(async (category) => {
+        const productsCount = await prisma.product.count({
+          where: {
+            catalog_category_id: category.id
+          }
+        });
+        
+        return {
+          ...category,
+          products_count: productsCount
+        };
+      })
+    );
 
     // Строим иерархическое дерево
     const categoryMap = new Map<string, any>();
@@ -74,6 +79,27 @@ export class CatalogService {
       }
     });
 
+    // Функция для суммирования товаров в подкатегориях
+    const calculateTotalProducts = (category: any): number => {
+      let total = category.products_count || 0;
+      if (category.subcategories && category.subcategories.length > 0) {
+        category.subcategories.forEach((subcategory: any) => {
+          total += calculateTotalProducts(subcategory);
+        });
+      }
+      return total;
+    };
+
+    // Обновляем счетчики товаров с учетом подкатегорий
+    const updateCategoryCounts = (category: any) => {
+      if (category.subcategories && category.subcategories.length > 0) {
+        category.subcategories.forEach(updateCategoryCounts);
+        category.products_count = calculateTotalProducts(category);
+      }
+    };
+
+    rootCategories.forEach(updateCategoryCounts);
+
     return {
       categories: rootCategories,
       total_count: categories.length
@@ -97,9 +123,6 @@ export class CatalogService {
           orderBy: { sort_order: 'asc' }
         },
         parent: true,
-        _count: {
-          select: { products: true }
-        }
       }
     });
 
@@ -107,7 +130,7 @@ export class CatalogService {
 
     return {
       ...category,
-      products_count: category._count.products
+      products_count: category.products_count || 0
     };
   }
 

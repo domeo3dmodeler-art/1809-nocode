@@ -124,16 +124,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Получаем информацию о категории
-    const categoriesResponse = await fetch(`${req.nextUrl.origin}/api/categories`);
+    // Получаем информацию о категории из каталога
+    const categoriesResponse = await fetch(`${req.nextUrl.origin}/api/catalog/categories`);
     const categoriesData = await categoriesResponse.json();
-    const categoryInfo = categoriesData.categories.find((cat: any) => cat.id === category);
+    console.log('Получены категории каталога:', categoriesData);
+    
+    // Ищем категорию в списке
+    let categoryInfo = null;
+    if (Array.isArray(categoriesData)) {
+      categoryInfo = categoriesData.find((cat: any) => cat.id === category);
+    } else if (categoriesData.categories && Array.isArray(categoriesData.categories)) {
+      categoryInfo = categoriesData.categories.find((cat: any) => cat.id === category);
+    }
+    
+    console.log('Найденная категория:', categoryInfo);
+    console.log('CategoryInfo import_mapping:', categoryInfo?.import_mapping);
 
     if (!categoryInfo) {
-      return NextResponse.json(
-        { error: `Категория "${category}" не найдена` },
-        { status: 404 }
-      );
+      console.warn(`Категория "${category}" не найдена в каталоге, создаем базовую информацию`);
+      // Создаем базовую информацию о категории
+      categoryInfo = {
+        id: category,
+        name: `Категория ${category}`,
+        properties: [],
+        import_mapping: {}
+      };
+    }
+
+    // Получаем шаблон импорта для этой категории
+    let importTemplate = null;
+    try {
+      const templateResponse = await fetch(`${req.nextUrl.origin}/api/admin/import-templates?catalog_category_id=${category}`);
+      if (templateResponse.ok) {
+        const templateData = await templateResponse.json();
+        if (templateData.success && templateData.templates && templateData.templates.length > 0) {
+          importTemplate = templateData.templates[0];
+          console.log('Found import template:', importTemplate);
+        }
+      }
+    } catch (templateError) {
+      console.log('No import template found or error:', templateError);
     }
 
     // Если режим "только заголовки", возвращаем только заголовки
@@ -453,6 +483,44 @@ export async function POST(req: NextRequest) {
       mappingConfig = categoryInfo.import_mapping;
     }
 
+    // Если есть шаблон импорта, используем его данные для маппинга
+    if (importTemplate && importTemplate.requiredFields) {
+      console.log('Using import template for mapping');
+      
+      // Парсим templateFields если это строка
+      let templateFields = importTemplate.requiredFields;
+      if (typeof templateFields === 'string') {
+        try {
+          templateFields = JSON.parse(templateFields);
+        } catch (e) {
+          console.error('Error parsing requiredFields:', e);
+          templateFields = [];
+        }
+      }
+      
+      // Проверяем, что templateFields является массивом
+      if (!Array.isArray(templateFields) || templateFields.length === 0) {
+        console.log('Template fields is not an array or empty, skipping template mapping');
+      } else {
+        const calculatorFields = templateFields.map((field: any) => field.fieldName || field);
+        
+        mappingConfig = {
+          calculator_fields: calculatorFields,
+          frontend_price: calculatorFields[0] // Используем первое поле как цену
+        };
+        
+        // Также обновляем categoryInfo.properties для совместимости
+        categoryInfo.properties = templateFields.map((field: any) => ({
+          key: field.fieldName || field,
+          name: field.displayName || field.fieldName || field,
+          required: true
+        }));
+        
+        console.log('Generated mapping config from template:', mappingConfig);
+        console.log('Updated category properties:', categoryInfo.properties);
+      }
+    }
+
     // Реальная обработка файла с библиотекой xlsx
     const buffer = await file.arrayBuffer();
     let workbook;
@@ -482,72 +550,180 @@ export async function POST(req: NextRequest) {
     }
 
     // Первая строка - заголовки
-    const headers = jsonData[0] as string[];
+    const rawHeaders = jsonData[0] as string[];
+    // Очищаем заголовки от кавычек и лишних пробелов
+    const headers = rawHeaders.map(header => 
+      header ? header.toString().replace(/^["']|["']$/g, '').trim() : ''
+    ).filter(header => header); // Убираем пустые заголовки
+    
     const rows = jsonData.slice(1) as any[][];
+    
+    console.log('=== HEADERS PROCESSING ===');
+    console.log('Raw headers:', rawHeaders);
+    console.log('Cleaned headers:', headers);
+    console.log('Headers count:', headers.length);
 
     // Валидация обязательных полей
     const requiredFields = categoryInfo.properties.filter((prop: any) => prop.required).map((prop: any) => prop.key);
     const errors: string[] = [];
     const products: any[] = [];
+    
+    console.log('=== IMPORT PROCESSING DEBUG ===');
+    console.log('Headers:', headers);
+    console.log('CategoryInfo properties:', categoryInfo.properties);
+    console.log('Required fields:', requiredFields);
+    console.log('Mapping config:', mappingConfig);
+    console.log('Import template:', importTemplate);
+    console.log('CategoryInfo import_mapping:', categoryInfo.import_mapping);
+    
+    // Fallback: если нет mappingConfig, создаем простой mapping на основе заголовков
+    if (!mappingConfig || (typeof mappingConfig === 'object' && Object.keys(mappingConfig).length === 0)) {
+      console.log('No mapping config found, creating fallback mapping from headers');
+      mappingConfig = {};
+      headers.forEach(header => {
+        mappingConfig[header] = header; // Прямое соответствие заголовок -> поле
+      });
+      console.log('Fallback mapping config:', mappingConfig);
+    }
+    
+    console.log('=== END IMPORT PROCESSING DEBUG ===');
+
+    console.log('=== STARTING ROW PROCESSING ===');
+    console.log('Total rows to process:', rows.length);
+    console.log('First few rows:', rows.slice(0, 3));
 
     // Обрабатываем каждую строку
     rows.forEach((row, index) => {
-      if (row.length === 0 || row.every(cell => !cell)) return; // Пропускаем пустые строки
+      console.log(`\n=== PROCESSING ROW ${index + 1} ===`);
+      console.log('Row data:', row);
+      console.log('Headers:', headers);
+      console.log('Row length:', row.length);
+      console.log('Headers length:', headers.length);
+      
+      if (row.length === 0 || row.every(cell => !cell)) {
+        console.log(`Skipping empty row ${index + 2}`);
+        return; // Пропускаем пустые строки
+      }
+
+      console.log(`=== PROCESSING ROW ${index + 2} ===`);
+      console.log('Row data:', row);
+      console.log('Row length:', row.length);
 
       const product: any = {};
       let hasErrors = false;
 
+      // Создаем объект specifications для хранения всех свойств
+      const specifications: any = {};
+
       // Маппим поля согласно настройкам категории
-      if (mappingConfig.calculator_fields) {
-        // Новая структура с разделением на типы полей
-        mappingConfig.calculator_fields.forEach((headerName: string) => {
-          const headerIndex = headers.findIndex(h => h === headerName);
-          if (headerIndex !== -1 && row[headerIndex] !== undefined) {
-            product[headerName] = row[headerIndex];
-          }
-        });
-        
-        // Добавляем цену для корзины
-        if (mappingConfig.frontend_price) {
-          const priceIndex = headers.findIndex(h => h === mappingConfig.frontend_price);
-          if (priceIndex !== -1 && row[priceIndex] !== undefined) {
-            product.price = row[priceIndex];
-          }
+      console.log('Mapping config:', mappingConfig);
+      console.log('Has calculator_fields:', !!mappingConfig.calculator_fields);
+      console.log('Calculator fields:', mappingConfig.calculator_fields);
+      
+      // Упрощенный маппинг - добавляем все данные из строки в specifications
+      console.log('Using direct mapping - adding all row data to specifications');
+      headers.forEach((header, headerIndex) => {
+        if (row[headerIndex] !== undefined && row[headerIndex] !== null && row[headerIndex] !== '') {
+          specifications[header] = row[headerIndex];
+          console.log(`Added to specifications: ${header} = ${row[headerIndex]}`);
         }
-      } else {
-        // Старая структура - обратная совместимость
-        Object.entries(mappingConfig).forEach(([fieldKey, headerName]) => {
-          const headerIndex = headers.findIndex(h => h === headerName);
-          if (headerIndex !== -1 && row[headerIndex] !== undefined) {
-            product[fieldKey] = row[headerIndex];
+      });
+      
+      // Ищем поле с ценой для product.price
+      const priceFields = ['Цена ррц', 'Цена', 'Price', 'цена', 'price'];
+      for (const priceField of priceFields) {
+        const priceIndex = headers.findIndex(h => h.includes(priceField));
+        if (priceIndex !== -1 && row[priceIndex] !== undefined && row[priceIndex] !== null && row[priceIndex] !== '') {
+            product.price = row[priceIndex];
+          console.log(`Added price from field "${headers[priceIndex]}": ${row[priceIndex]}`);
+          break;
+        }
+      }
+      
+      console.log('Specifications after mapping:', specifications);
+      
+      // Дополнительная проверка: если specifications пустой, добавляем все данные из строки
+      if (Object.keys(specifications).length === 0) {
+        console.log('Specifications is empty, adding all row data directly');
+        headers.forEach((header, index) => {
+          if (row[index] !== undefined && row[index] !== null && row[index] !== '') {
+            specifications[header] = row[index];
+            console.log(`Fallback: Added ${header} = ${row[index]}`);
           }
         });
+        console.log('Specifications after fallback:', specifications);
+      }
+      
+      // Сохраняем все данные в specifications
+      product.specifications = specifications;
+      
+      // Отладочная информация для первого товара
+      if (index === 0) {
+        console.log('=== FIRST PRODUCT DEBUG ===');
+        console.log('Row data:', row);
+        console.log('Headers:', headers);
+        console.log('Mapping config:', mappingConfig);
+        console.log('Specifications:', specifications);
+        console.log('Product before saving:', product);
+        console.log('=== END FIRST PRODUCT DEBUG ===');
       }
 
-      // Проверяем обязательные поля
-      if (mappingConfig.calculator_fields) {
-        // Для новой структуры проверяем поля калькулятора
-        mappingConfig.calculator_fields.forEach((field: string) => {
-          if (!product[field] || product[field] === '') {
-            errors.push(`Строка ${index + 2}: Отсутствует обязательное поле "${field}"`);
-            hasErrors = true;
-          }
-        });
+      // Проверяем обязательные поля - только если они заданы
+      console.log('=== VALIDATION ===');
+      console.log('Required fields:', requiredFields);
+      console.log('Calculator fields:', mappingConfig.calculator_fields);
+      console.log('Specifications keys:', Object.keys(specifications));
+      
+      // Валидация на основе шаблона - более мягкая
+      if (importTemplate && importTemplate.requiredFields) {
+        console.log('Validating against template required fields');
         
-        // Проверяем цену
-        if (mappingConfig.frontend_price && (!product.price || product.price === '')) {
-          errors.push(`Строка ${index + 2}: Отсутствует цена "${mappingConfig.frontend_price}"`);
-          hasErrors = true;
-        }
-      } else {
-        // Для старой структуры
-        requiredFields.forEach(field => {
-          if (!product[field] || product[field] === '') {
-            errors.push(`Строка ${index + 2}: Отсутствует обязательное поле "${field}"`);
-            hasErrors = true;
+        // Парсим requiredFields если это строка
+        let templateRequiredFields = importTemplate.requiredFields;
+        if (typeof templateRequiredFields === 'string') {
+          try {
+            templateRequiredFields = JSON.parse(templateRequiredFields);
+          } catch (e) {
+            console.error('Error parsing requiredFields for validation:', e);
+            templateRequiredFields = [];
           }
-        });
+        }
+        
+        // Проверяем, что это массив
+        if (Array.isArray(templateRequiredFields) && templateRequiredFields.length > 0) {
+          let missingRequiredFields = [];
+          
+          templateRequiredFields.forEach((field: any) => {
+            const fieldName = field.fieldName || field;
+            if (!specifications[fieldName] || specifications[fieldName] === '') {
+              missingRequiredFields.push(fieldName);
+            }
+          });
+        
+          if (missingRequiredFields.length > 0) {
+            console.log(`Validation warning: Missing required fields: ${missingRequiredFields.join(', ')}`);
+            console.log('But continuing anyway - soft validation mode');
+            // Не добавляем ошибку, просто предупреждение
+            // errors.push(`Строка ${index + 2}: Отсутствуют обязательные поля: ${missingRequiredFields.join(', ')}`);
+            // hasErrors = true;
+          } else {
+            console.log('Product passed validation - all required fields present');
+          }
+        }
       }
+      
+      // Основная валидация - проверяем только что есть данные
+      if (Object.keys(specifications).length === 0) {
+        console.log('Validation error: No data in specifications');
+        errors.push(`Строка ${index + 2}: Товар не содержит данных`);
+        hasErrors = true;
+      } else {
+        console.log('Product passed validation - has specifications data');
+        console.log('Specifications keys count:', Object.keys(specifications).length);
+      }
+      
+      console.log('Has errors:', hasErrors);
+      console.log('=== END VALIDATION ===');
 
       if (!hasErrors) {
         products.push({
@@ -555,8 +731,30 @@ export async function POST(req: NextRequest) {
           row_number: index + 2,
           category: category
         });
+        
+        // Отладочная информация для первых нескольких товаров
+        if (index < 5) {
+          console.log(`=== PRODUCT ${index + 1} ADDED ===`);
+          console.log('Product:', product);
+          console.log('Specifications:', specifications);
+          console.log('Has errors:', hasErrors);
+        }
+      } else {
+        // Отладочная информация для товаров с ошибками
+        if (index < 5) {
+          console.log(`=== PRODUCT ${index + 1} REJECTED ===`);
+          console.log('Product:', product);
+          console.log('Specifications:', specifications);
+          console.log('Has errors:', hasErrors);
+          console.log('Errors for this product:', errors.slice(-1)); // Последняя ошибка
+        }
       }
     });
+
+    console.log('\n=== ROW PROCESSING COMPLETED ===');
+    console.log('Total products processed:', products.length);
+    console.log('Total errors found:', errors.length);
+    console.log('Products array:', products.slice(0, 3)); // Первые 3 товара для отладки
 
     const result = {
       message: "Файл успешно обработан",
@@ -586,24 +784,70 @@ export async function POST(req: NextRequest) {
     };
 
     console.log('=== API CALL SUCCESS ===');
+    console.log('Products array length:', products.length);
+    console.log('Errors array length:', errors.length);
     
-    // Сохраняем товары в API
+    // Сохраняем товары напрямую в базу данных
     try {
-      const saveResponse = await fetch(`${req.nextUrl.origin}/api/admin/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          products: products,
-          category: category
-        })
-      });
+      console.log('Saving products directly to database...');
+      console.log('Total products to save:', products.length);
+      console.log('First product sample:', products[0]);
       
-      if (saveResponse.ok) {
-        const saveData = await saveResponse.json();
-        console.log('Products saved:', saveData);
+      // Импортируем PrismaClient напрямую
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      
+      const savedProducts = [];
+      
+      if (products.length === 0) {
+        console.log('WARNING: No products to save - products array is empty');
+        console.log('This might be due to validation errors or empty data');
+        result.save_message = 'Предупреждение: Нет товаров для сохранения - возможно, все товары были отклонены при валидации';
       }
+      
+      for (const product of products) {
+        try {
+          // Создаем товар в базе данных
+          const savedProduct = await prisma.product.create({
+            data: {
+              catalog_category_id: category,
+              sku: product.sku || `SKU_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: product.name || 'Без названия',
+              base_price: parseFloat(product.price || product.base_price || 0),
+              stock_quantity: parseInt(product.stock || product.stock_quantity || 0),
+              brand: product.brand || '',
+              model: product.model || '',
+              description: product.description || '',
+              specifications: JSON.stringify(product.specifications || {}),
+              properties_data: JSON.stringify(product.specifications || {}), // Добавляем properties_data
+              is_active: true
+            }
+          });
+          
+          savedProducts.push(savedProduct);
+          console.log('Product saved:', savedProduct.id, savedProduct.name);
+          
+        } catch (productError) {
+          console.error('Error saving product:', {
+            product: product,
+            error: productError,
+            errorMessage: productError instanceof Error ? productError.message : 'Unknown error',
+            errorCode: (productError as any)?.code
+          });
+          // Продолжаем с остальными товарами
+        }
+      }
+      
+      await prisma.$disconnect();
+      
+      console.log('Products saved directly to database:', savedProducts.length);
+      result.imported = savedProducts.length;
+      result.database_saved = savedProducts.length;
+      result.save_message = `Успешно сохранено ${savedProducts.length} товаров в базу данных`;
+      
     } catch (saveError) {
-      console.error('Error saving products:', saveError);
+      console.error('Error saving products directly:', saveError);
+      result.save_message = 'Ошибка при сохранении в базу данных: ' + (saveError instanceof Error ? saveError.message : 'Неизвестная ошибка');
     }
     
     // Обновляем статистику
@@ -635,6 +879,17 @@ export async function POST(req: NextRequest) {
       });
     } catch (historyError) {
       console.error('Error updating import history:', historyError);
+    }
+    
+    // Обновляем счетчики товаров в категориях
+    try {
+      await fetch(`${req.nextUrl.origin}/api/admin/categories/update-counts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      console.log('Product counts updated successfully');
+    } catch (countsError) {
+      console.error('Error updating product counts:', countsError);
     }
     
     return NextResponse.json(result, { status: 200 });

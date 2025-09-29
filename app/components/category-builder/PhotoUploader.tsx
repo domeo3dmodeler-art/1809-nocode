@@ -30,6 +30,7 @@ export default function PhotoUploader({
     mappedPhotos: {}
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [previewLimit, setPreviewLimit] = useState(20); // Лимит товаров в предпросмотре
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,16 +44,71 @@ export default function PhotoUploader({
     try {
       const mappedPhotos: Record<string, string> = {};
       
+      console.log('Начинаем обработку фото:', {
+        photoFilesCount: mapping.photoFiles.length,
+        priceListDataCount: priceListData.length,
+        mappingType: mapping.mappingType,
+        skuField: mapping.skuField
+      });
+      
       switch (mapping.mappingType) {
         case 'by_sku':
           if (mapping.skuField) {
             // Связка по артикулу поставщика
-            priceListData.forEach((row, index) => {
+            let processedCount = 0;
+            let matchedCount = 0;
+            const photoUrlCache = new Map<File, string>(); // Кеш для URL фото
+            
+            priceListData.forEach((row) => {
               const sku = row[mapping.skuField!];
-              if (sku && mapping.photoFiles[index]) {
-                const photoUrl = URL.createObjectURL(mapping.photoFiles[index]);
-                mappedPhotos[sku] = photoUrl;
+              if (sku) {
+                processedCount++;
+                
+                // Ищем фото с именем, соответствующим артикулу поставщика
+                const matchingPhoto = mapping.photoFiles.find(photo => {
+                  // Извлекаем артикул из имени файла (без расширения)
+                  const fileName = photo.name.replace(/\.[^/.]+$/, ""); // Убираем расширение
+                  
+                  // Нормализуем строки для сравнения (убираем пробелы, приводим к нижнему регистру)
+                  const normalizedFileName = fileName.toLowerCase().trim();
+                  const normalizedSku = sku.toLowerCase().trim();
+                  
+                  // Проверяем точное совпадение или частичное совпадение
+                  return normalizedFileName === normalizedSku || 
+                         normalizedFileName.includes(normalizedSku) || 
+                         normalizedSku.includes(normalizedFileName);
+                });
+                
+                if (matchingPhoto) {
+                  // Используем кеш для избежания создания дублирующих URL
+                  let photoUrl = photoUrlCache.get(matchingPhoto);
+                  if (!photoUrl) {
+                    photoUrl = URL.createObjectURL(matchingPhoto);
+                    photoUrlCache.set(matchingPhoto, photoUrl);
+                  }
+                  
+                  mappedPhotos[sku] = photoUrl;
+                  matchedCount++;
+                  console.log(`Связано фото: ${matchingPhoto.name} -> ${sku} (URL переиспользован: ${photoUrlCache.has(matchingPhoto)})`);
+                } else {
+                  console.log(`Не найдено фото для артикула: ${sku}`);
+                }
               }
+            });
+            
+            console.log(`Обработано товаров: ${processedCount}, найдено совпадений: ${matchedCount}`);
+            console.log(`Уникальных фото использовано: ${photoUrlCache.size}`);
+            
+            // Показываем статистику по фото
+            const photoUsageStats = new Map<string, number>();
+            Object.values(mappedPhotos).forEach(photoUrl => {
+              const count = photoUsageStats.get(photoUrl) || 0;
+              photoUsageStats.set(photoUrl, count + 1);
+            });
+            
+            console.log('Статистика использования фото:');
+            photoUsageStats.forEach((count, photoUrl) => {
+              console.log(`  ${photoUrl}: используется в ${count} товарах`);
             });
           }
           break;
@@ -83,6 +139,8 @@ export default function PhotoUploader({
       
       setMapping(prev => ({ ...prev, mappedPhotos }));
       
+      console.log('Обработка завершена. Связано фото:', Object.keys(mappedPhotos).length);
+      
       // Имитация обработки
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -100,7 +158,7 @@ export default function PhotoUploader({
   const getMappingDescription = () => {
     switch (mapping.mappingType) {
       case 'by_sku':
-        return 'Фото будут связаны с товарами по артикулу поставщика. Например: door-001.jpg → артикул "door-001"';
+        return 'Фото будут связаны с товарами по артикулу поставщика. Одно фото может использоваться для нескольких товаров. Например: door-001.jpg → артикул "door-001"';
       case 'by_order':
         return 'Фото будут связаны с товарами по порядку строк в прайсе. Первое фото → первая строка, второе фото → вторая строка';
       case 'by_name':
@@ -111,8 +169,16 @@ export default function PhotoUploader({
   };
 
   const getPreviewData = () => {
-    const previewCount = Math.min(5, priceListData.length);
-    return priceListData.slice(0, previewCount);
+    // Показываем товары, которые имеют связанные фото
+    const linkedProducts = priceListData.filter(row => {
+      const key = mapping.mappingType === 'by_sku' ? row[mapping.skuField!] :
+                 mapping.mappingType === 'by_name' ? row[mapping.nameField!] :
+                 `row_${priceListData.indexOf(row)}`;
+      return mapping.mappedPhotos[key];
+    });
+    
+    const previewCount = Math.min(previewLimit, linkedProducts.length);
+    return linkedProducts.slice(0, previewCount);
   };
 
   return (
@@ -129,7 +195,7 @@ export default function PhotoUploader({
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="text-center p-3 bg-gray-50 rounded">
           <div className="text-2xl font-bold text-black">{priceListData.length}</div>
           <div className="text-sm text-gray-600">Товаров в прайсе</div>
@@ -140,7 +206,11 @@ export default function PhotoUploader({
         </div>
         <div className="text-center p-3 bg-gray-50 rounded">
           <div className="text-2xl font-bold text-black">{Object.keys(mapping.mappedPhotos).length}</div>
-          <div className="text-sm text-gray-600">Связано фото</div>
+          <div className="text-sm text-gray-600">Связано товаров</div>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded">
+          <div className="text-2xl font-bold text-black">{new Set(Object.values(mapping.mappedPhotos)).size}</div>
+          <div className="text-sm text-gray-600">Уникальных фото</div>
         </div>
       </div>
 
@@ -261,7 +331,12 @@ export default function PhotoUploader({
       {Object.keys(mapping.mappedPhotos).length > 0 && (
         <Card variant="base">
           <div className="p-6">
-            <h4 className="font-medium text-black mb-4">👁️ Предпросмотр связки</h4>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium text-black">👁️ Предпросмотр связки</h4>
+              <div className="text-sm text-gray-600">
+                Показано {getPreviewData().length} из {Object.keys(mapping.mappedPhotos).length} связанных товаров
+              </div>
+            </div>
             <div className="space-y-3">
               {getPreviewData().map((row, index) => {
                 const key = mapping.mappingType === 'by_sku' ? row[mapping.skuField!] :
@@ -299,6 +374,31 @@ export default function PhotoUploader({
                 );
               })}
             </div>
+            
+            {/* Кнопка "Показать больше" если есть еще товары */}
+            {(() => {
+              const linkedProducts = priceListData.filter(row => {
+                const key = mapping.mappingType === 'by_sku' ? row[mapping.skuField!] :
+                           mapping.mappingType === 'by_name' ? row[mapping.nameField!] :
+                           `row_${priceListData.indexOf(row)}`;
+                return mapping.mappedPhotos[key];
+              });
+              
+              if (linkedProducts.length > previewLimit) {
+                return (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewLimit(prev => Math.min(prev + 20, linkedProducts.length))}
+                    >
+                      Показать еще ({linkedProducts.length - previewLimit} товаров)
+                    </Button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </Card>
       )}

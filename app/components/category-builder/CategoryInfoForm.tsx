@@ -6,23 +6,22 @@ import { Card, Button, Input, Select, Checkbox } from '../ui';
 interface CategoryInfoFormProps {
   onComplete: (data: any) => void;
   onCancel: () => void;
+  initialData?: any;
 }
 
 interface CategoryData {
   name: string;
   description: string;
   slug: string;
-  icon: string;
   is_main: boolean;
   parent_id: string | null;
 }
 
-export default function CategoryInfoForm({ onComplete, onCancel }: CategoryInfoFormProps) {
+export default function CategoryInfoForm({ onComplete, onCancel, initialData }: CategoryInfoFormProps) {
   const [categoryData, setCategoryData] = useState<CategoryData>({
-    name: '',
-    description: '',
-    slug: '',
-    icon: '📦',
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    slug: initialData?.slug || '',
     is_main: true,
     parent_id: null,
   });
@@ -120,17 +119,6 @@ export default function CategoryInfoForm({ onComplete, onCancel }: CategoryInfoF
                   className="w-full px-3 py-2 border border-gray-300 text-black focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   placeholder="Краткое описание категории товаров"
                 ></textarea>
-              </div>
-              <div>
-                <label htmlFor="icon" className="block text-sm font-medium text-black mb-1">Иконка (Emoji или URL)</label>
-                <Input
-                  id="icon"
-                  name="icon"
-                  type="text"
-                  value={categoryData.icon}
-                  onChange={handleInputChange}
-                  placeholder="🚪"
-                />
               </div>
               <div>
                 <label htmlFor="is_main" className="block text-sm font-medium text-black mb-1">Тип категории</label>

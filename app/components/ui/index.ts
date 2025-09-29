@@ -4,6 +4,7 @@
 export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
 export { Input, type InputProps } from './Input';
+export { Textarea, type TextareaProps } from './Textarea';
 export { Select, type SelectProps } from './Select';
 export { SelectContent, SelectItem, SelectTrigger, SelectValue } from './Select';
 export { Checkbox, type CheckboxProps } from './Checkbox';

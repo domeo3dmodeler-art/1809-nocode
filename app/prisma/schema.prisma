@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./prisma/dev.db"
+  url      = "file:./database/dev.db"
 }
 
 model User {
@@ -54,6 +54,7 @@ model CatalogCategory {
   path                 String
   sort_order           Int                          @default(0)
   is_active            Boolean                      @default(true)
+  products_count       Int                          @default(0)
   created_at           DateTime                     @default(now())
   updated_at           DateTime                     @updatedAt
   parent               CatalogCategory?             @relation("CatalogHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
@@ -102,15 +103,24 @@ model CategoryPropertyAssignment {
 
 model ImportTemplate {
   id                  String          @id @default(cuid())
-  catalog_category_id String
+  catalog_category_id String          @unique // Один шаблон на категорию каталога
   name                String
-  required_fields     String          @default("[]")
-  calculator_fields   String          @default("[]")
-  export_fields       String          @default("[]")
+  description         String?         // Описание шаблона
+  required_fields     String          @default("[]") // Обязательные поля
+  calculator_fields   String          @default("[]") // Поля для калькулятора
+  export_fields       String          @default("[]") // Поля для экспорта
+  template_config     String?         // JSON конфигурация шаблона
+  field_mappings      String?         // JSON маппинг полей
+  validation_rules    String?         // JSON правила валидации
+  is_active           Boolean         @default(true)
   created_at          DateTime        @default(now())
   updated_at          DateTime        @updatedAt
+  
+  // Связи
   catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+  import_history      ImportHistory[]
 
+  @@index([catalog_category_id])
   @@map("import_templates")
 }
 
@@ -161,8 +171,11 @@ model FrontendCategory {
   slug                 String   @unique
   description          String?
   icon                 String?
-  catalog_category_ids String   @default("[]")
+  catalog_category_ids String   @default("[]") // JSON массив ID категорий каталога
   display_config       String   @default("{}")
+  property_mapping     String?  @default("[]")
+  photo_mapping        String?  @default("{}")
+  photo_data           String?  @default("{}")
   is_active            Boolean  @default(true)
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
@@ -170,6 +183,7 @@ model FrontendCategory {
   @@index([slug])
   @@map("frontend_categories")
 }
+
 
 model Product {
   id                  String          @id @default(cuid())
@@ -346,12 +360,16 @@ model Notification {
   is_read    Boolean  @default(false)
   data       String?  @default("{}")
   created_at DateTime @default(now())
+  
+  // Связи
+  client     Client   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
 model ImportHistory {
   id                  String   @id @default(cuid())
+  template_id         String?  // Связь с шаблоном загрузки
   catalog_category_id String
   filename            String
   file_size           Int?
@@ -359,8 +377,13 @@ model ImportHistory {
   error_count         Int      @default(0)
   status              String   @default("pending")
   errors              String   @default("[]")
+  import_data         String?  // JSON данные импорта
   created_at          DateTime @default(now())
 
+  // Связи
+  template ImportTemplate? @relation(fields: [template_id], references: [id])
+
+  @@index([template_id])
   @@map("import_history")
 }
 

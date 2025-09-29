@@ -36,21 +36,20 @@ const menuItems: MenuItem[] = [
     href: '/admin/catalog',
     children: [
       { id: 'catalog-tree', label: 'Дерево каталога', href: '/admin/catalog' },
+      { id: 'catalog-tree-import', label: 'Импорт дерева каталогов', href: '/admin/catalog/tree-import' },
       { id: 'catalog-properties', label: 'Свойства товаров', href: '/admin/catalog/properties' },
-      { id: 'catalog-import', label: 'Импорт каталога', href: '/admin/catalog/import' },
+      { id: 'catalog-import', label: 'Импорт товаров', href: '/admin/catalog/import' },
       { id: 'catalog-products', label: 'Товары', href: '/admin/catalog/products' }
     ]
   },
   {
     id: 'configurator',
     label: 'Категории конфигуратора',
-    href: '/admin/configurator',
+    href: '/admin/categories',
     children: [
-      { id: 'configurator-list', label: 'Список категорий', href: '/admin/configurator' },
-      { id: 'configurator-create', label: 'Создать категорию', href: '/admin/configurator/create' },
-      { id: 'configurator-links', label: 'Связи категорий', href: '/admin/configurator/category-links' },
-      { id: 'configurator-import', label: 'Импорт товаров', href: '/admin/configurator/import' },
-      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/configurator/export-settings' }
+      { id: 'configurator-list', label: 'Список категорий', href: '/admin/categories' },
+      { id: 'configurator-create', label: 'Создать категорию', href: '/admin/categories/builder' },
+      { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/categories/export-settings' }
     ]
   },
   {
@@ -59,9 +58,9 @@ const menuItems: MenuItem[] = [
     href: '/admin/clients'
   },
   {
-    id: 'test-configurator',
-    label: 'Тест конфигуратора',
-    href: '/doors-configurator'
+    id: 'simple-constructor-test',
+    label: 'Конструктор страницы',
+    href: '/simple-constructor-test'
   },
   {
     id: 'users',

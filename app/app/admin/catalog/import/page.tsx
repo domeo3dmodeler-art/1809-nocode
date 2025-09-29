@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge } from '../../../../components/ui';
-import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Trash2, Database, Upload as UploadIcon } from 'lucide-react';
-import { CatalogImportResult } from '@/lib/types/catalog';
+import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Trash2, Database, Upload as UploadIcon, ArrowRight, ArrowLeft } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface ImportHistoryItem {
   id: string;
@@ -14,17 +14,81 @@ interface ImportHistoryItem {
   created_at: string;
 }
 
+interface PriceListData {
+  headers: string[];
+  rows: any[][];
+  totalRows: number;
+}
+
+interface PhotoData {
+  files: File[];
+  totalCount: number;
+}
+
+interface PropertyMapping {
+  fieldName: string;
+  displayName: string;
+  dataType: 'text' | 'number' | 'select' | 'boolean' | 'image';
+  isRequired: boolean;
+  isFilterable: boolean;
+  isVisible: boolean;
+  options?: string[];
+  unit?: string;
+}
+
+interface CatalogCategory {
+  id: string;
+  name: string;
+  level: number;
+  parent_id?: string;
+  product_count?: number;
+  displayName?: string;
+}
+
+type ImportStep = 'upload' | 'catalog' | 'properties' | 'photos' | 'complete';
+
 export default function CatalogImportPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [importResult, setImportResult] = useState<CatalogImportResult | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  // Основные состояния
+  const [currentStep, setCurrentStep] = useState<ImportStep>('upload');
+  const [priceListData, setPriceListData] = useState<PriceListData | null>(null);
+  const [photoData, setPhotoData] = useState<PhotoData | null>(null);
+  const [propertyMappings, setPropertyMappings] = useState<PropertyMapping[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string>('');
+  const [requiredFields, setRequiredFields] = useState<any[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  
+  // Состояния для истории и результатов
   const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([]);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [photoCategorySearchTerm, setPhotoCategorySearchTerm] = useState('');
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('');
+  const [existingProductProperties, setExistingProductProperties] = useState<string[]>([]);
+  const [loadingProperties, setLoadingProperties] = useState(false);
 
   useEffect(() => {
     loadImportHistory();
+    loadCatalogCategories();
+    
+    // Проверяем URL параметры для предварительного выбора категории
+    const urlParams = new URLSearchParams(window.location.search);
+    const categoryParam = urlParams.get('category');
+    if (categoryParam) {
+      setSelectedCatalogCategoryId(categoryParam);
+    }
   }, []);
+
+  // Загружаем свойства существующих товаров при выборе категории
+  useEffect(() => {
+    if (selectedCatalogCategoryId) {
+      loadExistingProductProperties(selectedCatalogCategoryId);
+    }
+  }, [selectedCatalogCategoryId]);
 
   const loadImportHistory = async () => {
     try {
@@ -39,133 +103,322 @@ export default function CatalogImportPage() {
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setImportResult(null);
-      setShowResult(false);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file) return;
-
-    console.log('=== НАЧАЛО ЗАГРУЗКИ ФАЙЛА ===');
-    console.log('Файл:', file.name, 'Размер:', file.size);
-
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-
-      console.log('Отправка запроса на /api/catalog/import...');
-      const response = await fetch('/api/catalog/import', {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log('Ответ сервера:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Ошибка сервера:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const result: CatalogImportResult = await response.json();
-      console.log('Результат импорта:', result);
-      
-      setImportResult(result);
-      setShowResult(true);
-      
-      if (result.success) {
-        // Обновляем историю импортов
-        await loadImportHistory();
-      }
-
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setImportResult({
-        success: false,
-        message: 'Ошибка при загрузке файла',
-        imported: 0,
-        errors: [error instanceof Error ? error.message : 'Неизвестная ошибка'],
-        warnings: [],
-        categories: []
-      });
-      setShowResult(true);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleClearCatalog = async () => {
-    if (!confirm('Вы уверены, что хотите очистить весь каталог? Это действие нельзя отменить.')) {
+  const loadExistingProductProperties = async (categoryId: string) => {
+    if (!categoryId) {
+      setExistingProductProperties([]);
       return;
     }
 
+    setLoadingProperties(true);
     try {
-      const response = await fetch('/api/catalog/clear', {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      const response = await fetch(`/api/catalog/products?categoryId=${categoryId}&limit=10`);
+      const data = await response.json();
+      
+      console.log('Existing products response:', data);
+      
+      if (data.success && data.products && data.products.length > 0) {
+        // Собираем все уникальные свойства из товаров
+        const allProperties = new Set<string>();
+        
+        data.products.forEach((product: any) => {
+          if (product.properties_data) {
+            try {
+              const properties = typeof product.properties_data === 'string' 
+                ? JSON.parse(product.properties_data) 
+                : product.properties_data;
+              
+              Object.keys(properties).forEach(key => {
+                // Исключаем служебные поля
+                if (!['photos', 'id', 'created_at', 'updated_at'].includes(key)) {
+                  allProperties.add(key);
+                }
+              });
+            } catch (error) {
+              console.error('Error parsing properties_data:', error);
+            }
+          }
+        });
+        
+        setExistingProductProperties(Array.from(allProperties).sort());
+        console.log('Loaded existing properties:', Array.from(allProperties));
+      } else {
+        setExistingProductProperties([]);
       }
-
-      const result = await response.json();
-      alert(`Каталог очищен. Удалено ${result.deletedCount} категорий.`);
-      
-      // Обновляем историю импортов
-      await loadImportHistory();
-      
     } catch (error) {
-      console.error('Error clearing catalog:', error);
-      alert('Ошибка при очистке каталога');
+      console.error('Error loading existing product properties:', error);
+      setExistingProductProperties([]);
+    } finally {
+      setLoadingProperties(false);
     }
   };
 
-  const handleCreateBackup = async () => {
+  const loadCatalogCategories = async () => {
     try {
-      const response = await fetch('/api/catalog/backup', {
-        method: 'GET'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      const response = await fetch('/api/catalog/categories');
+      const data = await response.json();
+      
+      console.log('Catalog categories response:', data);
+      
+      // Обрабатываем разные форматы ответа
+      let categories = [];
+      if (data.categories) {
+        categories = data.categories;
+      } else if (Array.isArray(data)) {
+        categories = data;
+      } else {
+        categories = [];
       }
+      
+      console.log('First category structure:', categories.length > 0 ? categories[0] : 'No categories');
+      console.log('Categories with levels:', categories.filter((c: any) => c.level > 0).length);
+      
+      // Если данные приходят в виде дерева с children, разворачиваем их
+      const flattenCategories = (categories: any[], level = 0): CatalogCategory[] => {
+        let result: CatalogCategory[] = [];
+        
+        categories.forEach((category: any) => {
+          result.push({
+            ...category,
+            level: level,
+            displayName: category.name
+          });
+          
+          // Рекурсивно добавляем дочерние категории
+          if (category.subcategories && category.subcategories.length > 0) {
+            result = result.concat(flattenCategories(category.subcategories, level + 1));
+          }
+        });
+        
+        return result;
+      };
 
-      // Создаем blob и скачиваем файл
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `catalog_backup_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Если данные приходят как плоский массив, строим иерархию по parent_id и level
+      const buildHierarchy = (flatCategories: any[]): CatalogCategory[] => {
+        // Сортируем по level, затем по sort_order
+        const sorted = flatCategories.sort((a, b) => {
+          if (a.level !== b.level) return a.level - b.level;
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        });
+        
+        return sorted.map(category => ({
+          ...category,
+          level: category.level || 0,
+          displayName: category.name
+        }));
+      };
+
+      // Проверяем, есть ли subcategories в первой категории
+      if (categories.length > 0 && categories[0].subcategories) {
+        // Данные в виде дерева с subcategories
+        setCatalogCategories(flattenCategories(categories));
+      } else {
+        // Данные в виде плоского массива - строим иерархию
+        setCatalogCategories(buildHierarchy(categories));
+      }
       
     } catch (error) {
-      console.error('Error creating backup:', error);
-      alert('Ошибка при создании бэкапа');
+      console.error('Error loading catalog categories:', error);
     }
   };
 
-  const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Функция для создания CSV из данных прайса
+  function createCSVFromPriceListData(rows: any[][], headers: string[]): string {
+    let csvContent = '';
+    csvContent += headers.map(header => `"${header.replace(/"/g, '""')}"`).join(',') + '\n';
+    rows.forEach(row => {
+      const csvRow = row.map(cell => {
+        if (cell === null || cell === undefined) return '""';
+        const cellStr = String(cell);
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(',');
+      csvContent += csvRow + '\n';
+    });
+    return csvContent;
+  }
+
+  const handlePriceListUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!confirm('Вы уверены, что хотите восстановить каталог из бэкапа? Текущий каталог будет полностью заменен.')) {
-      return;
-    }
-
+    setIsProcessing(true);
+    
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length === 0) {
+        throw new Error('Файл пуст или не содержит данных');
+      }
+      
+      const headers = jsonData[0] as string[];
+      const rows = jsonData.slice(1);
+      
+      const filteredRows = rows.filter(row => 
+        row.some(cell => cell !== null && cell !== undefined && cell !== '')
+      );
+      
+      const priceListData: PriceListData = {
+        headers: headers,
+        rows: filteredRows,
+        totalRows: filteredRows.length
+      };
+      
+      console.log('Загружен прайс-лист:', {
+        headers: headers.length,
+        rows: filteredRows.length,
+        sampleData: filteredRows.slice(0, 3)
+      });
+      
+      setPriceListData(priceListData);
+      setCompletedSteps(prev => [...prev, 'upload']);
+      setCurrentStep('catalog');
+      
+    } catch (error) {
+      console.error('Error processing price list:', error);
+      alert('Ошибка при обработке файла: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
 
-      const response = await fetch('/api/catalog/backup', {
+  const handleCatalogCategorySelect = (categoryId: string) => {
+    setSelectedCatalogCategoryId(categoryId);
+  };
+
+  const handleCatalogComplete = async () => {
+    setCompletedSteps(prev => [...prev, 'catalog']);
+    setCurrentStep('properties');
+  };
+
+  const handlePropertiesComplete = async (fields: any[]) => {
+    console.log('=== handlePropertiesComplete ВЫЗВАН ===');
+    console.log('fields:', fields);
+    console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+    
+    setRequiredFields(fields);
+    
+    setShowProgressModal(true);
+    setProgressMessage('Сохранение товаров в базу данных...');
+    
+    try {
+      if (!selectedCatalogCategoryId) {
+        alert('Ошибка: Категория каталога не выбрана. Невозможно сохранить данные.');
+        setShowProgressModal(false);
+        return;
+      }
+
+      console.log('Сохранение товаров и свойств в БД...');
+      console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+      console.log('priceListData:', priceListData);
+
+      setProgressMessage('Создание файла данных...');
+      const csvData = createCSVFromPriceListData(priceListData?.rows || [], priceListData?.headers || []);
+      console.log('CSV данные созданы, размер:', csvData.length);
+      
+      const csvBlob = new Blob([csvData], { type: 'text/csv' });
+      const csvFile = new File([csvBlob], 'price_list.csv', { type: 'text/csv' });
+      
+      setProgressMessage('Отправка данных на сервер...');
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      formData.append('category', selectedCatalogCategoryId);
+      formData.append('mapping', JSON.stringify(fields));
+      formData.append('mode', 'full');
+      
+      console.log('Отправляем данные на /api/admin/import/universal...');
+      const productsResponse = await fetch('/api/admin/import/universal', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      console.log('Ответ от API импорта:', productsResponse.status, productsResponse.statusText);
+
+      if (!productsResponse.ok) {
+        throw new Error('Ошибка при сохранении товаров в БД');
+      }
+
+      const productsResult = await productsResponse.json();
+      console.log('Товары сохранены в БД:', productsResult);
+
+      // Создаем шаблон загрузки
+      const templateResponse = await fetch('/api/admin/import-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `Шаблон для ${catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name || 'категории'}`,
+          description: `Автоматически созданный шаблон загрузки`,
+          catalog_category_id: selectedCatalogCategoryId,
+          template_config: JSON.stringify({
+            headers: priceListData?.headers || [],
+            requiredFields: fields
+          }),
+          field_mappings: JSON.stringify(fields),
+          required_fields: JSON.stringify(fields),
+          calculator_fields: JSON.stringify(fields),
+          export_fields: JSON.stringify(fields)
+        }),
+      });
+
+      if (templateResponse.ok) {
+        console.log('Шаблон загрузки создан');
+      } else {
+        console.warn('Не удалось создать шаблон загрузки');
+      }
+      
+      const savedProductsCount = productsResult.database_saved || productsResult.imported || 0;
+      const categoryName = catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name || 'категории';
+      
+      console.log('Итоговое количество сохраненных товаров:', savedProductsCount);
+      
+      if (savedProductsCount === 0) {
+        console.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!');
+      }
+      
+      // Показываем результат
+      alert(`✅ Данные успешно сохранены!\nКатегория: ${categoryName}\nТоваров сохранено: ${savedProductsCount}\nШаблон загрузки: Создан`);
+      
+      setCompletedSteps(prev => [...prev, 'properties']);
+      setShowProgressModal(false);
+      setCurrentStep('photos');
+      
+    } catch (error) {
+      console.error('Error saving products and properties:', error);
+      setShowProgressModal(false);
+      alert(`Ошибка при сохранении данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    }
+  };
+
+  const handlePhotosComplete = async (photoFiles: File[]) => {
+    const photoData: PhotoData = {
+      files: photoFiles,
+      totalCount: photoFiles.length
+    };
+    
+    setPhotoData(photoData);
+    
+    try {
+      setUploadingPhotos(true);
+      const formData = new FormData();
+      
+      photoFiles.forEach((photo) => {
+        formData.append('photos', photo);
+      });
+      
+      formData.append('category', selectedCatalogCategoryId);
+      formData.append('mapping_property', photoMappingProperty);
+
+      console.log('Отправка фотографий...', photoFiles.length, 'файлов');
+      
+      const response = await fetch('/api/admin/import/photos', {
         method: 'POST',
         body: formData
       });
@@ -175,340 +428,802 @@ export default function CatalogImportPage() {
       }
 
       const result = await response.json();
-      alert('Каталог успешно восстановлен из бэкапа');
+      console.log('Фотографии загружены:', result);
       
-      // Обновляем историю импортов
-      await loadImportHistory();
+      // Создаем детальный отчет
+      let reportMessage = `📸 ЗАГРУЗКА ФОТО ЗАВЕРШЕНА!\n\n`;
+      reportMessage += `📁 Загружено файлов: ${result.uploaded || 0}\n`;
+      reportMessage += `🔗 Привязано к товарам: ${result.linked || 0}\n`;
+      reportMessage += `❌ Ошибок: ${result.errors || 0}\n\n`;
+      
+      if (result.uploaded > 0) {
+        reportMessage += `✅ Успешно обработано ${result.uploaded} фотографий\n`;
+      }
+      
+      if (result.linked > 0) {
+        reportMessage += `🎯 ${result.linked} товаров получили новые фото\n`;
+      }
+      
+      if (result.errors > 0) {
+        reportMessage += `⚠️ ${result.errors} файлов не удалось обработать\n`;
+      }
+      
+      if (result.details && result.details.length > 0) {
+        reportMessage += `\n📋 ДЕТАЛИ:\n`;
+        result.details.forEach((detail: any, index: number) => {
+          reportMessage += `${index + 1}. ${detail.fileName}: ${detail.message}\n`;
+        });
+      }
+      
+      alert(reportMessage);
+      
+      setCompletedSteps(prev => [...prev, 'photos']);
+      setCurrentStep('complete');
       
     } catch (error) {
-      console.error('Error restoring backup:', error);
-      alert('Ошибка при восстановлении бэкапа');
+      console.error('Error uploading photos:', error);
+      alert('Ошибка при загрузке фотографий: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    } finally {
+      setUploadingPhotos(false);
     }
   };
 
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'error':
-        return <XCircle className="h-4 w-4 text-red-600" />;
-      case 'pending':
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-      default:
-        return <FileText className="h-4 w-4 text-gray-600" />;
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 'upload': return 'Загрузка прайс-листа';
+      case 'catalog': return 'Выбор категории каталога';
+      case 'properties': return 'Настройка свойств товаров';
+      case 'photos': return 'Загрузка фотографий';
+      case 'complete': return 'Завершение импорта';
+      default: return 'Импорт товаров';
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Завершен</Badge>;
-      case 'error':
-        return <Badge variant="destructive">Ошибка</Badge>;
-      case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">В процессе</Badge>;
+  const getStepDescription = () => {
+    switch (currentStep) {
+      case 'upload': return 'Загрузите файл с данными о товарах';
+      case 'catalog': return 'Выберите категорию каталога для привязки товаров';
+      case 'properties': return 'Выберите поля для конфигуратора и отметьте обязательные';
+      case 'photos': return 'Загрузите фотографии товаров';
+      case 'complete': return 'Все данные загружены и настроены';
+      default: return '';
+    }
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 'upload':
+        return (
+          <div className="space-y-6">
+            {/* Компактная область загрузки прайс-листа */}
+            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
+              <div className="text-center">
+                <div className="text-3xl mb-3">📊</div>
+                <h3 className="text-lg font-semibold text-black mb-2">Загрузка прайс-листа</h3>
+                <p className="text-gray-600 mb-4 text-sm">Загрузите файл с данными о товарах</p>
+                
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handlePriceListUpload}
+                  className="hidden"
+                  id="price-list-upload"
+                />
+                <label
+                  htmlFor="price-list-upload"
+                  className="inline-flex items-center px-4 py-2 bg-black text-white rounded hover:bg-yellow-400 hover:text-black transition-all duration-200 cursor-pointer text-sm"
+                >
+                  {isProcessing ? 'Обработка...' : 'Выбрать файл'}
+                </label>
+                
+                <p className="text-xs text-gray-500 mt-2">Форматы: .xlsx, .csv</p>
+              </div>
+            </div>
+
+            {/* Отдельная кнопка загрузки товаров */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-center">
+                <div className="text-2xl mb-2">📸</div>
+                <h4 className="text-md font-semibold text-blue-900 mb-2">Загрузка фото товаров</h4>
+                <p className="text-blue-700 mb-3 text-sm">Загрузить фотографии товаров для привязки к товарам</p>
+                
+                <button
+                  onClick={() => {
+                    // Переходим к шагу загрузки фото
+                    setCurrentStep('photos');
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all duration-200 text-sm"
+                >
+                  📸 Загрузить фото
+                </button>
+              </div>
+            </div>
+
+            {/* История импортов */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-md font-semibold text-gray-900">История импортов</h4>
+                <button className="text-sm text-gray-500 hover:text-gray-700">Обновить</button>
+              </div>
+              <div className="text-sm text-gray-500 text-center py-4">
+                История импортов будет отображаться здесь
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'catalog':
+        // Фильтруем категории по поисковому запросу
+        const filteredCategories = catalogCategories.filter(category =>
+          category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+        );
+
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4">
+              <h4 className="text-lg font-medium">Выберите категорию каталога:</h4>
+              
+              {/* Поиск по категориям */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Поиск по названию категории..."
+                  value={categorySearchTerm}
+                  onChange={(e) => setCategorySearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                />
+                <div className="absolute right-3 top-2.5 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Список категорий */}
+              <div className="border rounded-lg max-h-80 overflow-y-auto">
+                {filteredCategories.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    {categorySearchTerm ? 'Категории не найдены' : 'Загрузка категорий...'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {filteredCategories.map((category) => (
+                      <div
+                        key={category.id}
+                        className={`p-3 cursor-pointer transition-colors hover:bg-gray-50 ${
+                          selectedCatalogCategoryId === category.id
+                            ? 'bg-black text-white hover:bg-gray-800'
+                            : ''
+                        }`}
+                        onClick={() => handleCatalogCategorySelect(category.id)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center space-x-2">
+                            {/* Индикатор уровня вложенности */}
+                            {category.level > 0 && (
+                              <div className="flex items-center space-x-1">
+                                {Array.from({ length: category.level }).map((_, i) => (
+                                  <div key={i} className="flex items-center">
+                                    <div className="w-3 h-px bg-gray-300"></div>
+                                    {i === category.level - 1 && (
+                                      <div className="w-2 h-2 border-l-2 border-b-2 border-gray-300 ml-1"></div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <span className={`font-medium ${category.level > 0 ? 'text-gray-700' : 'text-gray-900'}`}>
+                              {category.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-sm ${
+                              selectedCatalogCategoryId === category.id 
+                                ? 'text-white' 
+                                : 'text-gray-500'
+                            }`}>
+                              {category.product_count || 0} товаров
+                            </span>
+                            {selectedCatalogCategoryId === category.id && (
+                              <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Информация о выбранной категории */}
+              {selectedCatalogCategoryId && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-blue-900">
+                      Выбрана категория: {catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Назад
+              </Button>
+              <Button 
+                onClick={handleCatalogComplete}
+                disabled={!selectedCatalogCategoryId}
+                className={selectedCatalogCategoryId ? 'bg-black hover:bg-gray-800' : ''}
+              >
+                Продолжить
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'properties':
+        return priceListData ? (
+          <div className="space-y-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">Настройка свойств товаров</h4>
+              <p className="text-blue-700 text-sm">
+                Выберите поля из прайс-листа, которые будут использоваться в конфигураторе.
+                Отметьте обязательные поля для корректной работы системы.
+              </p>
+            </div>
+            
+            <div className="grid gap-3 max-h-96 overflow-y-auto">
+              {/* Заголовки колонок */}
+              <div className="grid grid-cols-12 gap-3 p-3 bg-gray-50 rounded-lg font-medium text-sm text-gray-700">
+                <div className="col-span-1">Выбрать</div>
+                <div className="col-span-3">Поле в файле</div>
+                <div className="col-span-3">Название в каталоге</div>
+                <div className="col-span-2">Обязательное</div>
+                <div className="col-span-3">Тип данных</div>
+              </div>
+              
+              {priceListData.headers.map((header, index) => (
+                <div key={index} className="grid grid-cols-12 gap-3 p-3 border rounded-lg items-center">
+                  <div className="col-span-1">
+                    <input
+                      type="checkbox"
+                      id={`field-${index}`}
+                      defaultChecked={true}
+                      className="w-4 h-4 text-black"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label htmlFor={`field-${index}`} className="block text-sm font-medium text-gray-700">
+                      {header}
+                    </label>
+                  </div>
+                  <div className="col-span-3">
+                    <input
+                      type="text"
+                      placeholder="Название в каталоге"
+                      defaultValue={header}
+                      data-header={header}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="flex items-center space-x-1 text-sm">
+                      <input
+                        type="checkbox"
+                        className="w-3 h-3"
+                      />
+                      <span>Обязательное</span>
+                    </label>
+                  </div>
+                  <div className="col-span-3">
+                    <select className="w-full text-sm border rounded px-2 py-1">
+                      <option value="text">Текст</option>
+                      <option value="number">Число</option>
+                      <option value="select">Список</option>
+                      <option value="boolean">Да/Нет</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setCurrentStep('catalog')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Назад
+              </Button>
+              <Button 
+                onClick={() => {
+                  // Собираем выбранные поля с пользовательскими названиями
+                  const fields = priceListData.headers.map((header, index) => {
+                    // Получаем пользовательское название из input поля
+                    const displayNameInput = document.querySelector(`input[data-header="${header}"]`) as HTMLInputElement;
+                    const displayName = displayNameInput ? displayNameInput.value || header : header;
+                    
+                    return {
+                      fieldName: header,
+                      displayName: displayName,
+                      isRequired: false, // Будет установлено из чекбоксов
+                      dataType: 'text' // Будет установлено из селектов
+                    };
+                  });
+                  handlePropertiesComplete(fields);
+                }}
+              >
+                Сохранить и продолжить
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        ) : null;
+
+      case 'photos':
+        return (
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="text-6xl mb-6">📸</div>
+              <h3 className="text-xl font-semibold text-black mb-4">Загрузка фотографий</h3>
+              <p className="text-gray-600 mb-6">Настройте параметры загрузки и привязки фото к товарам</p>
+              
+              {/* Индикатор прогресса */}
+              <div className="max-w-2xl mx-auto mb-6">
+                <div className="flex items-center justify-center space-x-4">
+                  <div className={`flex items-center space-x-2 ${selectedCatalogCategoryId ? 'text-green-600' : 'text-gray-400'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedCatalogCategoryId ? 'bg-green-100' : 'bg-gray-100'}`}>
+                      {selectedCatalogCategoryId ? '✓' : '1'}
+                    </div>
+                    <span className="text-sm font-medium">Категория</span>
+                  </div>
+                  <div className="w-8 h-0.5 bg-gray-200"></div>
+                  <div className={`flex items-center space-x-2 ${photoMappingProperty ? 'text-green-600' : selectedCatalogCategoryId ? 'text-blue-600' : 'text-gray-400'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${photoMappingProperty ? 'bg-green-100' : selectedCatalogCategoryId ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                      {photoMappingProperty ? '✓' : '2'}
+                    </div>
+                    <span className="text-sm font-medium">Свойство</span>
+                  </div>
+                  <div className="w-8 h-0.5 bg-gray-200"></div>
+                  <div className={`flex items-center space-x-2 ${selectedCatalogCategoryId && photoMappingProperty ? 'text-blue-600' : 'text-gray-400'}`}>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedCatalogCategoryId && photoMappingProperty ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                      3
+                    </div>
+                    <span className="text-sm font-medium">Загрузка</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Выбор категории для загрузки фото */}
+                <div className={`bg-white border-2 rounded-lg p-4 transition-all ${selectedCatalogCategoryId ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    1. Выберите категорию для загрузки фото:
+                    {selectedCatalogCategoryId && <span className="ml-2 text-green-600">✓ Выполнено</span>}
+                  </label>
+                  
+                  {/* Поиск по категориям */}
+                  <div className="mb-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Поиск по названию категории..."
+                        value={photoCategorySearchTerm}
+                        onChange={(e) => setPhotoCategorySearchTerm(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <div className="absolute right-3 top-2.5 text-gray-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Дерево каталога */}
+                  <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+                    {(() => {
+                      // Фильтруем категории по поисковому запросу
+                      const filteredCategories = catalogCategories.filter(category =>
+                        category.name.toLowerCase().includes(photoCategorySearchTerm.toLowerCase())
+                      );
+
+                      if (filteredCategories.length === 0) {
+                        return (
+                          <div className="p-4 text-center text-gray-500">
+                            {photoCategorySearchTerm ? 'Категории не найдены' : 'Загрузка категорий...'}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="divide-y divide-gray-200">
+                          {filteredCategories.map((category) => (
+                            <div
+                              key={category.id}
+                              className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                                selectedCatalogCategoryId === category.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                              }`}
+                              onClick={() => setSelectedCatalogCategoryId(category.id)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <span className="text-sm text-gray-600 mr-2">
+                                    {'  '.repeat(category.level)}
+                                  </span>
+                                  <span className="font-medium text-gray-900">
+                                    {category.name}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                  {category.product_count || 0} товаров
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  {selectedCatalogCategoryId && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                      <p className="text-xs text-blue-800">
+                        <strong>Выбрана категория:</strong> {
+                          catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name
+                        }
+                      </p>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 mt-2">
+                    Фото будут загружены в выбранную категорию
+                  </p>
+                </div>
+
+                {/* Выбор свойства для привязки фото */}
+                <div className={`bg-white border-2 rounded-lg p-4 transition-all ${photoMappingProperty ? 'border-green-200 bg-green-50' : selectedCatalogCategoryId ? 'border-blue-200 bg-blue-50' : 'border-gray-200'}`}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    2. Выберите свойство для привязки фото к товарам:
+                    {photoMappingProperty && <span className="ml-2 text-green-600">✓ Выполнено</span>}
+                  </label>
+                  
+                  {(() => {
+                    // Определяем доступные свойства
+                    const availableProperties = priceListData && priceListData.headers.length > 0 
+                      ? priceListData.headers 
+                      : existingProductProperties;
+
+                    if (loadingProperties) {
+                      return (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <span className="text-sm text-blue-800">Загрузка свойств товаров...</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (availableProperties.length > 0) {
+                      return (
+                        <>
+                          <select
+                            value={photoMappingProperty}
+                            onChange={(e) => setPhotoMappingProperty(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Выберите свойство...</option>
+                            {availableProperties.map((property, index) => (
+                              <option key={index} value={property}>
+                                {property}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                            <p className="text-xs text-blue-800">
+                              <strong>Принцип привязки:</strong> Название файла фото (без расширения) должно совпадать со значением выбранного свойства товара.
+                            </p>
+                            <p className="text-xs text-blue-800 mt-1">
+                              <strong>Пример:</strong> Если файл называется "door-123.jpg", то он привяжется к товару, у которого значение выбранного свойства равно "door-123".
+                            </p>
+                            {existingProductProperties.length > 0 && (
+                              <p className="text-xs text-green-800 mt-1">
+                                <strong>Источник:</strong> Свойства загружены из существующих товаров в категории ({existingProductProperties.length} свойств найдено).
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <div className="flex items-start">
+                            <div className="text-yellow-600 text-lg mr-2">⚠️</div>
+                            <div>
+                              <h4 className="text-sm font-medium text-yellow-800 mb-1">Нет доступных свойств</h4>
+                              <p className="text-xs text-yellow-700">
+                                В выбранной категории не найдено товаров с свойствами. Загрузите прайс-лист с товарами или выберите другую категорию.
+                              </p>
+                              <button
+                                onClick={() => setCurrentStep('upload')}
+                                className="mt-2 text-xs text-yellow-800 underline hover:text-yellow-900"
+                              >
+                                Перейти к загрузке прайс-листа →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+
+                {/* Информация о множественной привязке */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <div className="text-yellow-600 text-lg mr-2">💡</div>
+                    <div>
+                      <h4 className="text-sm font-medium text-yellow-800 mb-1">Поддержка множественной привязки</h4>
+                      <p className="text-xs text-yellow-700">
+                        Одно фото может быть привязано к нескольким товарам, если у них одинаковое значение выбранного свойства.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Область загрузки файлов */}
+              <div className="mt-6">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={!selectedCatalogCategoryId || !photoMappingProperty}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length > 0 && selectedCatalogCategoryId && photoMappingProperty) {
+                      handlePhotosComplete(files);
+                    }
+                  }}
+                  className="hidden"
+                  id="photos-upload"
+                />
+                <label
+                  htmlFor="photos-upload"
+                  className={`inline-flex items-center px-6 py-3 rounded-lg transition-colors ${
+                    !selectedCatalogCategoryId || !photoMappingProperty || uploadingPhotos
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                  }`}
+                >
+                  {uploadingPhotos ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Загрузка...
+                    </>
+                  ) : (
+                    '📸 Выбрать фотографии'
+                  )}
+                </label>
+                
+                {/* Статус готовности к загрузке */}
+                <div className="mt-3">
+                  {!selectedCatalogCategoryId ? (
+                    <p className="text-sm text-red-600">❌ Выберите категорию для загрузки</p>
+                  ) : !photoMappingProperty ? (
+                    <p className="text-sm text-red-600">❌ Выберите свойство для привязки фото</p>
+                  ) : (
+                    <p className="text-sm text-green-600">✅ Готово к загрузке фото!</p>
+                  )}
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-500">
+                  <p>• Поддерживаются форматы: JPG, PNG, GIF до 5MB каждый</p>
+                  <p>• Можно выбрать несколько файлов одновременно</p>
+                  <p>• Обязательно выберите категорию и свойство для привязки</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setCurrentStep('properties')}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Назад
+              </Button>
+              <Button 
+                onClick={() => {
+                  setCompletedSteps(prev => [...prev, 'photos']);
+                  setCurrentStep('complete');
+                }}
+                disabled={uploadingPhotos}
+              >
+                Пропустить фото
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'complete':
+        return (
+          <div className="space-y-6">
+            <div className="text-center py-12">
+              <div className="text-6xl mb-6">✅</div>
+              <h3 className="text-xl font-semibold text-black mb-4">Импорт завершен!</h3>
+              <p className="text-gray-600 mb-6">Все данные успешно загружены и настроены</p>
+              
+              <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-6">
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <div className="text-2xl font-bold text-black">{priceListData?.totalRows || 0}</div>
+                  <div className="text-sm text-gray-600">Товаров</div>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <div className="text-2xl font-bold text-black">{priceListData?.headers.length || 0}</div>
+                  <div className="text-sm text-gray-600">Свойств</div>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <div className="text-2xl font-bold text-black">{photoData?.totalCount || 0}</div>
+                  <div className="text-sm text-gray-600">Фото</div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Button 
+                  variant="primary" 
+                  onClick={() => {
+                    setCurrentStep('upload');
+                    setCompletedSteps([]);
+                    setPriceListData(null);
+                    setPhotoData(null);
+                    setSelectedCatalogCategoryId('');
+                  }}
+                >
+                  Импортировать еще товары
+                </Button>
+                <div>
+                  <Button variant="secondary" onClick={() => window.location.href = '/admin/catalog'}>
+                    Перейти к каталогу
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
-        return <Badge variant="secondary">Неизвестно</Badge>;
+        return null;
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleCreateBackup}
-            className="flex items-center gap-2"
-          >
-            <Database className="h-4 w-4" />
-            <span>Создать бэкап</span>
-          </Button>
-          <label className="cursor-pointer">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <UploadIcon className="h-4 w-4" />
-              <span>Восстановить из бэкапа</span>
-            </Button>
-            <input
-              type="file"
-              accept=".xlsx"
-              onChange={handleRestoreBackup}
-              className="hidden"
-            />
-          </label>
-          <Button
-            variant="destructive"
-            onClick={handleClearCatalog}
-            className="flex items-center gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>Очистить каталог</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={loadImportHistory}
-            disabled={loadingHistory}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${loadingHistory ? 'animate-spin' : ''}`} />
-            <span>Обновить</span>
-          </Button>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Заголовок */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-black mb-2">Импорт товаров в каталог</h1>
+          <p className="text-gray-600">Пошаговая загрузка товаров с настройкой свойств</p>
         </div>
-      </div>
 
-      {/* Загрузка файла */}
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Загрузить Excel файл</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Выберите Excel файл с деревом каталога. Файл должен содержать иерархическую структуру категорий.
-            </p>
-          </div>
-
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-            <div className="text-center">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <div className="mt-4">
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <span className="mt-2 block text-sm font-medium text-gray-900">
-                    {file ? file.name : 'Выберите файл или перетащите сюда'}
-                  </span>
-                  <input
-                    id="file-upload"
-                    name="file-upload"
-                    type="file"
-                    className="sr-only"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileSelect}
-                  />
-                </label>
-                <p className="mt-1 text-xs text-gray-500">
-                  Поддерживаются файлы Excel (.xlsx, .xls) до 10MB
-                </p>
+        {/* Прогресс шагов */}
+        <Card variant="base">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-black">{getStepTitle()}</h2>
+                <p className="text-gray-600">{getStepDescription()}</p>
               </div>
-            </div>
-          </div>
-
-          {file && (
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <FileText className="h-5 w-5 text-gray-600" />
-                <span className="text-sm font-medium">{file.name}</span>
-                <span className="text-xs text-gray-500">
-                  ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                </span>
-              </div>
-              <Button
-                onClick={handleUpload}
-                disabled={uploading}
-                className="flex items-center space-x-1"
-              >
-                {uploading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                <span>{uploading ? 'Загрузка...' : 'Загрузить'}</span>
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Результат импорта */}
-      {showResult && importResult && (
-        <Card className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              {importResult.success ? (
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              ) : (
-                <XCircle className="h-6 w-6 text-red-600" />
+              {currentStep !== 'upload' && (
+                <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
+                  Начать заново
+                </Button>
               )}
-              <h2 className="text-lg font-semibold">
-                {importResult.success ? 'Импорт завершен' : 'Ошибка импорта'}
-              </h2>
             </div>
 
-            <p className="text-sm text-gray-600">{importResult.message}</p>
-
-            {importResult.success && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {importResult.imported}
+            {/* Прогресс бар */}
+            <div className="flex items-center space-x-4 mb-8">
+              {[
+                { key: 'upload', label: 'Загрузка', icon: '📊' },
+                { key: 'catalog', label: 'Каталог', icon: '📁' },
+                { key: 'properties', label: 'Свойства', icon: '⚙️' },
+                { key: 'photos', label: 'Фото', icon: '📸' },
+                { key: 'complete', label: 'Готово', icon: '✅' }
+              ].map((step, index) => {
+                const isActive = step.key === currentStep;
+                const isCompleted = completedSteps.includes(step.key);
+                
+                return (
+                  <div key={step.key} className="flex items-center">
+                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
+                      isActive 
+                        ? 'border-black bg-black text-white' 
+                        : isCompleted 
+                          ? 'border-green-500 bg-green-500 text-white'
+                          : 'border-gray-300 bg-white text-gray-400'
+                    }`}>
+                      <span className="text-lg">{step.icon}</span>
+                    </div>
+                    <span className={`ml-2 text-sm font-medium ${
+                      isActive ? 'text-black' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {step.label}
+                    </span>
+                    {index < 4 && (
+                      <div className={`w-8 h-0.5 mx-3 ${
+                        isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
+                    )}
                   </div>
-                  <div className="text-sm text-green-800">Импортировано категорий</div>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
-                    {importResult.errors.length}
-                  </div>
-                  <div className="text-sm text-red-800">Ошибок</div>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {importResult.warnings.length}
-                  </div>
-                  <div className="text-sm text-yellow-800">Предупреждений</div>
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
 
-            {/* Ошибки */}
-            {importResult.errors.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="font-medium text-red-800">Ошибки:</h3>
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <ul className="text-sm text-red-700 space-y-1">
-                    {importResult.errors.map((error, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>{error}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Предупреждения */}
-            {importResult.warnings.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="font-medium text-yellow-800">Предупреждения:</h3>
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <ul className="text-sm text-yellow-700 space-y-1">
-                    {importResult.warnings.map((warning, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>{warning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Импортированные категории */}
-            {importResult.categories.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="font-medium text-gray-800">Импортированные категории:</h3>
-                <div className="bg-gray-50 p-3 rounded-lg max-h-60 overflow-y-auto">
-                  <div className="space-y-1">
-                    {importResult.categories.map((category, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-sm">
-                        <span className="text-gray-500">L{category.level}</span>
-                        <span className="font-medium">{category.name}</span>
-                        {category.parent && (
-                          <span className="text-gray-400">→ {category.parent}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Контент шага */}
+            {renderStepContent()}
           </div>
         </Card>
-      )}
 
-      {/* История импортов */}
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <History className="h-5 w-5 text-gray-600" />
-            <h2 className="text-lg font-semibold">История импортов</h2>
+        {/* Модальное окно прогресса */}
+        {showProgressModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Обработка данных</h3>
+                <p className="text-gray-600">{progressMessage}</p>
+              </div>
+            </div>
           </div>
+        )}
 
-          {loadingHistory ? (
-            <div className="text-center py-8">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
-              <p className="text-gray-500 mt-2">Загрузка истории...</p>
+        {/* История импортов */}
+        <Card variant="base">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">История импортов</h3>
+              <Button variant="secondary" onClick={loadImportHistory} disabled={loadingHistory}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${loadingHistory ? 'animate-spin' : ''}`} />
+                Обновить
+              </Button>
             </div>
-          ) : importHistory.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              История импортов пуста
+            
+            <div className="space-y-3">
+              {importHistory.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">История импортов пуста</p>
+              ) : (
+                importHistory.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="font-medium">{item.filename}</p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(item.created_at).toLocaleString('ru-RU')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={item.status === 'completed' ? 'success' : 'warning'}>
+                        {item.imported_count} товаров
+                      </Badge>
+                      {item.error_count > 0 && (
+                        <Badge variant="error">
+                          {item.error_count} ошибок
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Файл
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Дата
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Импортировано
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ошибок
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Статус
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {importHistory.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {getStatusIcon(item.status)}
-                          <span className="ml-2 text-sm font-medium text-gray-900">
-                            {item.filename}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(item.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {item.imported_count}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {item.error_count}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(item.status)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Инструкции */}
-      <Card className="p-6">
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Инструкции по импорту</h2>
-          <div className="prose prose-sm max-w-none">
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-              <li>Заполните файл согласно структуре каталога:
-                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                  <li>Каждая строка представляет одну категорию</li>
-                  <li>Колонки соответствуют уровням вложенности (1-4 уровня)</li>
-                  <li>Заполненные ячейки должны идти подряд без пропусков</li>
-                  <li>Пустые ячейки в конце строки допустимы</li>
-                </ul>
-              </li>
-              <li>Сохраните файл в формате Excel (.xlsx)</li>
-              <li>Загрузите файл через форму выше</li>
-              <li>Проверьте результат импорта и исправьте ошибки при необходимости</li>
-            </ol>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

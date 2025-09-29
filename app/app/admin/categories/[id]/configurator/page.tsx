@@ -136,7 +136,7 @@ export default function CategoryConfiguratorPage() {
     ]
   };
 
-  const currentTemplate = template || defaultTemplate;
+  const currentTemplate = template && template.components && template.layout ? template : defaultTemplate;
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,7 +151,7 @@ export default function CategoryConfiguratorPage() {
               </div>
               <div className="flex items-center">
                 <span className="text-gray-400 mx-2 text-lg">•</span>
-                <h2 className="text-lg font-semibold text-gray-800">{category.name}</h2>
+                <h2 className="text-lg font-semibold text-gray-800">{category?.name || 'Категория'}</h2>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -176,13 +176,13 @@ export default function CategoryConfiguratorPage() {
         {/* Конфигуратор */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <div 
-            className={`grid gap-${currentTemplate?.layout?.gap || 4} ${
-              currentTemplate?.layout?.type === 'grid' 
-                ? `grid-cols-${currentTemplate?.layout?.columns || 3}` 
+            className={`grid gap-${currentTemplate.layout.gap} ${
+              currentTemplate.layout.type === 'grid' 
+                ? `grid-cols-${currentTemplate.layout.columns}` 
                 : 'flex flex-wrap'
             }`}
           >
-            {(currentTemplate?.components || []).map(component => (
+            {currentTemplate.components.map(component => (
               <div
                 key={component.id}
                 className={`${
@@ -209,19 +209,19 @@ export default function CategoryConfiguratorPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-700">Название:</span>
-              <span className="ml-2 text-gray-900">{template.name}</span>
+              <span className="ml-2 text-gray-900">{template?.name || currentTemplate.name}</span>
             </div>
             <div>
               <span className="font-medium text-gray-700">Компонентов:</span>
-              <span className="ml-2 text-gray-900">{template.components.length}</span>
+              <span className="ml-2 text-gray-900">{currentTemplate.components.length}</span>
             </div>
             <div>
               <span className="font-medium text-gray-700">Сетка:</span>
-              <span className="ml-2 text-gray-900">{template.layout.columns} колонок</span>
+              <span className="ml-2 text-gray-900">{currentTemplate.layout.columns} колонок</span>
             </div>
             <div>
               <span className="font-medium text-gray-700">Адаптивность:</span>
-              <span className="ml-2 text-gray-900">{template.layout.responsive ? 'Да' : 'Нет'}</span>
+              <span className="ml-2 text-gray-900">{currentTemplate.layout.responsive ? 'Да' : 'Нет'}</span>
             </div>
           </div>
         </div>

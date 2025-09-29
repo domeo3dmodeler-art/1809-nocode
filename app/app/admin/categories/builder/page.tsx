@@ -1,44 +1,138 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
 import DataUpload from '../../../../components/category-builder/DataUpload';
-import CategoryBuilder from '../../../../components/category-builder/CategoryBuilder';
+import ProfessionalConstructor from '../../../../components/constructor/ProfessionalConstructor';
 import PreviewModule from '../../../../components/category-builder/PreviewModule';
 
-type BuilderStep = 'info' | 'upload' | 'design' | 'preview' | 'generate';
+type BuilderStep = 'info' | 'design' | 'preview' | 'generate';
 
 export default function CategoryBuilderPage() {
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get('id');
+  
   const [currentStep, setCurrentStep] = useState<BuilderStep>('info');
   const [categoryData, setCategoryData] = useState<any>(null);
   const [priceListData, setPriceListData] = useState<any>(null);
   const [photoData, setPhotoData] = useState<any>(null);
   const [cartItems, setCartItems] = useState<any[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<BuilderStep[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
-  const handleInfoComplete = (data: any) => {
-    setCategoryData(data);
-    setCurrentStep('upload');
+  // Загружаем существующую категорию для редактирования
+  useEffect(() => {
+    if (categoryId) {
+      loadExistingCategory();
+    }
+  }, [categoryId]);
+
+  const loadExistingCategory = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/categories/${categoryId}`);
+      const result = await response.json();
+      
+      if (result.success && result.category) {
+        const category = result.category;
+        setCategoryData(category);
+        setIsEditMode(true);
+        
+        // Определяем какие шаги уже выполнены
+        const completed = [];
+        if (category.name && category.slug) {
+          completed.push('info');
+        }
+        if (category.displayConfig && Object.keys(category.displayConfig).length > 0) {
+          completed.push('design');
+        }
+        setCompletedSteps(completed as BuilderStep[]);
+        
+        // Устанавливаем текущий шаг на первый невыполненный
+        if (!completed.includes('info')) {
+          setCurrentStep('info');
+        } else if (!completed.includes('design')) {
+          setCurrentStep('design');
+        } else {
+          setCurrentStep('preview');
+        }
+      } else {
+        alert('Категория не найдена');
+        window.location.href = '/admin/categories';
+      }
+    } catch (error) {
+      console.error('Error loading category:', error);
+      alert('Ошибка при загрузке категории');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDataComplete = () => {
-    setCurrentStep('design');
+  const handleInfoComplete = async (data: any) => {
+    try {
+      let response;
+      
+      if (isEditMode && categoryData?.id) {
+        // Обновляем существующую категорию
+        response = await fetch(`/api/admin/categories/${categoryData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: data.name,
+            slug: data.slug,
+            description: data.description,
+            isActive: true
+          }),
+        });
+      } else {
+        // Создаем новую категорию
+        response = await fetch('/api/admin/categories', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: data.name,
+            slug: data.slug,
+            description: data.description,
+            isActive: true
+          }),
+        });
+      }
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setCategoryData({ ...data, id: result.category.id || categoryData.id });
+          setCompletedSteps(prev => [...prev, 'info']);
+          setCurrentStep('design');
+        } else {
+          alert('Ошибка при сохранении информации о категории: ' + result.error);
+        }
+      } else {
+        alert('Ошибка при сохранении информации о категории');
+      }
+    } catch (error) {
+      console.error('Error saving category info:', error);
+      alert('Ошибка при сохранении информации о категории');
+    }
   };
 
-  const handlePriceListLoaded = (data: any) => {
-    setPriceListData(data);
-  };
-
-  const handlePhotosLoaded = (data: any) => {
-    setPhotoData(data);
-  };
+  // Удалены функции загрузки данных - теперь они в /admin/catalog/import
 
   const handleDesignComplete = () => {
+    setCompletedSteps(prev => [...prev, 'design']);
     setCurrentStep('preview');
   };
 
   const handleGenerate = () => {
+    setCompletedSteps(prev => [...prev, 'preview']);
     setCurrentStep('generate');
   };
 
@@ -99,7 +193,6 @@ export default function CategoryBuilderPage() {
   const getStepTitle = () => {
     switch (currentStep) {
       case 'info': return 'Основная информация';
-      case 'upload': return 'Загрузка данных';
       case 'design': return 'Конструктор интерфейса';
       case 'preview': return 'Предпросмотр';
       case 'generate': return 'Генерация конфигуратора';
@@ -110,7 +203,6 @@ export default function CategoryBuilderPage() {
   const getStepDescription = () => {
     switch (currentStep) {
       case 'info': return 'Заполните основную информацию о категории';
-      case 'upload': return 'Загрузите прайс-лист и фотографии товаров';
       case 'design': return 'Создайте интерфейс конфигуратора с помощью модулей';
       case 'preview': return 'Проверьте работу конфигуратора';
       case 'generate': return 'Создайте готовый конфигуратор';
@@ -118,32 +210,79 @@ export default function CategoryBuilderPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <AdminLayout
+        title={isEditMode ? `Редактирование: ${categoryData?.name || 'Загрузка...'}` : "Создание категории конфигуратора"}
+        subtitle="Загрузка..."
+      >
+        <div className="flex justify-center items-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Загрузка данных категории...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout
-      title={getStepTitle()}
-      subtitle={getStepDescription()}
+        title={isEditMode ? `Редактирование: ${categoryData?.name || 'Загрузка...'}` : "Создание категории конфигуратора"}
+      subtitle={isEditMode ? `${getStepDescription()} - ${categoryData?.description || ''}` : getStepDescription()}
     >
       <div className="space-y-6">
+        {/* Информация о редактируемой категории - ПЕРЕМЕЩЕНО ВВЕРХ */}
+        {isEditMode && categoryData && (
+          <Card variant="base">
+            <div className="p-4">
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-2xl">📦</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {categoryData.name}
+                  </h3>
+                  <p className="text-gray-600 mt-1">
+                    {categoryData.description || 'Описание не указано'}
+                  </p>
+                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                    <span>ID: {categoryData.id}</span>
+                    <span>Slug: {categoryData.slug}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      categoryData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {categoryData.isActive ? 'Активна' : 'Неактивна'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Прогресс-бар */}
         <Card variant="base">
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-black">Этапы создания</h3>
               <span className="text-sm text-gray-600">
-                Шаг {['info', 'upload', 'design', 'preview', 'generate'].indexOf(currentStep) + 1} из 5
+                Шаг {['info', 'design', 'preview', 'generate'].indexOf(currentStep) + 1} из 4
               </span>
             </div>
             
             <div className="flex items-center space-x-4">
               {[
-                { key: 'info', label: 'Инфо' },
-                { key: 'upload', label: 'Данные' },
-                { key: 'design', label: 'Дизайн' },
-                { key: 'preview', label: 'Превью' },
-                { key: 'generate', label: 'Генерация' }
+                { key: 'info', label: 'Инфо', icon: 'ℹ️' },
+                { key: 'design', label: 'Дизайн', icon: '🎨' },
+                { key: 'preview', label: 'Превью', icon: '👁️' },
+                { key: 'generate', label: 'Генерация', icon: '⚡' }
               ].map((step, index) => {
                 const isActive = step.key === currentStep;
-                const isCompleted = ['info', 'upload', 'design', 'preview', 'generate'].indexOf(currentStep) > index;
+                const isCompleted = completedSteps.includes(step.key as BuilderStep);
                 
                 return (
                   <div key={step.key} className="flex items-center">
@@ -161,7 +300,7 @@ export default function CategoryBuilderPage() {
                     }`}>
                       {step.label}
                     </span>
-                    {index < 4 && (
+                    {index < 3 && (
                       <div className={`w-8 h-0.5 mx-4 ${
                         isCompleted ? 'bg-green-500' : 'bg-gray-300'
                       }`} />
@@ -175,49 +314,37 @@ export default function CategoryBuilderPage() {
 
         {/* Контент в зависимости от шага */}
         {currentStep === 'info' && (
-          <CategoryInfoForm
-            onComplete={handleInfoComplete}
-            onCancel={() => window.history.back()}
-          />
-        )}
-
-        {currentStep === 'upload' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-black">Загрузка данных</h3>
-                <p className="text-gray-600">Загрузите прайс-лист и фотографии товаров</p>
+            <Card variant="base">
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <div className="text-6xl mb-4">📋</div>
+                  <h3 className="text-xl font-semibold text-black mb-2">Создание категории конфигуратора</h3>
+                  <p className="text-gray-600">
+                    Заполните основную информацию о категории. Товары и фотографии нужно загружать через 
+                    <strong> "Каталог товаров" → "Импорт каталога"</strong>
+                  </p>
+                </div>
               </div>
-              <Button variant="secondary" onClick={() => setCurrentStep('info')}>
-                ← Назад
-              </Button>
-            </div>
-            <DataUpload
-              onPriceListLoaded={handlePriceListLoaded}
-              onPhotosLoaded={handlePhotosLoaded}
-              onComplete={handleDataComplete}
+            </Card>
+            
+            <CategoryInfoForm
+              onComplete={handleInfoComplete}
+              onCancel={() => window.history.back()}
+              initialData={categoryData}
             />
           </div>
         )}
 
+        {/* Шаг загрузки данных удален - теперь в /admin/catalog/import */}
+
         {currentStep === 'design' && (
-          <div className="space-y-6">
-            <Card variant="base">
-              <div className="p-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-black">Конструктор интерфейса</h3>
-                  <div className="flex space-x-2">
-                    <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
-                      ← Назад
-                    </Button>
-                    <Button variant="primary" onClick={handleDesignComplete}>
-                      Превью →
-                    </Button>
-                  </div>
-                </div>
-                <CategoryBuilder />
-              </div>
-            </Card>
+          <div className="fixed inset-0 bg-white z-50 flex flex-col">
+            {/* Полноэкранный конструктор */}
+            <div className="flex-1 overflow-hidden">
+              <ProfessionalConstructor hideHeader={true} />
+            </div>
+            
           </div>
         )}
 

@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const categoryId = searchParams.get('categoryId');
+    const categoryId = searchParams.get('categoryId') || searchParams.get('category');
     const search = searchParams.get('search');
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -29,7 +29,19 @@ export async function GET(request: NextRequest) {
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          description: true,
+          base_price: true,
+          stock_quantity: true,
+          brand: true,
+          model: true,
+          properties_data: true,
+          catalog_category_id: true,
+          created_at: true,
+          updated_at: true,
           catalog_category: {
             select: {
               id: true,
@@ -48,12 +60,27 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where })
     ]);
 
+    // Парсим JSON поля для каждого товара
+    const processedProducts = products.map(product => ({
+      ...product,
+      specifications: product.properties_data ? 
+        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {},
+      properties_data: product.properties_data ? 
+        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {},
+      dimensions: product.dimensions ? JSON.parse(product.dimensions) : {},
+      tags: product.tags ? JSON.parse(product.tags) : []
+    }));
+
     return NextResponse.json({
       success: true,
-      products,
+      products: processedProducts,
       total,
       limit,
       offset
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
   } catch (error) {
     console.error('Error fetching products:', error);

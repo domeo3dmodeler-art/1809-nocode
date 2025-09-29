@@ -36,7 +36,19 @@ export default function CatalogCategorySelector({
       setLoading(true);
       const response = await fetch('/api/catalog/categories');
       const data = await response.json();
-      setCategories(data.categories || []);
+      console.log('Загружены категории каталога:', data);
+      
+      // Обрабатываем разные форматы ответа
+      let categoriesData = [];
+      if (Array.isArray(data)) {
+        categoriesData = data;
+      } else if (data.categories && Array.isArray(data.categories)) {
+        categoriesData = data.categories;
+      } else {
+        console.warn('Неожиданный формат данных каталога:', data);
+      }
+      
+      setCategories(categoriesData);
       
       // Автоматически раскрываем первые 2 уровня для удобства
       const autoExpand = (cats: CatalogCategory[], level = 0) => {
@@ -52,6 +64,7 @@ export default function CatalogCategorySelector({
       autoExpand(data.categories || []);
     } catch (error) {
       console.error('Error loading catalog categories:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }

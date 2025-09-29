@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui';
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
+import TemplateEditor from '../../../components/constructor/TemplateEditor';
 
 interface CatalogTreeProps {
   categories: CatalogCategory[];
@@ -11,6 +12,13 @@ interface CatalogTreeProps {
   onCategoryCreate: (parentId?: string) => void;
   onCategoryEdit: (category: CatalogCategory) => void;
   onCategoryDelete: (category: CatalogCategory) => void;
+  selectedCategory: CatalogCategory | null;
+  selectedTemplate: any;
+  templateLoading: boolean;
+  loadTemplate: (categoryId: string) => void;
+  categoryProducts: any[];
+  productsLoading: boolean;
+  loadCategoryProducts: (categoryId: string) => void;
 }
 
 function CatalogTree({ 
@@ -18,11 +26,17 @@ function CatalogTree({
   onCategorySelect, 
   onCategoryCreate, 
   onCategoryEdit, 
-  onCategoryDelete 
+  onCategoryDelete,
+  selectedCategory,
+  selectedTemplate,
+  templateLoading,
+  loadTemplate,
+  categoryProducts,
+  productsLoading,
+  loadCategoryProducts
 }: CatalogTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<CatalogCategory | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<CatalogCategory[]>([]);
 
   const toggleNode = (nodeId: string) => {
@@ -36,7 +50,6 @@ function CatalogTree({
   };
 
   const handleCategorySelect = (category: CatalogCategory) => {
-    setSelectedCategory(category);
     onCategorySelect(category);
     
     // Обновляем хлебные крошки
@@ -248,6 +261,7 @@ function CatalogTree({
           </div>
         </div>
       )}
+
       
       <div className="border border-gray-200 rounded-lg bg-white shadow-sm">
         {filteredCategories.length === 0 ? (
@@ -273,13 +287,52 @@ function CatalogTree({
   );
 }
 
+// Функция для скачивания шаблона в Excel
+function downloadTemplateAsExcel(template: any) {
+  try {
+    // Создаем заголовки на основе required_fields
+    const fields = template.required_fields ? JSON.parse(template.required_fields) : [];
+    const headers = fields.map((field: any) => field.displayName || field.fieldName);
+    
+    // Создаем CSV содержимое
+    let csvContent = headers.join(',') + '\n';
+    
+    // Добавляем примеры данных (пустые строки)
+    for (let i = 0; i < 3; i++) {
+      csvContent += headers.map(() => '').join(',') + '\n';
+    }
+    
+    // Создаем и скачиваем файл
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `template_${template.name || 'import'}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Ошибка при создании шаблона:', error);
+    alert('Ошибка при создании шаблона');
+  }
+}
+
 export default function CatalogPage() {
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CatalogCategory | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(500);
   const [loading, setLoading] = useState(true);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<CatalogCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
   const [newCategoryParent, setNewCategoryParent] = useState<string | undefined>();
@@ -301,8 +354,117 @@ export default function CatalogPage() {
     }
   };
 
+  const loadTemplate = async (categoryId: string) => {
+    try {
+      setTemplateLoading(true);
+      const response = await fetch(`/api/admin/import-templates?catalog_category_id=${categoryId}`);
+      const data = await response.json();
+      
+      console.log('=== TEMPLATE DEBUG ===');
+      console.log('Template API response:', data);
+      console.log('Templates found:', data.templates?.length || 0);
+      
+      if (data.success && data.templates && data.templates.length > 0) {
+        // Показываем все найденные шаблоны
+        console.log('ALL TEMPLATES FOUND:');
+        data.templates.forEach((template: any, index: number) => {
+          console.log(`Template ${index + 1}:`, {
+            id: template.id,
+            name: template.name,
+            requiredFields: template.requiredFields,
+            requiredFieldsLength: template.requiredFields?.length || 0,
+            frontendCategory: template.frontendCategory,
+            catalogCategory: template.catalogCategory
+          });
+        });
+        
+        // Берем первый шаблон (должен быть только один)
+        const template = data.templates[0];
+        console.log('SELECTED TEMPLATE:', template);
+        console.log('Template requiredFields:', template.requiredFields);
+        console.log('Template requiredFields type:', typeof template.requiredFields);
+        
+        if (template.requiredFields) {
+          try {
+            const fields = template.requiredFields; // Уже парсится в API
+            console.log('Template fields:', fields);
+            console.log('Fields count:', Array.isArray(fields) ? fields.length : 'not an array');
+            
+            // Показываем каждое поле (если fields является массивом)
+            if (Array.isArray(fields)) {
+              fields.forEach((field: any, index: number) => {
+                console.log(`Field ${index + 1}:`, field);
+              });
+            } else {
+              console.log('Fields is not an array:', fields);
+            }
+          } catch (e) {
+            console.error('Error processing requiredFields:', e);
+          }
+        } else {
+          console.error('Template has no requiredFields!');
+        }
+        
+        setSelectedTemplate(template); // Берем первый шаблон для категории
+      } else {
+        console.log('No template found for category');
+        setSelectedTemplate(null);
+      }
+      console.log('=== END TEMPLATE DEBUG ===');
+    } catch (error) {
+      console.error('Error loading template:', error);
+      setSelectedTemplate(null);
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const loadCategoryProducts = async (categoryId: string, limit?: number) => {
+    const actualLimit = limit || itemsPerPage;
+    try {
+      setProductsLoading(true);
+      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}`);
+      const data = await response.json();
+      
+      console.log('=== PRODUCTS DEBUG ===');
+      console.log('Products API response:', data);
+      console.log('Products found:', data.products?.length || 0);
+      
+      if (data.success && data.products) {
+        console.log('First product:', data.products[0]);
+        console.log('First product specifications:', data.products[0]?.specifications);
+        console.log('First product specifications type:', typeof data.products[0]?.specifications);
+        
+        // Показываем все поля первого товара
+        if (data.products[0]?.specifications) {
+          console.log('First product specifications keys:', Object.keys(data.products[0].specifications));
+          console.log('First product specifications values:', Object.values(data.products[0].specifications));
+        }
+        
+        setCategoryProducts(data.products);
+        setTotalProductsCount(data.total || 0);
+        console.log(`Загружено ${data.products.length} товаров из ${data.total} для категории ${categoryId}`);
+      } else {
+        console.log('No products found');
+        setCategoryProducts([]);
+        setTotalProductsCount(0);
+      }
+      console.log('=== END PRODUCTS DEBUG ===');
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setCategoryProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   const handleCategorySelect = (category: CatalogCategory) => {
     setSelectedCategory(category);
+    setSelectedTemplate(null); // Сбрасываем шаблон
+    if (category.id) {
+      loadTemplate(category.id);
+      loadCategoryProducts(category.id); // Загружаем товары с настройками по умолчанию
+    }
   };
 
   const handleCategoryCreate = (parentId?: string) => {
@@ -318,6 +480,47 @@ export default function CatalogPage() {
   const handleCategoryDelete = (category: CatalogCategory) => {
     setCategoryToDelete(category);
     setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteAllProducts = async (categoryId: string) => {
+    try {
+      const response = await fetch(`/api/admin/products/delete-all?categoryId=${categoryId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`Успешно удалено ${result.deleted} товаров`);
+        
+        // Обновляем счетчики товаров в категориях каталога
+        try {
+          const updateCountsResponse = await fetch('/api/admin/categories/update-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (updateCountsResponse.ok) {
+            const countsData = await updateCountsResponse.json();
+            console.log('Счетчики обновлены после удаления:', countsData);
+          } else {
+            console.log('Не удалось обновить счетчики после удаления');
+          }
+        } catch (updateError) {
+          console.log('Ошибка при обновлении счетчиков после удаления:', updateError);
+        }
+        
+        // Перезагружаем список товаров
+        await loadCategoryProducts(categoryId);
+        // Перезагружаем список категорий для обновления счетчиков
+        await loadCategories();
+      } else {
+        alert(`Ошибка при удалении товаров: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении товаров:', error);
+      alert('Ошибка при удалении товаров');
+    }
   };
 
   const handleCreateCategory = async (data: CreateCatalogCategoryDto) => {
@@ -401,6 +604,13 @@ export default function CatalogPage() {
               onCategoryCreate={handleCategoryCreate}
               onCategoryEdit={handleCategoryEdit}
               onCategoryDelete={handleCategoryDelete}
+              selectedCategory={selectedCategory}
+              selectedTemplate={selectedTemplate}
+              templateLoading={templateLoading}
+              loadTemplate={loadTemplate}
+              categoryProducts={categoryProducts}
+              productsLoading={productsLoading}
+              loadCategoryProducts={loadCategoryProducts}
             />
           </Card>
         </div>
@@ -408,41 +618,390 @@ export default function CatalogPage() {
         <div className="lg:col-span-2">
           <Card className="p-4">
             {selectedCategory ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Заголовок с информацией о категории */}
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">{selectedCategory.name}</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center space-x-1"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Настройки</span>
-                  </Button>
+                  <div>
+                    <h2 className="text-lg font-semibold">{selectedCategory.name}</h2>
+                    <div className="text-sm text-gray-600 mt-1">
+                      ID: {selectedCategory.id} • Уровень: {selectedCategory.level}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-1"
+                      onClick={() => {
+                        setTemplateDialogOpen(true);
+                      }}
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Шаблон</span>
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex items-center space-x-1"
+                      onClick={() => {
+                        setTemplateEditorOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span>Редактировать</span>
+                    </Button>
+                  </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">ID:</span>
-                    <span className="ml-2 text-gray-600">{selectedCategory.id}</span>
+                {/* Список товаров */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-md font-medium text-gray-900">Товары категории</h3>
+                    {productsLoading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    )}
                   </div>
-                  <div>
-                    <span className="font-medium">Уровень:</span>
-                    <span className="ml-2 text-gray-600">{selectedCategory.level}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Путь:</span>
-                    <span className="ml-2 text-gray-600">{selectedCategory.path}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Товаров:</span>
-                    <span className="ml-2 text-gray-600">{selectedCategory.products_count || 0}</span>
-                  </div>
+                  
+                  {productsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600">Загрузка товаров...</p>
+                    </div>
+                  ) : categoryProducts.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-sm text-gray-600">
+                            Найдено товаров: <span className="font-semibold text-blue-600">{totalProductsCount}</span>
+                            {categoryProducts.length < totalProductsCount && (
+                              <span className="text-gray-500 ml-2">(показано {categoryProducts.length})</span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <label className="text-sm text-gray-600">Показать:</label>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => {
+                                const newItemsPerPage = parseInt(e.target.value);
+                                setItemsPerPage(newItemsPerPage);
+                                if (selectedCategory) {
+                                  loadCategoryProducts(selectedCategory.id);
+                                }
+                              }}
+                              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                              <option value={250}>250</option>
+                              <option value={500}>500</option>
+                              <option value={1000}>1000</option>
+                              <option value={totalProductsCount}>Все ({totalProductsCount})</option>
+                            </select>
+                            <span className="text-sm text-gray-500">товаров</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex items-center space-x-1"
+                          onClick={() => {
+                            if (confirm(`Вы уверены, что хотите удалить все товары (${categoryProducts.length} шт.) из категории "${selectedCategory.name}"? Это действие нельзя отменить.`)) {
+                              handleDeleteAllProducts(selectedCategory.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>Удалить все товары</span>
+                        </Button>
+                      </div>
+                      
+                      {/* Таблица товаров в стиле Excel */}
+                      <div className="relative">
+                        <div className="overflow-x-auto max-w-full border border-gray-200 rounded-lg shadow-sm">
+                          <table className="min-w-full border-separate border-spacing-0" style={{ minWidth: '1200px' }}>
+                          {/* Заголовки таблицы - только динамические поля из шаблона */}
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                #
+                              </th>
+                              {/* Динамические заголовки из шаблона */}
+                              {(() => {
+                                
+                                if (selectedTemplate?.requiredFields) {
+                                  try {
+                                    let fields = selectedTemplate.requiredFields; // Уже парсится в API
+                                    
+                                    console.log('TEMPLATE DEBUG:', {
+                                      selectedTemplate,
+                                      requiredFields: selectedTemplate.requiredFields,
+                                      fieldsType: typeof fields,
+                                      fieldsIsArray: Array.isArray(fields)
+                                    });
+                                    
+                                    // Проверяем, что fields является массивом
+                                    if (typeof fields === 'string') {
+                                      fields = JSON.parse(fields);
+                                    }
+                                    
+                                    if (Array.isArray(fields) && fields.length > 0) {
+                                      // Фильтруем поля, исключая нежелательные
+                                      const filteredFields = fields.filter((field: any) => {
+                                        const fieldName = field.fieldName || field;
+                                        return !fieldName.includes('№') && 
+                                               !fieldName.includes('Domeo_Ссылка на фото двери') &&
+                                               !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
+                                      });
+                                      
+                                      return filteredFields.map((field: any, index: number) => (
+                                        <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                          {field.displayName || field.fieldName}
+                                        </th>
+                                      ));
+                                    }
+                                  } catch (error) {
+                                    console.error('Ошибка при обработке полей шаблона:', error);
+                                  }
+                                }
+                                
+                                // Fallback: показываем базовые поля товаров
+                                return (
+                                  <>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Название
+                                    </th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Артикул
+                                    </th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Цена
+                                    </th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Остаток
+                                    </th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Бренд
+                                    </th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                      Модель
+                                    </th>
+                                  </>
+                                );
+                              })()}
+                              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                Есть фото
+                              </th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Действия
+                              </th>
+                            </tr>
+                          </thead>
+                          
+                          {/* Тело таблицы */}
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {categoryProducts.map((product: any, index: number) => (
+                              <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
+                                  {index + 1}
+                                </td>
+                                {/* Динамические ячейки свойств из шаблона */}
+                                {(() => {
+                                  if (selectedTemplate?.requiredFields) {
+                                    try {
+                                      let fields = selectedTemplate.requiredFields; // Уже парсится в API
+                                      
+                                      // Проверяем, что fields является массивом
+                                      if (typeof fields === 'string') {
+                                        fields = JSON.parse(fields);
+                                      }
+                                      
+                                      const specifications = product.properties_data ? 
+                                        (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+                                      
+                                      
+                                      if (Array.isArray(fields) && fields.length > 0) {
+                                        // Фильтруем поля, исключая нежелательные
+                                        const filteredFields = fields.filter((field: any) => {
+                                          const fieldName = field.fieldName || field;
+                                          return !fieldName.includes('№') && 
+                                                 !fieldName.includes('Domeo_Ссылка на фото двери') &&
+                                                 !fieldName.includes('DOMEO_ССЫЛКА НА ФОТО ДВЕРИ');
+                                        });
+                                        
+                                        return filteredFields.map((field: any, fieldIndex: number) => {
+                                          // Пробуем разные варианты названий полей
+                                          let value = specifications[field.fieldName] || 
+                                                     specifications[field.displayName] ||
+                                                     specifications[field.field_name] ||
+                                                     specifications[field.display_name] ||
+                                                     '-';
+                                          
+                                          
+                                          return (
+                                            <td key={fieldIndex} className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                              <div className="max-w-xs truncate" title={String(value)}>
+                                                {value}
+                                              </div>
+                                            </td>
+                                          );
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error('Ошибка при отображении полей товара:', error);
+                                    }
+                                  }
+                                  
+                                  // Fallback: показываем базовые поля товаров
+                                  const properties = product.properties_data ? 
+                                    (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+                                  // Показываем реальные свойства из properties_data
+                                  const fallbackValues = [
+                                    properties['Domeo_Название модели для Web'] || properties['Название'] || product.name || '-',
+                                    properties['Артикул поставщика'] || properties['Артикул'] || product.sku || '-',
+                                    properties['Цена ррц (включая цену полотна, короба, наличников, доборов)'] || properties['Цена'] || (product.base_price ? `${product.base_price} ₽` : '-'),
+                                    properties['Склад/заказ'] || properties['Остаток'] || product.stock_quantity || 0,
+                                    properties['Поставщик'] || properties['Бренд'] || product.brand || '-',
+                                    properties['Модель поставщика'] || properties['Модель'] || product.model || '-'
+                                  ];
+                                  
+                                  return (
+                                    <>
+                                      {fallbackValues.map((value, index) => (
+                                        <td key={index} className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                          <div className="max-w-xs truncate" title={String(value)}>
+                                            {value}
+                                          </div>
+                                        </td>
+                                      ))}
+                                    </>
+                                  );
+                                })()}
+                                {/* Ячейка "Есть фото" */}
+                                <td className="px-3 py-2 whitespace-nowrap text-center border-r border-gray-200">
+                                  {(() => {
+                                    const specifications = product.properties_data ? 
+                                      (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
+                                    const hasPhotos = specifications.photos && Array.isArray(specifications.photos) && specifications.photos.length > 0;
+                                    return hasPhotos ? (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        ✅ Есть
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        ❌ Нет
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap text-center">
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={() => {
+                                        // Редактировать товар
+                                        console.log('Редактировать товар:', product.id);
+                                      }}
+                                    >
+                                      Редактировать
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs text-red-600 hover:text-red-700"
+                                      onClick={() => {
+                                        // Удалить товар
+                                        console.log('Удалить товар:', product.id);
+                                      }}
+                                    >
+                                      Удалить
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        </div>
+                        
+                        {/* Улучшенный скроллбар */}
+                        <div className="mt-2 bg-gray-100 rounded-lg p-2">
+                          <div className="flex items-center justify-between text-xs text-gray-600">
+                            <div className="flex items-center space-x-4">
+                              <span>📊 Всего: {totalProductsCount} товаров</span>
+                              <span>👁️ Показано: {categoryProducts.length}</span>
+                              <span>📄 Страница: {Math.ceil(categoryProducts.length / itemsPerPage)} из {Math.ceil(totalProductsCount / itemsPerPage)}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span>Горизонтальная прокрутка:</span>
+                              <div className="flex space-x-1">
+                                <button 
+                                  className="px-2 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50"
+                                  onClick={() => {
+                                    const table = document.querySelector('.overflow-x-auto');
+                                    if (table) table.scrollLeft -= 200;
+                                  }}
+                                >
+                                  ←
+                                </button>
+                                <button 
+                                  className="px-2 py-1 bg-white border border-gray-300 rounded text-xs hover:bg-gray-50"
+                                  onClick={() => {
+                                    const table = document.querySelector('.overflow-x-auto');
+                                    if (table) table.scrollLeft += 200;
+                                  }}
+                                >
+                                  →
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {categoryProducts.length < totalProductsCount && (
+                        <div className="text-center pt-4 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 mb-3">
+                            Показано {categoryProducts.length} из {totalProductsCount} товаров
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Загрузить больше товаров
+                              if (selectedCategory) {
+                                loadCategoryProducts(selectedCategory.id);
+                              }
+                            }}
+                          >
+                            Показать все товары ({totalProductsCount})
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Package2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-700 mb-2">В этой категории нет товаров</h3>
+                      <p className="text-gray-500 mb-4">Товары не были импортированы в эту категорию</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Переход к импорту товаров
+                          window.location.href = `/admin/catalog/import?category=${selectedCategory.id}`;
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Импортировать товары
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="text-center text-gray-500 py-8">
-                Выберите категорию для просмотра деталей
+                Выберите категорию для просмотра списка товаров
               </div>
             )}
           </Card>
@@ -472,6 +1031,178 @@ export default function CatalogPage() {
         onConfirm={handleDeleteCategory}
         category={categoryToDelete}
       />
+
+      {/* Диалог просмотра шаблона */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Шаблон импорта для категории "{selectedCategory?.name}"</DialogTitle>
+          </DialogHeader>
+          
+          {templateLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : selectedTemplate ? (
+            <div className="space-y-6">
+              {/* Информация о шаблоне */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-2">Информация о шаблоне</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium">Название:</span> {selectedTemplate.name || 'Не указано'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Описание:</span> {selectedTemplate.description || 'Не указано'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Статус:</span> 
+                    <Badge className="ml-2" variant={selectedTemplate.is_active ? 'default' : 'secondary'}>
+                      {selectedTemplate.is_active ? 'Активен' : 'Неактивен'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="font-medium">Создан:</span> {selectedTemplate.created_at ? new Date(selectedTemplate.created_at).toLocaleDateString() : 'Не указано'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Категория:</span> {selectedCategory?.name || 'Не указано'}
+                  </div>
+                  <div>
+                    <span className="font-medium">ID категории:</span> {selectedTemplate.catalog_category_id || 'Не указано'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Обязательные поля */}
+              {selectedTemplate.required_fields && (() => {
+                try {
+                  const fields = JSON.parse(selectedTemplate.required_fields);
+                  return (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3">Обязательные поля</h3>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full border border-gray-200 rounded-lg">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Поле</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Отображаемое название</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Тип</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Обязательное</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {fields.map((field: any, index: number) => (
+                              <tr key={index}>
+                                <td className="px-4 py-2 text-sm font-medium text-gray-900">{field.fieldName}</td>
+                                <td className="px-4 py-2 text-sm text-gray-600">{field.displayName || field.fieldName}</td>
+                                <td className="px-4 py-2 text-sm text-gray-600">{field.type || 'string'}</td>
+                                <td className="px-4 py-2 text-sm">
+                                  <Badge variant={field.required ? 'destructive' : 'secondary'}>
+                                    {field.required ? 'Да' : 'Нет'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                } catch (error) {
+                  return (
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-red-900 mb-2">Ошибка в данных шаблона</h3>
+                      <p className="text-red-700">Не удалось прочитать поля шаблона: {selectedTemplate.required_fields}</p>
+                    </div>
+                  );
+                }
+              })()}
+
+              {/* Поля калькулятора */}
+              {selectedTemplate.calculator_fields && JSON.parse(selectedTemplate.calculator_fields).length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">Поля калькулятора</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 rounded-lg">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Поле</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Формула</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Описание</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {JSON.parse(selectedTemplate.calculator_fields).map((field: any, index: number) => (
+                          <tr key={index}>
+                            <td className="px-4 py-2 text-sm font-medium text-gray-900">{field.fieldName}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600 font-mono">{field.formula}</td>
+                            <td className="px-4 py-2 text-sm text-gray-600">{field.description || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Кнопки действий */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
+                  Закрыть
+                </Button>
+                <Button 
+                  onClick={() => {
+                    downloadTemplateAsExcel(selectedTemplate);
+                  }}
+                >
+                  Скачать Excel шаблон
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Settings className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-700 mb-2">Шаблон не найден</h3>
+              <p className="text-gray-500 mb-4">Для этой категории еще не создан шаблон импорта</p>
+              <Button 
+                onClick={() => {
+                  setTemplateEditorOpen(true);
+                }}
+              >
+                Создать шаблон
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог редактора шаблонов */}
+      <Dialog open={templateEditorOpen} onOpenChange={setTemplateEditorOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedTemplate ? 'Редактирование шаблона' : 'Создание шаблона'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedCategory && (
+            <TemplateEditor
+              categoryId={selectedCategory.id}
+              categoryName={selectedCategory.name}
+              template={selectedTemplate}
+              onSave={(template) => {
+                setSelectedTemplate(template);
+                setTemplateEditorOpen(false);
+                // Перезагружаем шаблон
+                if (selectedCategory.id) {
+                  loadTemplate(selectedCategory.id);
+                }
+              }}
+              onClose={() => setTemplateEditorOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
