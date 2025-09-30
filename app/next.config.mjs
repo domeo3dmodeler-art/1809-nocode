@@ -1,3 +1,8 @@
+import { config } from 'dotenv';
+
+// Загружаем переменные окружения
+config();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = { 
   reactStrictMode: true,

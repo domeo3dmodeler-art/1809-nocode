@@ -681,41 +681,187 @@ export async function POST(req: NextRequest) {
     console.log('=== END IMPORT PROCESSING DEBUG ===');
 
     // Автоматическое создание шаблона при первой загрузке товаров
-    if (!importTemplate && rows.length > 0) {
+    // Также пересоздаем шаблон, если в нем слишком много полей (>200)
+    const shouldRecreateTemplate = !importTemplate || 
+      (importTemplate && importTemplate.required_fields && 
+       JSON.parse(importTemplate.required_fields).length > 200);
+    
+    if (shouldRecreateTemplate && rows.length > 0) {
+      if (importTemplate) {
+        console.log('Пересоздаем шаблон - слишком много полей:', JSON.parse(importTemplate.required_fields).length);
+      }
       console.log('=== AUTO-CREATING TEMPLATE ===');
       try {
-        // Создаем шаблон на основе заголовков файла
-        const templateFields = headers.map((header, index) => ({
-          fieldName: header.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-          displayName: header,
-          type: 'text',
-          required: index < 3, // Первые 3 поля делаем обязательными
-          isForCalculator: false,
-          isForExport: true
-        }));
+        // Фильтруем заголовки для создания шаблона - исключаем служебные поля
+        const filteredHeaders = headers.filter(header => {
+          const lowerHeader = header.toLowerCase().trim();
+          
+          // Исключаем служебные поля
+          const excludePatterns = [
+            /^№$/,
+            /^номер$/,
+            /^id$/,
+            /^ключ$/,
+            /^уникальный/,
+            /^системный/,
+            /^служебный/,
+            /^технический/,
+            /^внутренний/,
+            /^временный/,
+            /^temp/,
+            /^tmp/,
+            /^test/,
+            /^debug/,
+            /^domeo_ссылка/,
+            /^domeo_ссылк/,
+            /^ссылка.*фото/,
+            /^фото.*ссылка/,
+            /^изображен/,
+            /^картинк/,
+            /^url/,
+            /^http/,
+            /^www\./,
+            /^\.com/,
+            /^\.ru/,
+            /^\.org/,
+            /^путь/,
+            /^path/,
+            /^file/,
+            /^файл/,
+            /^пустой/,
+            /^empty/,
+            /^null/,
+            /^undefined/,
+            /^неопределен/,
+            /^\s*$/,
+            /^[^а-яёa-z0-9\s]/i, // Начинается с не-буквы и не-цифры
+            /^\d+$/ // Только цифры
+          ];
+          
+          // Проверяем, не содержит ли заголовок исключаемые паттерны
+          const shouldExclude = excludePatterns.some(pattern => pattern.test(lowerHeader));
+          
+          // Также исключаем слишком короткие или длинные заголовки
+          const isValidLength = header.length >= 2 && header.length <= 100;
+          
+          return !shouldExclude && isValidLength;
+        });
+        
+        console.log('Original headers count:', headers.length);
+        console.log('Filtered headers count:', filteredHeaders.length);
+        console.log('Filtered headers:', filteredHeaders.slice(0, 20)); // Показываем первые 20
+        
+        // Ограничиваем количество полей в шаблоне (максимум 100 полей)
+        const maxFields = 100;
+        const finalHeaders = filteredHeaders.slice(0, maxFields);
+        
+        if (filteredHeaders.length > maxFields) {
+          console.log(`Ограничение: взяты только первые ${maxFields} полей из ${filteredHeaders.length} отфильтрованных`);
+        }
+        
+        // Создаем шаблон на основе отфильтрованных заголовков
+        const templateFields = finalHeaders.map((header, index) => {
+          // Определяем тип поля на основе названия
+          let fieldType = 'text';
+          let isRequired = false;
+          let isForCalculator = false;
+          
+          const lowerHeader = header.toLowerCase();
+          
+          // Обязательные поля
+          if (lowerHeader.includes('название') || 
+              lowerHeader.includes('имя') || 
+              lowerHeader.includes('наименование') ||
+              lowerHeader.includes('артикул') ||
+              lowerHeader.includes('sku') ||
+              lowerHeader.includes('код')) {
+            isRequired = true;
+          }
+          
+          // Числовые поля
+          if (lowerHeader.includes('цена') || 
+              lowerHeader.includes('стоимость') || 
+              lowerHeader.includes('сумма') ||
+              lowerHeader.includes('количество') ||
+              lowerHeader.includes('вес') ||
+              lowerHeader.includes('размер') ||
+              lowerHeader.includes('объем') ||
+              lowerHeader.includes('площадь') ||
+              lowerHeader.includes('длина') ||
+              lowerHeader.includes('ширина') ||
+              lowerHeader.includes('высота') ||
+              lowerHeader.includes('глубина') ||
+              lowerHeader.includes('диаметр') ||
+              lowerHeader.includes('толщина') ||
+              /^\d+$/.test(lowerHeader)) {
+            fieldType = 'number';
+            isForCalculator = true;
+          }
+          
+          // Логические поля
+          if (lowerHeader.includes('есть') || 
+              lowerHeader.includes('наличие') || 
+              lowerHeader.includes('доступн') ||
+              lowerHeader.includes('активн') ||
+              lowerHeader.includes('включен') ||
+              lowerHeader.includes('выключен') ||
+              lowerHeader === 'да' ||
+              lowerHeader === 'нет') {
+            fieldType = 'boolean';
+          }
+          
+          return {
+            fieldName: header.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+            displayName: header,
+            type: fieldType,
+            required: isRequired,
+            isForCalculator: isForCalculator,
+            isForExport: true
+          };
+        });
 
         const templateData = {
           name: `Автоматический шаблон для ${categoryInfo.name}`,
-          description: `Шаблон создан автоматически при первой загрузке товаров в категорию ${categoryInfo.name}`,
+          description: `Шаблон создан автоматически при первой загрузке товаров в категорию ${categoryInfo.name}. Поля отфильтрованы и ограничены.`,
           catalog_category_id: category,
           required_fields: JSON.stringify(templateFields.filter(f => f.required)),
-          calculator_fields: JSON.stringify([]),
+          calculator_fields: JSON.stringify(templateFields.filter(f => f.isForCalculator)),
           export_fields: JSON.stringify(templateFields),
           is_active: true
         };
 
-        const templateResponse = await fetch(`${req.nextUrl.origin}/api/admin/import-templates`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(templateData)
-        });
+        let templateResponse;
+        
+        if (importTemplate) {
+          // Обновляем существующий шаблон
+          templateResponse = await fetch(`${req.nextUrl.origin}/api/admin/import-templates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...templateData,
+              id: importTemplate.id // Добавляем ID для обновления
+            })
+          });
+          console.log('Обновляем существующий шаблон:', importTemplate.id);
+        } else {
+          // Создаем новый шаблон
+          templateResponse = await fetch(`${req.nextUrl.origin}/api/admin/import-templates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(templateData)
+          });
+          console.log('Создаем новый шаблон');
+        }
 
         if (templateResponse.ok) {
           const templateResult = await templateResponse.json();
           importTemplate = templateResult.template;
-          console.log('Автоматически создан шаблон:', importTemplate.id);
+          console.log('Шаблон сохранен:', importTemplate.id);
+          console.log('Количество обязательных полей:', templateFields.filter(f => f.required).length);
+          console.log('Количество полей для калькулятора:', templateFields.filter(f => f.isForCalculator).length);
+          console.log('Общее количество полей в шаблоне:', templateFields.length);
         } else {
-          console.error('Ошибка при создании автоматического шаблона');
+          console.error('Ошибка при сохранении шаблона');
         }
       } catch (error) {
         console.error('Ошибка при автоматическом создании шаблона:', error);

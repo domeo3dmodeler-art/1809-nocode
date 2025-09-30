@@ -45,10 +45,6 @@ export default function ProductsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedCategoryForImport, setSelectedCategoryForImport] = useState<string>('');
 
-  useEffect(() => {
-    loadData();
-  }, [currentPage, searchTerm, selectedCategory, loadData]);
-
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -79,6 +75,10 @@ export default function ProductsPage() {
       setLoading(false);
     }
   }, [currentPage, searchTerm, selectedCategory]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleDeleteProduct = async (product: Product) => {
     if (!confirm(`Удалить товар "${product.name}"?`)) return;
