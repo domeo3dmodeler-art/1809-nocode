@@ -6,7 +6,7 @@ import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
 import DataUpload from '../../../../components/category-builder/DataUpload';
-import ProfessionalConstructor from '../../../../components/constructor/ProfessionalConstructor';
+import UltimateConstructorFixed from '../../../../components/constructor/UltimateConstructorFixed';
 import PreviewModule from '../../../../components/category-builder/PreviewModule';
 
 type BuilderStep = 'info' | 'design' | 'preview' | 'generate';
@@ -231,11 +231,11 @@ export default function CategoryBuilderPage() {
         title={isEditMode ? `Редактирование: ${categoryData?.name || 'Загрузка...'}` : "Создание категории конфигуратора"}
       subtitle={isEditMode ? `${getStepDescription()} - ${categoryData?.description || ''}` : getStepDescription()}
     >
-      <div className="space-y-6">
+      <div className="space-y-0">
         {/* Информация о редактируемой категории - ПЕРЕМЕЩЕНО ВВЕРХ */}
         {isEditMode && categoryData && (
           <Card variant="base">
-            <div className="p-4">
+            <div className="p-2">
               <div className="flex items-center space-x-4">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -266,7 +266,7 @@ export default function CategoryBuilderPage() {
 
         {/* Прогресс-бар */}
         <Card variant="base">
-          <div className="p-4">
+          <div className="p-2">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-black">Этапы создания</h3>
               <span className="text-sm text-gray-600">
@@ -316,7 +316,7 @@ export default function CategoryBuilderPage() {
         {currentStep === 'info' && (
           <div className="space-y-6">
             <Card variant="base">
-              <div className="p-6">
+              <div className="p-2">
                 <div className="text-center mb-6">
                   <div className="text-6xl mb-4">📋</div>
                   <h3 className="text-xl font-semibold text-black mb-2">Создание категории конфигуратора</h3>
@@ -342,7 +342,7 @@ export default function CategoryBuilderPage() {
           <div className="fixed inset-0 bg-white z-50 flex flex-col">
             {/* Полноэкранный конструктор */}
             <div className="flex-1 overflow-hidden">
-              <ProfessionalConstructor hideHeader={true} />
+              <UltimateConstructorFixed hideHeader={true} />
             </div>
             
           </div>
@@ -383,7 +383,7 @@ export default function CategoryBuilderPage() {
         {currentStep === 'generate' && (
           <div className="space-y-6">
             <Card variant="base">
-              <div className="p-6">
+              <div className="p-2">
                 <div className="text-center mb-6">
                   <h2 className="text-xl font-semibold text-black mb-2">Генерация конфигуратора</h2>
                   <p className="text-gray-600">Создание готового конфигуратора категории</p>

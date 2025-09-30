@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Button, Input, Select, Card, Checkbox } from '../ui';
 import { CategorySelector, MainCategorySelector, SubCategorySelector } from './CategorySelector';
 import { ProductDisplay, ProductDisplayPreview } from './ProductDisplay';
+import CartBlock from './CartBlock';
 import { ProductFilters, ProductSearch } from './ProductFilters';
 import { 
   Layout, 
@@ -29,8 +30,8 @@ import {
   Crop,
   CornerUpLeft,
   CornerUpRight,
-  Maximize,
-  Minimize
+  Maximize2 as Maximize,
+  Minimize2 as Minimize
 } from 'lucide-react';
 
 // Компонент ручек для изменения размера
@@ -93,7 +94,7 @@ interface DragState {
 interface BlockSettings {
   id: string;
   name: string;
-  type: 'category-title' | 'main-category' | 'subcategory' | 'additional-category' | 'product-selector' | 'filter-constructor' | 'product-image' | 'cart-export' | 'text';
+  type: 'category-title' | 'main-category' | 'subcategory' | 'additional-category' | 'product-selector' | 'filter-constructor' | 'product-image' | 'cart-export' | 'text' | 'document-generator' | 'cart';
   
   // Позиция и размеры
   x: number;
@@ -244,6 +245,26 @@ interface BlockSettings {
     textAlign: 'left' | 'center' | 'right';
     color: string;
     backgroundColor: string;
+  };
+
+  documentGeneratorSettings?: {
+    enabledDocuments: string[]; // Типы документов, которые можно генерировать
+    defaultTemplate: string; // Шаблон по умолчанию
+    showPreview: boolean; // Показывать превью документа
+    allowCustomFields: boolean; // Разрешить пользовательские поля
+  };
+
+  cartSettings?: {
+    showItemList: boolean; // Показывать список товаров
+    showCalculation: boolean; // Показывать расчет стоимости
+    showActions: boolean; // Показывать кнопки действий
+    allowQuantityChange: boolean; // Разрешить изменение количества
+    allowItemRemoval: boolean; // Разрешить удаление товаров
+    showClientForm: boolean; // Показывать форму клиента
+    autoCalculate: boolean; // Автоматический расчет
+    showTax: boolean; // Показывать НДС
+    showDiscount: boolean; // Показывать скидки
+    maxItems: number; // Максимальное количество товаров
   };
   
   // Настройки изображения
@@ -456,6 +477,30 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
           color: '#333333',
           backgroundColor: 'transparent'
         }
+      }),
+
+      ...(type === 'document-generator' && {
+        documentGeneratorSettings: {
+          enabledDocuments: ['quote', 'invoice', 'supplier_order'],
+          defaultTemplate: 'quote',
+          showPreview: true,
+          allowCustomFields: true
+        }
+      }),
+
+      ...(type === 'cart' && {
+        cartSettings: {
+          showItemList: true,
+          showCalculation: true,
+          showActions: true,
+          allowQuantityChange: true,
+          allowItemRemoval: true,
+          showClientForm: false,
+          autoCalculate: true,
+          showTax: true,
+          showDiscount: true,
+          maxItems: 50
+        }
       })
     };
   }, [blocks.length]);
@@ -641,14 +686,26 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
         name: 'Текстовый блок',
         icon: '📝',
         description: 'Текстовое содержимое с настройкой шрифта, цвета, размера и выравнивания.'
+      },
+      {
+        type: 'document-generator' as const,
+        name: 'Генератор документов',
+        icon: '📄',
+        description: 'Блок для генерации документов: КП, Счет, Заказ поставщику из корзины.'
+      },
+      {
+        type: 'cart' as const,
+        name: 'Корзина',
+        icon: '🛒',
+        description: 'Блок корзины с товарами, расчетом стоимости и возможностью генерации документов.'
       }
     ];
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-full bg-gray-100">
       {/* Заголовок */}
       {!hideHeader && (
-      <div className="bg-white border-b border-gray-200 p-4">
+      <div className="bg-white border-b border-gray-200 p-2">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-800">
             🎨 Конструктор страниц
@@ -694,7 +751,7 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
 
       <div className="flex flex-1 overflow-hidden">
         {/* Левая панель с блоками */}
-        <div className="w-48 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
           <div className="p-4">
             <h3 className="font-semibold mb-4">Доступные блоки</h3>
             <div className="space-y-2">
@@ -1185,6 +1242,42 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
                               <p className="text-sm text-gray-600">{block.textSettings?.content}</p>
                             </div>
                           )}
+
+                          {block.type === 'document-generator' && (
+                            <div className="h-full overflow-hidden">
+                              <h3 className="font-medium mb-2">📄 Генератор документов</h3>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <div>Доступные документы:</div>
+                                {block.documentGeneratorSettings?.enabledDocuments.map(doc => (
+                                  <div key={doc} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                    {doc === 'quote' && '📄 КП'}
+                                    {doc === 'invoice' && '💰 Счет'}
+                                    {doc === 'supplier_order' && '🏭 Заказ поставщику'}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'cart' && (
+                            <div className="h-full overflow-hidden">
+                              <CartBlock 
+                                settings={block.cartSettings || {
+                                  showItemList: true,
+                                  showCalculation: true,
+                                  showActions: true,
+                                  allowQuantityChange: true,
+                                  allowItemRemoval: true,
+                                  showClientForm: false,
+                                  autoCalculate: true,
+                                  showTax: true,
+                                  showDiscount: true,
+                                  maxItems: 50
+                                }}
+                                className="h-full"
+                              />
+                            </div>
+                          )}
                           
                         </div>
                       </div>
@@ -1239,6 +1332,8 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
                       {selectedBlock.type === 'product-image' && '🖼️ Блок изображения товара'}
                       {selectedBlock.type === 'cart-export' && '📄 Корзина с экспортами'}
                       {selectedBlock.type === 'text' && '📝 Текстовый блок'}
+                      {selectedBlock.type === 'document-generator' && '📄 Генератор документов'}
+                      {selectedBlock.type === 'cart' && '🛒 Корзина'}
                     </div>
                   </div>
                 </div>
@@ -2016,6 +2111,269 @@ export default function UltimateConstructorFixed({ hideHeader = false }: { hideH
                           <span className="text-sm">Рассчитывать общую стоимость</span>
                         </label>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedBlock.type === 'document-generator' && selectedBlock.documentGeneratorSettings && (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-gray-800 border-b pb-2">Настройки генератора документов</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Доступные документы</label>
+                      <div className="space-y-2">
+                        {['quote', 'invoice', 'supplier_order'].map((docType) => (
+                          <label key={docType} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedBlock.documentGeneratorSettings?.enabledDocuments.includes(docType)}
+                              onChange={(e) => {
+                                const currentDocs = selectedBlock.documentGeneratorSettings?.enabledDocuments || [];
+                                const newDocs = e.target.checked
+                                  ? [...currentDocs, docType]
+                                  : currentDocs.filter(d => d !== docType);
+                                updateBlock(selectedBlock.id, {
+                                  documentGeneratorSettings: {
+                                    ...selectedBlock.documentGeneratorSettings!,
+                                    enabledDocuments: newDocs
+                                  }
+                                });
+                              }}
+                              className="rounded"
+                            />
+                            <span className="text-sm">
+                              {docType === 'quote' && '📄 Коммерческое предложение'}
+                              {docType === 'invoice' && '💰 Счет на оплату'}
+                              {docType === 'supplier_order' && '🏭 Заказ поставщику'}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="defaultTemplate" className="block text-sm font-medium text-gray-700 mb-1">Шаблон по умолчанию</label>
+                      <Select
+                        id="defaultTemplate"
+                        value={selectedBlock.documentGeneratorSettings?.defaultTemplate || 'quote'}
+                        onValueChange={(value) => updateBlock(selectedBlock.id, {
+                          documentGeneratorSettings: {
+                            ...selectedBlock.documentGeneratorSettings!,
+                            defaultTemplate: value
+                          }
+                        })}
+                      >
+                        <option value="quote">Коммерческое предложение</option>
+                        <option value="invoice">Счет на оплату</option>
+                        <option value="supplier_order">Заказ поставщику</option>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedBlock.documentGeneratorSettings?.showPreview || false}
+                          onChange={(e) => updateBlock(selectedBlock.id, {
+                            documentGeneratorSettings: {
+                              ...selectedBlock.documentGeneratorSettings!,
+                              showPreview: e.target.checked
+                            }
+                          })}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Показывать превью документа</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedBlock.documentGeneratorSettings?.allowCustomFields || false}
+                          onChange={(e) => updateBlock(selectedBlock.id, {
+                            documentGeneratorSettings: {
+                              ...selectedBlock.documentGeneratorSettings!,
+                              allowCustomFields: e.target.checked
+                            }
+                          })}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Разрешить пользовательские поля</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {selectedBlock.type === 'cart' && selectedBlock.cartSettings && (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-gray-800 border-b pb-2">Настройки корзины</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Отображение элементов</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showItemList || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showItemList: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать список товаров</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showCalculation || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showCalculation: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать расчет стоимости</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showActions || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showActions: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать кнопки действий</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showClientForm || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showClientForm: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать форму клиента</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Интерактивность</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.allowQuantityChange || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                allowQuantityChange: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Разрешить изменение количества</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.allowItemRemoval || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                allowItemRemoval: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Разрешить удаление товаров</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.autoCalculate || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                autoCalculate: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Автоматический расчет</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Финансы</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showTax || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showTax: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать НДС</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlock.cartSettings?.showDiscount || false}
+                            onChange={(e) => updateBlock(selectedBlock.id, {
+                              cartSettings: {
+                                ...selectedBlock.cartSettings!,
+                                showDiscount: e.target.checked
+                              }
+                            })}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Показывать скидки</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="maxItems" className="block text-sm font-medium text-gray-700 mb-1">
+                        Максимальное количество товаров
+                      </label>
+                      <Input
+                        id="maxItems"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={selectedBlock.cartSettings?.maxItems || 50}
+                        onChange={(e) => updateBlock(selectedBlock.id, {
+                          cartSettings: {
+                            ...selectedBlock.cartSettings!,
+                            maxItems: parseInt(e.target.value) || 50
+                          }
+                        })}
+                      />
                     </div>
                   </div>
                 )}

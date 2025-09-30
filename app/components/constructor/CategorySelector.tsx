@@ -42,17 +42,26 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
 
   // Рекурсивное построение опций для вложенных категорий
   const renderCategoryOptions = (cats: CatalogCategory[], depth: number = 0): React.ReactNode[] => {
-    return cats.map(category => {
+    const options: React.ReactNode[] = [];
+    
+    cats.forEach(category => {
       const indent = '— '.repeat(depth);
       const countText = showCount && category.products_count ? ` (${category.products_count})` : '';
       const label = `${indent}${category.name}${countText}`;
       
-      return (
+      options.push(
         <option key={category.id} value={category.id}>
           {label}
         </option>
       );
+      
+      // Добавляем подкатегории
+      if (category.subcategories && category.subcategories.length > 0) {
+        options.push(...renderCategoryOptions(category.subcategories, depth + 1));
+      }
     });
+    
+    return options;
   };
 
   // Обработка ошибок
@@ -73,11 +82,19 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
     );
   }
 
+  // Отладочная информация
+  console.log('CategorySelector:', { 
+    categories: categories.length, 
+    filteredCategories: filteredCategories.length, 
+    level, 
+    showCount 
+  });
+
   // Нет категорий
   if (filteredCategories.length === 0) {
     return (
       <Select disabled className={className}>
-        <option value="">Категории не найдены</option>
+        <option value="">Категории не найдены ({categories.length} всего)</option>
       </Select>
     );
   }

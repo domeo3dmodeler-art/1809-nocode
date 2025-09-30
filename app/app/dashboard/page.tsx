@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { Card, Button } from '../../components/ui';
+import { ClientAuthGuard } from '../../components/auth/ClientAuthGuard';
 
 interface User {
   id: string;
@@ -16,6 +17,14 @@ interface User {
 }
 
 export default function DashboardPage() {
+  return (
+    <ClientAuthGuard>
+      <DashboardContent />
+    </ClientAuthGuard>
+  );
+}
+
+function DashboardContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);

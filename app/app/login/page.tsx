@@ -1,18 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('complectator@domeo.ru');
+  const [password, setPassword] = useState('complectator123');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 Начинаем процесс входа...', { email, password: '***' });
     setIsLoading(true);
     setError('');
 
@@ -26,8 +31,10 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log('📊 Ответ сервера:', response.status, data);
 
-      if (response.ok) {
+      if (data.success) {
+        console.log('✅ Логин успешен, сохраняем данные...');
         // Сохраняем токен и данные пользователя в localStorage
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userRole', data.user.role);
@@ -38,12 +45,21 @@ export default function LoginPage() {
         localStorage.setItem('userLastName', data.user.lastName);
         localStorage.setItem('userMiddleName', data.user.middleName);
         
-        // Перенаправляем на dashboard
-        router.push('/dashboard');
+        // Устанавливаем cookie для совместимости
+        document.cookie = `auth-token=${data.token}; path=/; max-age=86400; samesite=lax`;
+        console.log('🍪 Cookie установлен для совместимости');
+        
+        // Перенаправляем на нужную страницу
+        console.log('🚀 Перенаправляем на:', redirectTo);
+        console.log('🍪 Cookie установлен:', document.cookie.includes('auth-token'));
+        
+        // Используем window.location для принудительного обновления страницы
+        window.location.href = redirectTo;
       } else {
         setError(data.error || 'Ошибка входа');
       }
     } catch (error) {
+      console.error('❌ Ошибка логина:', error);
       setError('Ошибка соединения с сервером');
     } finally {
       setIsLoading(false);
@@ -87,16 +103,29 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-black">
                 Пароль
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                placeholder="••••••••"
-              />
+              <div className="mt-1 relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full px-3 py-2 pr-10 border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 

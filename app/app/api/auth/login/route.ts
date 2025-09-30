@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'domeo-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'domeo-development-secret-key';
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,11 +84,27 @@ export async function POST(req: NextRequest) {
       lastLogin: user.last_login
     };
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       token,
       user: userData
     });
+
+    // Устанавливаем cookie на сервере
+        response.cookies.set('auth-token', token, {
+          httpOnly: false, // Позволяем доступ из JavaScript
+          secure: false,   // Для локальной разработки
+          sameSite: 'lax',
+          maxAge: 86400,   // 24 часа
+          path: '/',
+          // Дополнительные параметры для Yandex браузера
+          domain: undefined, // Явно убираем domain
+          partitioned: false // Отключаем partitioned cookies
+        });
+    
+    console.log('🍪 Server cookie set:', token.substring(0, 20) + '...');
+
+    return response;
 
   } catch (error) {
     console.error('Login error:', error);

@@ -6,8 +6,44 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import NotificationCenter from '../notifications/NotificationCenter';
+import ToastNotifications from '../notifications/ToastNotifications';
+import CartButton from '../cart/CartButton';
+import CartSidebar from '../cart/CartSidebar';
 import { Button } from '../ui';
-import { formatUserName, getRoleDisplayName, getRoleColor, getRoleIcon, User } from '../../lib/utils/user-display';
+import { useAuth } from '../../hooks/useAuth';
+
+// Функция для получения заголовка страницы
+function getPageTitle(pathname: string): string {
+  const titles: Record<string, string> = {
+    '/admin': 'Панель управления',
+    '/admin/categories': 'Категории конфигуратора',
+    '/admin/categories/builder': 'Конструктор страниц',
+    '/admin/catalog': 'Каталог товаров',
+    '/admin/catalog/import': 'Импорт товаров',
+    '/admin/users': 'Пользователи',
+    '/admin/notifications-demo': 'Демо уведомлений',
+    '/admin/settings': 'Настройки'
+  };
+  
+  return titles[pathname] || 'Админ панель';
+}
+
+// Функция для форматирования имени пользователя
+function formatUserName(user: any): string {
+  if (!user) return 'Пользователь';
+  return `${user.lastName || ''} ${user.firstName || ''} ${user.middleName || ''}`.trim() || user.email || 'Пользователь';
+}
+
+// Функция для получения отображаемого названия роли
+function getRoleDisplayName(role: string): string {
+  const roleNames: Record<string, string> = {
+    'admin': 'Администратор',
+    'complectator': 'Комплектатор',
+    'executor': 'Исполнитель'
+  };
+  return roleNames[role] || role || 'Пользователь';
+}
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -53,6 +89,16 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    id: 'cart',
+    label: 'Корзина',
+    href: '/admin/cart-demo',
+    children: [
+      { id: 'cart-demo', label: 'Демо корзины', href: '/admin/cart-demo' },
+      { id: 'cart-multi', label: 'Мультикатегории', href: '/admin/cart-demo' }
+    ]
+  },
+  { id: 'analytics', href: '/admin/analytics', label: 'Аналитика', icon: 'BarChart3' },
+  {
     id: 'clients',
     label: 'Заказчики',
     href: '/admin/clients'
@@ -68,6 +114,12 @@ const menuItems: MenuItem[] = [
     href: '/admin/users'
   },
   {
+    id: 'notifications-demo',
+    label: 'Демо уведомлений',
+    href: '/admin/notifications-demo',
+    icon: '🔔'
+  },
+  {
     id: 'settings',
     label: 'Настройки',
     href: '/admin/settings'
@@ -81,31 +133,36 @@ const menuItems: MenuItem[] = [
 
 export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['catalog', 'configurator']));
+  const [cartOpen, setCartOpen] = useState(false);
   const pathname = usePathname();
+  const { user: currentUser, isAuthenticated, isLoading, logout } = useAuth();
 
-  useEffect(() => {
-    // Проверяем аутентификацию из localStorage
-    const token = localStorage.getItem('authToken');
-    const userRole = localStorage.getItem('userRole');
-    const userId = localStorage.getItem('userId');
+  // Показываем загрузку пока проверяется аутентификация
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-    if (token && userRole && userId) {
-      // Пользователь авторизован
-      setUser({
-        id: userId,
-        email: localStorage.getItem('userEmail') || '',
-        firstName: localStorage.getItem('userFirstName') || 'Иван',
-        lastName: localStorage.getItem('userLastName') || 'Иванов',
-        middleName: localStorage.getItem('userMiddleName') || 'Иванович',
-        role: userRole
-      });
-    } else {
-      // Если нет токена, перенаправляем на страницу входа
-      window.location.href = '/login';
-    }
-  }, []);
+  // Если пользователь не авторизован, показываем сообщение
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Доступ запрещен</h1>
+          <p className="text-gray-600 mb-6">Для доступа к админ-панели необходимо войти в систему</p>
+          <Link href="/login">
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              Войти в систему
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const isActive = (href: string) => {
     if (href === '/admin') {
@@ -113,6 +170,51 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
     }
     return pathname.startsWith(href);
   };
+
+  // Фильтрация меню по ролям
+  const getFilteredMenuItems = () => {
+    if (!currentUser) return [];
+
+    const userRole = currentUser.role;
+    const filteredItems = [];
+    
+    if (userRole === 'admin') {
+      // Админ видит все пункты меню
+      return menuItems;
+    }
+    
+    if (userRole === 'complectator') {
+      // Комплектатор видит категории, каталог и конфигуратор
+      const allowedItems = ['categories', 'catalog', 'configurator', 'notifications-demo'];
+      filteredItems.push(...menuItems.filter(item => allowedItems.includes(item.id)));
+      
+      // Добавляем специфичный пункт для комплектатора
+      filteredItems.unshift({
+        id: 'complectator-dashboard',
+        href: '/complectator/dashboard',
+        label: 'Панель комплектовщика',
+        icon: 'ShoppingCart'
+      });
+    }
+    
+    if (userRole === 'executor') {
+      // Исполнитель видит каталог
+      const allowedItems = ['catalog', 'notifications-demo'];
+      filteredItems.push(...menuItems.filter(item => allowedItems.includes(item.id)));
+      
+      // Добавляем специфичный пункт для исполнителя
+      filteredItems.unshift({
+        id: 'executor-dashboard',
+        href: '/executor/dashboard',
+        label: 'Панель исполнителя',
+        icon: 'Package'
+      });
+    }
+    
+    return filteredItems;
+  };
+
+  const filteredMenuItems = getFilteredMenuItems();
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -130,20 +232,6 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
     });
   };
 
-  const handleLogout = () => {
-    // Очищаем данные аутентификации
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userFirstName');
-    localStorage.removeItem('userLastName');
-    localStorage.removeItem('userMiddleName');
-    
-    // Перенаправляем на страницу входа
-    window.location.href = '/login';
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -177,7 +265,7 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
         {/* Navigation */}
         <nav className="mt-6 px-3">
           <div className="space-y-1">
-            {menuItems.map((item) => (
+            {filteredMenuItems.map((item) => (
               <div key={item.id}>
                 {item.children ? (
                   // Menu item with children (expandable)
@@ -259,9 +347,9 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user ? `${user.lastName} ${user.firstName} ${user.middleName || ''}`.trim() : 'Пользователь'}
+                {currentUser ? `${currentUser.lastName} ${currentUser.firstName} ${currentUser.middleName || ''}`.trim() : 'Пользователь'}
               </p>
-              <p className="text-xs text-gray-500 truncate">{getRoleDisplayName(user?.role || 'admin')}</p>
+              <p className="text-xs text-gray-500 truncate">{getRoleDisplayName(currentUser?.role || 'admin')}</p>
             </div>
           </div>
         </div>
@@ -292,36 +380,53 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* Quick actions */}
-              <div className="hidden sm:flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
-                          Статистика
-                        </Button>
-                <Button variant="ghost" size="sm">
-                  Уведомления
-                </Button>
-              </div>
-              
-              {/* User info */}
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-black">{formatUserName(user)}</p>
-                  <p className="text-xs text-gray-500">({getRoleDisplayName(user?.role || 'admin')})</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  Выйти
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
 
+        {/* Header with notifications */}
+        <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                {getPageTitle(pathname)}
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <CartButton onOpenCart={() => setCartOpen(true)} />
+              <NotificationCenter userId={currentUser?.id || 'demo-user'} />
+              <Button variant="ghost" size="sm" onClick={logout}>
+                Выйти
+              </Button>
+            </div>
+          </div>
+        </header>
+
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="p-0">
           {children}
         </main>
       </div>
+
+      {/* Toast notifications */}
+      <ToastNotifications userId={currentUser?.id || 'demo-user'} />
+      
+      {/* Cart sidebar */}
+      <CartSidebar
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        onGenerateQuote={() => {
+          // TODO: Реализовать генерацию КП
+          console.log('Generate Quote');
+        }}
+        onGenerateInvoice={() => {
+          // TODO: Реализовать генерацию счета
+          console.log('Generate Invoice');
+        }}
+        onGenerateOrder={() => {
+          // TODO: Реализовать генерацию заказа поставщику
+          console.log('Generate Order');
+        }}
+      />
     </div>
   );
 }

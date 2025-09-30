@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../../../components/layout/AdminLayout';
 import { Card, Button, DataTable, Pagination, useFormValidation, ErrorMessage } from '../../../components/ui';
+import { ClientAuthGuard } from '../../../components/auth/ClientAuthGuard';
 
 interface User {
   id: string;
@@ -19,6 +20,14 @@ interface User {
 }
 
 export default function AdminUsersPage() {
+  return (
+    <ClientAuthGuard>
+      <AdminUsersPageContent />
+    </ClientAuthGuard>
+  );
+}
+
+function AdminUsersPageContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
