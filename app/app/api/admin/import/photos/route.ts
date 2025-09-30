@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { validateImageFile, generateUniqueFileName } from '../../../../../lib/validation/file-validation';
+import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../../../../lib/security/rate-limiter';
 
 const prisma = new PrismaClient();
 
 // POST /api/admin/import/photos - Загрузка фотографий товаров
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIP = getClientIP(request);
+    if (!uploadRateLimiter.isAllowed(clientIP)) {
+      return createRateLimitResponse(uploadRateLimiter, clientIP);
+    }
+
     const formData = await request.formData();
     const photos = formData.getAll('photos') as File[];
     const category = formData.get('category') as string;
@@ -59,13 +67,18 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Загружаем фото ${i + 1}/${photos.length}: ${photo.name}`);
         
+        // Валидация файла
+        const validation = validateImageFile(photo);
+        if (!validation.isValid) {
+          uploadErrors.push(`Ошибка валидации ${photo.name}: ${validation.error}`);
+          continue;
+        }
+        
         const bytes = await photo.arrayBuffer();
         const buffer = Buffer.from(bytes);
         
-        // Генерируем уникальное имя файла
-        const timestamp = Date.now();
-        const randomString = Math.random().toString(36).substring(2, 8);
-        const fileName = `${timestamp}_${randomString}_${photo.name}`;
+        // Генерируем безопасное уникальное имя файла
+        const fileName = generateUniqueFileName(photo.name);
         const filePath = path.join(uploadDir, fileName);
         
         await writeFile(filePath, buffer);

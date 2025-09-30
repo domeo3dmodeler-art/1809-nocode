@@ -6,10 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import NotificationCenter from '../notifications/NotificationCenter';
-import ToastNotifications from '../notifications/ToastNotifications';
-import CartButton from '../cart/CartButton';
-import CartSidebar from '../cart/CartSidebar';
 import { Button } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -123,18 +119,12 @@ const menuItems: MenuItem[] = [
     id: 'settings',
     label: 'Настройки',
     href: '/admin/settings'
-  },
-  {
-    id: 'analytics',
-    label: 'Аналитика',
-    href: '/analytics'
   }
 ];
 
 export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['catalog', 'configurator']));
-  const [cartOpen, setCartOpen] = useState(false);
   const pathname = usePathname();
   const { user: currentUser, isAuthenticated, isLoading, logout } = useAuth();
 
@@ -383,17 +373,23 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
           </div>
         </div>
 
-        {/* Header with notifications */}
+        {/* Header with user actions */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                {getPageTitle(pathname)}
-              </h1>
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium text-gray-600">
+                  {currentUser?.firstName?.[0] || 'A'}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {currentUser ? `${currentUser.lastName} ${currentUser.firstName}`.trim() : 'Пользователь'}
+                </p>
+                <p className="text-xs text-gray-500">{getRoleDisplayName(currentUser?.role || 'admin')}</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <CartButton onOpenCart={() => setCartOpen(true)} />
-              <NotificationCenter userId={currentUser?.id || 'demo-user'} />
               <Button variant="ghost" size="sm" onClick={logout}>
                 Выйти
               </Button>
@@ -407,26 +403,6 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
         </main>
       </div>
 
-      {/* Toast notifications */}
-      <ToastNotifications userId={currentUser?.id || 'demo-user'} />
-      
-      {/* Cart sidebar */}
-      <CartSidebar
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        onGenerateQuote={() => {
-          // TODO: Реализовать генерацию КП
-          console.log('Generate Quote');
-        }}
-        onGenerateInvoice={() => {
-          // TODO: Реализовать генерацию счета
-          console.log('Generate Invoice');
-        }}
-        onGenerateOrder={() => {
-          // TODO: Реализовать генерацию заказа поставщику
-          console.log('Generate Order');
-        }}
-      />
     </div>
   );
 }

@@ -493,8 +493,8 @@ export default function CatalogImportPage() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 'upload':
-        return (
-          <div className="space-y-6">
+  return (
+    <div className="space-y-6">
             {/* Компактная область загрузки прайс-листа */}
             <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
               <div className="text-center">
@@ -502,19 +502,19 @@ export default function CatalogImportPage() {
                 <h3 className="text-lg font-semibold text-black mb-2">Загрузка прайс-листа</h3>
                 <p className="text-gray-600 mb-4 text-sm">Загрузите файл с данными о товарах</p>
                 
-                <input
-                  type="file"
+            <input
+              type="file"
                   accept=".xlsx,.xls,.csv"
                   onChange={handlePriceListUpload}
-                  className="hidden"
+              className="hidden"
                   id="price-list-upload"
-                />
+            />
                 <label
                   htmlFor="price-list-upload"
                   className="inline-flex items-center px-4 py-2 bg-black text-white rounded hover:bg-yellow-400 hover:text-black transition-all duration-200 cursor-pointer text-sm"
                 >
                   {isProcessing ? 'Обработка...' : 'Выбрать файл'}
-                </label>
+          </label>
                 
                 <p className="text-xs text-gray-500 mt-2">Форматы: .xlsx, .csv</p>
               </div>
@@ -656,17 +656,17 @@ export default function CatalogImportPage() {
               <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Назад
-              </Button>
-              <Button 
+          </Button>
+          <Button
                 onClick={handleCatalogComplete}
                 disabled={!selectedCatalogCategoryId}
                 className={selectedCatalogCategoryId ? 'bg-black hover:bg-gray-800' : ''}
               >
                 Продолжить
                 <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </div>
+          </Button>
+        </div>
+      </div>
         );
 
       case 'properties':
@@ -677,9 +677,9 @@ export default function CatalogImportPage() {
               <p className="text-blue-700 text-sm">
                 Выберите поля из прайс-листа, которые будут использоваться в конфигураторе.
                 Отметьте обязательные поля для корректной работы системы.
-              </p>
-            </div>
-            
+            </p>
+          </div>
+
             <div className="grid gap-3 max-h-96 overflow-y-auto">
               {/* Заголовки колонок */}
               <div className="grid grid-cols-12 gap-3 p-3 bg-gray-50 rounded-lg font-medium text-sm text-gray-700">
@@ -693,7 +693,7 @@ export default function CatalogImportPage() {
               {priceListData.headers.map((header, index) => (
                 <div key={index} className="grid grid-cols-12 gap-3 p-3 border rounded-lg items-center">
                   <div className="col-span-1">
-                    <input
+                  <input
                       type="checkbox"
                       id={`field-${index}`}
                       defaultChecked={true}
@@ -703,8 +703,8 @@ export default function CatalogImportPage() {
                   <div className="col-span-3">
                     <label htmlFor={`field-${index}`} className="block text-sm font-medium text-gray-700">
                       {header}
-                    </label>
-                  </div>
+                </label>
+              </div>
                   <div className="col-span-3">
                     <input
                       type="text"
@@ -713,7 +713,7 @@ export default function CatalogImportPage() {
                       data-header={header}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                  </div>
+            </div>
                   <div className="col-span-2">
                     <label className="flex items-center space-x-1 text-sm">
                       <input
@@ -722,7 +722,7 @@ export default function CatalogImportPage() {
                       />
                       <span>Обязательное</span>
                     </label>
-                  </div>
+          </div>
                   <div className="col-span-3">
                     <select className="w-full text-sm border rounded px-2 py-1">
                       <option value="text">Текст</option>
@@ -730,7 +730,7 @@ export default function CatalogImportPage() {
                       <option value="select">Список</option>
                       <option value="boolean">Да/Нет</option>
                     </select>
-                  </div>
+              </div>
                 </div>
               ))}
             </div>
@@ -740,7 +740,7 @@ export default function CatalogImportPage() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Назад
               </Button>
-              <Button 
+              <Button
                 onClick={() => {
                   // Собираем выбранные поля с пользовательскими названиями
                   const fields = priceListData.headers.map((header, index) => {
@@ -762,7 +762,7 @@ export default function CatalogImportPage() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
-          </div>
+        </div>
         ) : null;
 
       case 'photos':
@@ -797,7 +797,7 @@ export default function CatalogImportPage() {
                     <span className="text-sm font-medium">Загрузка</span>
                   </div>
                 </div>
-              </div>
+            </div>
 
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Выбор категории для загрузки фото */}
@@ -821,8 +821,8 @@ export default function CatalogImportPage() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                      </div>
-                    </div>
+                  </div>
+                </div>
                   </div>
 
                   {/* Дерево каталога */}
@@ -837,7 +837,7 @@ export default function CatalogImportPage() {
                         return (
                           <div className="p-4 text-center text-gray-500">
                             {photoCategorySearchTerm ? 'Категории не найдены' : 'Загрузка категорий...'}
-                          </div>
+                </div>
                         );
                       }
 
@@ -859,14 +859,14 @@ export default function CatalogImportPage() {
                                   <span className="font-medium text-gray-900">
                                     {category.name}
                                   </span>
-                                </div>
+                  </div>
                                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                                   {category.product_count || 0} товаров
                                 </span>
-                              </div>
-                            </div>
+                </div>
+              </div>
                           ))}
-                        </div>
+                </div>
                       );
                     })()}
                   </div>
@@ -878,9 +878,9 @@ export default function CatalogImportPage() {
                           catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name
                         }
                       </p>
-                    </div>
-                  )}
-                  
+              </div>
+            )}
+
                   <p className="text-xs text-gray-500 mt-2">
                     Фото будут загружены в выбранную категорию
                   </p>
@@ -937,7 +937,7 @@ export default function CatalogImportPage() {
                                 <strong>Источник:</strong> Свойства загружены из существующих товаров в категории ({existingProductProperties.length} свойств найдено).
                               </p>
                             )}
-                          </div>
+                </div>
                         </>
                       );
                     } else {
@@ -956,7 +956,7 @@ export default function CatalogImportPage() {
                               >
                                 Перейти к загрузке прайс-листа →
                               </button>
-                            </div>
+              </div>
                           </div>
                         </div>
                       );
@@ -1020,16 +1020,16 @@ export default function CatalogImportPage() {
                     <p className="text-sm text-red-600">❌ Выберите свойство для привязки фото</p>
                   ) : (
                     <p className="text-sm text-green-600">✅ Готово к загрузке фото!</p>
-                  )}
-                </div>
+                        )}
+                      </div>
                 
                 <div className="mt-4 text-sm text-gray-500">
                   <p>• Поддерживаются форматы: JPG, PNG, GIF до 5MB каждый</p>
                   <p>• Можно выбрать несколько файлов одновременно</p>
                   <p>• Обязательно выберите категорию и свойство для привязки</p>
+                  </div>
                 </div>
               </div>
-            </div>
             
             <div className="flex justify-between">
               <Button variant="secondary" onClick={() => setCurrentStep('properties')}>
@@ -1122,8 +1122,8 @@ export default function CatalogImportPage() {
                 <Button variant="secondary" onClick={() => setCurrentStep('upload')}>
                   Начать заново
                 </Button>
-              )}
-            </div>
+            )}
+          </div>
 
             {/* Прогресс бар */}
             <div className="flex items-center space-x-4 mb-8">
@@ -1176,7 +1176,7 @@ export default function CatalogImportPage() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Обработка данных</h3>
                 <p className="text-gray-600">{progressMessage}</p>
-              </div>
+            </div>
             </div>
           </div>
         )}
@@ -1205,8 +1205,8 @@ export default function CatalogImportPage() {
                         <p className="text-sm text-gray-500">
                           {new Date(item.created_at).toLocaleString('ru-RU')}
                         </p>
-                      </div>
-                    </div>
+                        </div>
+            </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant={item.status === 'completed' ? 'success' : 'warning'}>
                         {item.imported_count} товаров
@@ -1215,14 +1215,14 @@ export default function CatalogImportPage() {
                         <Badge variant="error">
                           {item.error_count} ошибок
                         </Badge>
-                      )}
-                    </div>
+          )}
+        </div>
                   </div>
                 ))
               )}
-            </div>
           </div>
-        </Card>
+        </div>
+      </Card>
       </div>
     </div>
   );

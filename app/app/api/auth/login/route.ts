@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import { authRateLimiter, getClientIP, createRateLimitResponse } from '../../../../lib/security/rate-limiter';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'domeo-development-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting
+    const clientIP = getClientIP(req);
+    if (!authRateLimiter.isAllowed(clientIP)) {
+      return createRateLimitResponse(authRateLimiter, clientIP);
+    }
+
     const { email, password } = await req.json();
 
     if (!email || !password) {

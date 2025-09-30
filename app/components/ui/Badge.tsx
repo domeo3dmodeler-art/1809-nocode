@@ -5,7 +5,7 @@ import React from 'react';
 import { createComponentStyles } from '../../lib/design/tokens';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'outline' | 'secondary';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }

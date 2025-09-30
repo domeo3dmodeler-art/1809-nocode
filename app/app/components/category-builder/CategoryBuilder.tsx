@@ -66,7 +66,7 @@ export default function CategoryBuilder({
 
   const addComponent = (type: string) => {
     const newComponent = {
-      id: component-,
+      id: `component-${Date.now()}`,
       type,
       title: getComponentTitle(type),
       position: { x: 100, y: 100 },

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Badge } from '../ui';
+import { Card, Button, Badge, Select } from '../ui';
 import { ShoppingCart, Plus, Minus, Trash2, Package, Settings, Calculator, FileText, User } from 'lucide-react';
 import ExportToClient from '../cart/ExportToClient';
 

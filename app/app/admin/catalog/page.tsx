@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui';
 import { Plus, Search, Folder, FolderOpen, Edit, Trash2, Settings, ChevronRight, ChevronDown, Package, Package2 } from 'lucide-react';
 import { CatalogCategory, CreateCatalogCategoryDto } from '@/lib/types/catalog';
-import TemplateEditor from '../../../components/constructor/TemplateEditor';
+import TemplateManager from '../../../components/admin/TemplateManager';
 
 interface CatalogTreeProps {
   categories: CatalogCategory[];
@@ -287,36 +287,6 @@ function CatalogTree({
   );
 }
 
-// Функция для скачивания шаблона в Excel
-function downloadTemplateAsExcel(template: any) {
-  try {
-    // Создаем заголовки на основе required_fields
-    const fields = template.required_fields ? JSON.parse(template.required_fields) : [];
-    const headers = fields.map((field: any) => field.displayName || field.fieldName);
-    
-    // Создаем CSV содержимое
-    let csvContent = headers.join(',') + '\n';
-    
-    // Добавляем примеры данных (пустые строки)
-    for (let i = 0; i < 3; i++) {
-      csvContent += headers.map(() => '').join(',') + '\n';
-    }
-    
-    // Создаем и скачиваем файл
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `template_${template.name || 'import'}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (error) {
-    console.error('Ошибка при создании шаблона:', error);
-    alert('Ошибка при создании шаблона');
-  }
-}
 
 export default function CatalogPage() {
   const [categories, setCategories] = useState<CatalogCategory[]>([]);
@@ -331,8 +301,6 @@ export default function CatalogPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<CatalogCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<CatalogCategory | null>(null);
   const [newCategoryParent, setNewCategoryParent] = useState<string | undefined>();
@@ -351,6 +319,46 @@ export default function CatalogPage() {
       console.error('Error loading categories:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+
+  const loadCategoryProducts = async (categoryId: string, limit?: number) => {
+    const actualLimit = limit || itemsPerPage;
+    try {
+      setProductsLoading(true);
+      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}`);
+      const data = await response.json();
+      
+      console.log('=== PRODUCTS DEBUG ===');
+      console.log('Products API response:', data);
+      console.log('Products found:', data.products?.length || 0);
+      
+      if (data.success && data.products) {
+        console.log('First product:', data.products[0]);
+        console.log('First product specifications:', data.products[0]?.specifications);
+        console.log('First product specifications type:', typeof data.products[0]?.specifications);
+        
+        // Показываем все поля первого товара
+        if (data.products[0]?.specifications) {
+          console.log('First product specifications keys:', Object.keys(data.products[0].specifications));
+          console.log('First product specifications values:', Object.values(data.products[0].specifications));
+        }
+        
+        setCategoryProducts(data.products);
+        setTotalProductsCount(data.total || 0);
+        console.log(`Загружено ${data.products.length} товаров из ${data.total} для категории ${categoryId}`);
+      } else {
+        console.log('No products found');
+        setCategoryProducts([]);
+        setTotalProductsCount(0);
+      }
+      console.log('=== END PRODUCTS DEBUG ===');
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setCategoryProducts([]);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -419,48 +427,9 @@ export default function CatalogPage() {
     }
   };
 
-  const loadCategoryProducts = async (categoryId: string, limit?: number) => {
-    const actualLimit = limit || itemsPerPage;
-    try {
-      setProductsLoading(true);
-      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}`);
-      const data = await response.json();
-      
-      console.log('=== PRODUCTS DEBUG ===');
-      console.log('Products API response:', data);
-      console.log('Products found:', data.products?.length || 0);
-      
-      if (data.success && data.products) {
-        console.log('First product:', data.products[0]);
-        console.log('First product specifications:', data.products[0]?.specifications);
-        console.log('First product specifications type:', typeof data.products[0]?.specifications);
-        
-        // Показываем все поля первого товара
-        if (data.products[0]?.specifications) {
-          console.log('First product specifications keys:', Object.keys(data.products[0].specifications));
-          console.log('First product specifications values:', Object.values(data.products[0].specifications));
-        }
-        
-        setCategoryProducts(data.products);
-        setTotalProductsCount(data.total || 0);
-        console.log(`Загружено ${data.products.length} товаров из ${data.total} для категории ${categoryId}`);
-      } else {
-        console.log('No products found');
-        setCategoryProducts([]);
-        setTotalProductsCount(0);
-      }
-      console.log('=== END PRODUCTS DEBUG ===');
-    } catch (error) {
-      console.error('Error loading products:', error);
-      setCategoryProducts([]);
-    } finally {
-      setProductsLoading(false);
-    }
-  };
-
   const handleCategorySelect = (category: CatalogCategory) => {
     setSelectedCategory(category);
-    setSelectedTemplate(null); // Сбрасываем шаблон
+    setSelectedTemplate(null); // Сбрасываем шаблон - будем считать что следующая загрузка будет первая
     if (category.id) {
       loadTemplate(category.id);
       loadCategoryProducts(category.id); // Загружаем товары с настройками по умолчанию
@@ -628,28 +597,17 @@ export default function CatalogPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center space-x-1"
-                      onClick={() => {
-                        setTemplateDialogOpen(true);
+                    <TemplateManager
+                      categoryId={selectedCategory.id}
+                      categoryName={selectedCategory.name}
+                      template={selectedTemplate}
+                      onTemplateUpdate={(template) => {
+                        setSelectedTemplate(template);
+                        if (selectedCategory.id) {
+                          loadTemplate(selectedCategory.id);
+                        }
                       }}
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span>Шаблон</span>
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex items-center space-x-1"
-                      onClick={() => {
-                        setTemplateEditorOpen(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span>Редактировать</span>
-                    </Button>
+                    />
                   </div>
                 </div>
                 
@@ -1032,177 +990,6 @@ export default function CatalogPage() {
         category={categoryToDelete}
       />
 
-      {/* Диалог просмотра шаблона */}
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Шаблон импорта для категории "{selectedCategory?.name}"</DialogTitle>
-          </DialogHeader>
-          
-          {templateLoading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : selectedTemplate ? (
-            <div className="space-y-6">
-              {/* Информация о шаблоне */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-2">Информация о шаблоне</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Название:</span> {selectedTemplate.name || 'Не указано'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Описание:</span> {selectedTemplate.description || 'Не указано'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Статус:</span> 
-                    <Badge className="ml-2" variant={selectedTemplate.is_active ? 'default' : 'secondary'}>
-                      {selectedTemplate.is_active ? 'Активен' : 'Неактивен'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium">Создан:</span> {selectedTemplate.created_at ? new Date(selectedTemplate.created_at).toLocaleDateString() : 'Не указано'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Категория:</span> {selectedCategory?.name || 'Не указано'}
-                  </div>
-                  <div>
-                    <span className="font-medium">ID категории:</span> {selectedTemplate.catalog_category_id || 'Не указано'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Обязательные поля */}
-              {selectedTemplate.required_fields && (() => {
-                try {
-                  const fields = JSON.parse(selectedTemplate.required_fields);
-                  return (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3">Обязательные поля</h3>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full border border-gray-200 rounded-lg">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Поле</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Отображаемое название</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Тип</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Обязательное</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {fields.map((field: any, index: number) => (
-                              <tr key={index}>
-                                <td className="px-4 py-2 text-sm font-medium text-gray-900">{field.fieldName}</td>
-                                <td className="px-4 py-2 text-sm text-gray-600">{field.displayName || field.fieldName}</td>
-                                <td className="px-4 py-2 text-sm text-gray-600">{field.type || 'string'}</td>
-                                <td className="px-4 py-2 text-sm">
-                                  <Badge variant={field.required ? 'destructive' : 'secondary'}>
-                                    {field.required ? 'Да' : 'Нет'}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                } catch (error) {
-                  return (
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <h3 className="font-semibold text-red-900 mb-2">Ошибка в данных шаблона</h3>
-                      <p className="text-red-700">Не удалось прочитать поля шаблона: {selectedTemplate.required_fields}</p>
-                    </div>
-                  );
-                }
-              })()}
-
-              {/* Поля калькулятора */}
-              {selectedTemplate.calculator_fields && JSON.parse(selectedTemplate.calculator_fields).length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Поля калькулятора</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full border border-gray-200 rounded-lg">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Поле</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Формула</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Описание</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {JSON.parse(selectedTemplate.calculator_fields).map((field: any, index: number) => (
-                          <tr key={index}>
-                            <td className="px-4 py-2 text-sm font-medium text-gray-900">{field.fieldName}</td>
-                            <td className="px-4 py-2 text-sm text-gray-600 font-mono">{field.formula}</td>
-                            <td className="px-4 py-2 text-sm text-gray-600">{field.description || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Кнопки действий */}
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
-                  Закрыть
-                </Button>
-                <Button 
-                  onClick={() => {
-                    downloadTemplateAsExcel(selectedTemplate);
-                  }}
-                >
-                  Скачать Excel шаблон
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Settings className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-700 mb-2">Шаблон не найден</h3>
-              <p className="text-gray-500 mb-4">Для этой категории еще не создан шаблон импорта</p>
-              <Button 
-                onClick={() => {
-                  setTemplateEditorOpen(true);
-                }}
-              >
-                Создать шаблон
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Диалог редактора шаблонов */}
-      <Dialog open={templateEditorOpen} onOpenChange={setTemplateEditorOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedTemplate ? 'Редактирование шаблона' : 'Создание шаблона'}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedCategory && (
-            <TemplateEditor
-              categoryId={selectedCategory.id}
-              categoryName={selectedCategory.name}
-              template={selectedTemplate}
-              onSave={(template) => {
-                setSelectedTemplate(template);
-                setTemplateEditorOpen(false);
-                // Перезагружаем шаблон
-                if (selectedCategory.id) {
-                  loadTemplate(selectedCategory.id);
-                }
-              }}
-              onClose={() => setTemplateEditorOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

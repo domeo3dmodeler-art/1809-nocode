@@ -2,7 +2,7 @@
 // Экспорт всех UI компонентов
 
 export { Button, type ButtonProps } from './Button';
-export { Card, type CardProps } from './Card';
+export { Card, CardHeader, CardTitle, CardContent, type CardProps, type CardHeaderProps, type CardTitleProps, type CardContentProps } from './Card';
 export { Input, type InputProps } from './Input';
 export { Textarea, type TextareaProps } from './Textarea';
 export { Select, type SelectProps } from './Select';

@@ -56,7 +56,7 @@ export default function CategoryBuilderPage() {
         if (!completed.includes('info')) {
           setCurrentStep('info');
         } else if (!completed.includes('design')) {
-          setCurrentStep('design');
+    setCurrentStep('design');
         } else {
           setCurrentStep('preview');
         }
@@ -343,7 +343,7 @@ export default function CategoryBuilderPage() {
             {/* Полноэкранный конструктор */}
             <div className="flex-1 overflow-hidden">
               <UltimateConstructorFixed hideHeader={true} />
-            </div>
+                  </div>
             
           </div>
         )}

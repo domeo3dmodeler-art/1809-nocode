@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AdminLayout from '../../../components/layout/AdminLayout';
 
 interface Product {
   id: string;
@@ -90,34 +91,8 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-2">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Domeo</h1>
-                <p className="text-xs text-gray-600">Configurators</p>
-              </div>
-              <div className="flex items-center">
-                <span className="text-gray-400 mx-2 text-lg">•</span>
-                <h2 className="text-lg font-semibold text-gray-800">Загруженные товары</h2>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link 
-                href="/admin"
-                className="px-4 py-2 bg-transparent border border-gray-300 text-gray-700 rounded-none hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-sm font-medium"
-              >
-                ← Админка
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <AdminLayout title="Товары" subtitle="Управление товарами в каталоге">
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Статистика */}
         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -262,7 +237,7 @@ export default function ProductsPage() {
             </>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

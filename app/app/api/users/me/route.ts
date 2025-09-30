@@ -4,7 +4,10 @@ import { PrismaClient } from '@prisma/client';
 import { getRoleDisplayName, getRoleIcon, getRoleColor } from '../../../../lib/auth/roles';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'domeo-development-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export async function GET(req: NextRequest) {
   try {

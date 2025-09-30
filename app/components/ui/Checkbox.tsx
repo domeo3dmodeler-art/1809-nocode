@@ -8,6 +8,7 @@ export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElemen
   error?: string;
   helperText?: string;
   children?: React.ReactNode;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
 export function Checkbox({ 
@@ -17,11 +18,22 @@ export function Checkbox({
   children,
   className = '',
   id,
+  onCheckedChange,
+  onChange,
   ...props 
 }: CheckboxProps) {
   const generatedId = useId();
   const checkboxId = id || generatedId;
   const styles = createComponentStyles();
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onCheckedChange) {
+      onCheckedChange(e.target.checked);
+    }
+    if (onChange) {
+      onChange(e);
+    }
+  };
   
   return (
     <div className={styles.form.field}>
@@ -33,6 +45,7 @@ export function Checkbox({
           id={checkboxId}
           type="checkbox"
           className={`h-4 w-4 text-black focus:ring-yellow-400 border-gray-300 rounded ${className}`}
+          onChange={handleChange}
           {...props}
         />
         {(label || children) && (

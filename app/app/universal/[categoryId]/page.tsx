@@ -7,9 +7,13 @@ import { NoCodeComponentRenderer } from '../../../components/nocode/NoCodeCompon
 // ===================== Универсальный генератор страниц =====================
 
 interface UniversalPageProps {
-  categoryId: string;
-  templateId?: string;
-  customConfig?: any;
+  params: {
+    categoryId: string;
+  };
+  searchParams?: {
+    templateId?: string;
+    [key: string]: string | string[] | undefined;
+  };
 }
 
 // Предустановленные шаблоны для категорий
@@ -146,12 +150,14 @@ const categoryTemplates: Record<string, any> = {
 };
 
 // Главный компонент универсальной страницы
-export default function UniversalPage({ categoryId, templateId, customConfig }: UniversalPageProps) {
+export default function UniversalPage({ params, searchParams }: UniversalPageProps) {
+  const { categoryId } = params;
+  const templateId = searchParams?.templateId;
   const [pageData, setPageData] = useState({});
   const [componentData, setComponentData] = useState<Record<string, any>>({});
 
   // Получаем шаблон для категории
-  const template = customConfig || categoryTemplates[categoryId];
+  const template = categoryTemplates[categoryId];
 
   useEffect(() => {
     if (!template) {

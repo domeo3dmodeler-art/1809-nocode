@@ -52,6 +52,10 @@ function dedupeBy<T>(arr: T[], keyFn: (x:T)=>string) {
 }
 
 export async function POST(req: Request, { params }: { params: { category: string } }) {
+  console.log('=== [CATEGORY] ROUTE CALLED ===');
+  console.log('Category param:', params.category);
+  console.log('Request URL:', req.url);
+  
   const form = await req.formData();
   const file = form.get('file') as File | null;
   if (!file) return NextResponse.json({ error: 'Нет файла' }, { status: 400 });

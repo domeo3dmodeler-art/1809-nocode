@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui';
 import { Plus, Search, Edit, Trash2, Upload, Download, Eye, Package } from 'lucide-react';
 import { CatalogCategory } from '@/lib/types/catalog';
@@ -47,9 +47,9 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadData();
-  }, [currentPage, searchTerm, selectedCategory]);
+  }, [currentPage, searchTerm, selectedCategory, loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -78,7 +78,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm, selectedCategory]);
 
   const handleDeleteProduct = async (product: Product) => {
     if (!confirm(`Удалить товар "${product.name}"?`)) return;

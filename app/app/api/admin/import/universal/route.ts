@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from 'xlsx';
+import { validateDocumentFile } from '../../../../../lib/validation/file-validation';
 
 // Функция для создания динамической схемы категории на основе заголовков прайса
 async function createDynamicSchema(categoryId: string, headers: string[]) {
@@ -110,16 +111,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Простая валидация файла
-    const allowedTypes = [
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-      "text/csv", // .csv
-      "application/vnd.ms-excel" // .xls
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
+    // Валидация файла
+    const validation = validateDocumentFile(file);
+    if (!validation.isValid) {
       return NextResponse.json(
-        { error: "Неподдерживаемый тип файла. Разрешены: .xlsx, .csv, .xls" },
+        { error: validation.error },
         { status: 400 }
       );
     }
@@ -188,20 +184,54 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "CSV файл пустой" }, { status: 400 });
           }
           
-          // Пробуем разные разделители
-          let headers;
+          // Определяем разделитель
           const firstLine = lines[0];
           console.log('CSV first line:', firstLine);
           
-          if (firstLine.includes(',')) {
-            headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''));
-          } else if (firstLine.includes(';')) {
-            headers = firstLine.split(';').map(h => h.trim().replace(/"/g, ''));
+          let delimiter = ',';
+          if (firstLine.includes(';')) {
+            delimiter = ';';
           } else if (firstLine.includes('\t')) {
-            headers = firstLine.split('\t').map(h => h.trim().replace(/"/g, ''));
-          } else {
-            headers = [firstLine.trim()];
+            delimiter = '\t';
           }
+          
+          console.log('Detected delimiter:', delimiter);
+          
+          // Парсим заголовки с учетом кавычек
+          const headers = (() => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            let i = 0;
+            
+            while (i < firstLine.length) {
+              const char = firstLine[i];
+              
+              if (char === '"') {
+                if (inQuotes && firstLine[i + 1] === '"') {
+                  // Экранированная кавычка
+                  current += '"';
+                  i += 2;
+                } else {
+                  // Начало или конец кавычек
+                  inQuotes = !inQuotes;
+                  i++;
+                }
+              } else if (char === delimiter && !inQuotes) {
+                // Разделитель вне кавычек
+                result.push(current.trim());
+                current = '';
+                i++;
+              } else {
+                current += char;
+                i++;
+              }
+            }
+            
+            // Добавляем последнее поле
+            result.push(current.trim());
+            return result;
+          })();
           
           console.log('CSV headers extracted:', headers);
           
@@ -528,8 +558,70 @@ export async function POST(req: NextRequest) {
     if (file.type === 'text/csv') {
       // Для CSV файлов читаем как текст с правильной кодировкой
       const text = await file.text();
+      console.log('CSV text length:', text.length);
+      console.log('CSV first 200 chars:', text.substring(0, 200));
+      
       const lines = text.split('\n').filter(line => line.trim());
-      const csvData = lines.map(line => line.split(','));
+      console.log('CSV lines count:', lines.length);
+      
+      if (lines.length === 0) {
+        return NextResponse.json(
+          { error: "CSV файл пустой" },
+          { status: 400 }
+        );
+      }
+      
+      // Определяем разделитель
+      const firstLine = lines[0];
+      console.log('CSV first line:', firstLine);
+      
+      let delimiter = ',';
+      if (firstLine.includes(';')) {
+        delimiter = ';';
+      } else if (firstLine.includes('\t')) {
+        delimiter = '\t';
+      }
+      
+      console.log('Detected delimiter:', delimiter);
+      
+      // Парсим CSV с учетом кавычек и разделителей
+      const csvData = lines.map(line => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        let i = 0;
+        
+        while (i < line.length) {
+          const char = line[i];
+          
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              // Экранированная кавычка
+              current += '"';
+              i += 2;
+            } else {
+              // Начало или конец кавычек
+              inQuotes = !inQuotes;
+              i++;
+            }
+          } else if (char === delimiter && !inQuotes) {
+            // Разделитель вне кавычек
+            result.push(current.trim());
+            current = '';
+            i++;
+          } else {
+            current += char;
+            i++;
+          }
+        }
+        
+        // Добавляем последнее поле
+        result.push(current.trim());
+        return result;
+      });
+      
+      console.log('Parsed CSV data (first 3 rows):', csvData.slice(0, 3));
+      
       workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.aoa_to_sheet(csvData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
@@ -587,6 +679,48 @@ export async function POST(req: NextRequest) {
     }
     
     console.log('=== END IMPORT PROCESSING DEBUG ===');
+
+    // Автоматическое создание шаблона при первой загрузке товаров
+    if (!importTemplate && rows.length > 0) {
+      console.log('=== AUTO-CREATING TEMPLATE ===');
+      try {
+        // Создаем шаблон на основе заголовков файла
+        const templateFields = headers.map((header, index) => ({
+          fieldName: header.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+          displayName: header,
+          type: 'text',
+          required: index < 3, // Первые 3 поля делаем обязательными
+          isForCalculator: false,
+          isForExport: true
+        }));
+
+        const templateData = {
+          name: `Автоматический шаблон для ${categoryInfo.name}`,
+          description: `Шаблон создан автоматически при первой загрузке товаров в категорию ${categoryInfo.name}`,
+          catalog_category_id: category,
+          required_fields: JSON.stringify(templateFields.filter(f => f.required)),
+          calculator_fields: JSON.stringify([]),
+          export_fields: JSON.stringify(templateFields),
+          is_active: true
+        };
+
+        const templateResponse = await fetch(`${req.nextUrl.origin}/api/admin/import-templates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(templateData)
+        });
+
+        if (templateResponse.ok) {
+          const templateResult = await templateResponse.json();
+          importTemplate = templateResult.template;
+          console.log('Автоматически создан шаблон:', importTemplate.id);
+        } else {
+          console.error('Ошибка при создании автоматического шаблона');
+        }
+      } catch (error) {
+        console.error('Ошибка при автоматическом создании шаблона:', error);
+      }
+    }
 
     console.log('=== STARTING ROW PROCESSING ===');
     console.log('Total rows to process:', rows.length);

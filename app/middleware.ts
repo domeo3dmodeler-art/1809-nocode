@@ -51,7 +51,11 @@ export function middleware(request: NextRequest) {
 
     try {
       // Проверяем токен
-      const jwtSecret = process.env.JWT_SECRET || 'domeo-development-secret-key';
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        console.error('JWT_SECRET environment variable is required');
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
       console.log('🔐 Verifying token with secret length:', jwtSecret.length);
       
       const decoded = jwt.verify(token, jwtSecret) as { role?: string; userId?: string; email?: string };

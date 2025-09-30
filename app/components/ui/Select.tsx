@@ -8,18 +8,21 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   label?: string;
   error?: string;
   helperText?: string;
-  options: Array<{ value: string; label: string; disabled?: boolean }>;
+  options?: Array<{ value: string; label: string; disabled?: boolean }>;
   placeholder?: string;
+  onValueChange?: (value: string) => void;
 }
 
 export function Select({ 
   label, 
   error, 
   helperText, 
-  options,
+  options = [],
   placeholder,
   className = '',
   id,
+  onValueChange,
+  onChange,
   ...props 
 }: SelectProps) {
   const generatedId = useId();
@@ -27,6 +30,15 @@ export function Select({
   const styles = createComponentStyles();
   
   const selectClasses = error ? styles.input.error : styles.input.base;
+  
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (onValueChange) {
+      onValueChange(e.target.value);
+    }
+    if (onChange) {
+      onChange(e);
+    }
+  };
   
   return (
     <div className={styles.form.field}>
@@ -39,11 +51,12 @@ export function Select({
         </label>
       )}
       
-      <select
-        id={selectId}
-        className={`${selectClasses} ${className}`}
-        {...props}
-      >
+        <select
+          id={selectId}
+          className={`${selectClasses} ${className}`}
+          onChange={handleChange}
+          {...props}
+        >
         {placeholder && (
           <option value="" disabled>
             {placeholder}

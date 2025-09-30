@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Button, Input, Select, Card, Checkbox } from '../ui';
-import { CategorySelector, MainCategorySelector, SubCategorySelector } from './CategorySelector';
+import { CategorySelector, MainCategorySelector, SubCategorySelector, AnyCategorySelector } from './CategorySelector';
 import { ProductDisplay, ProductDisplayPreview } from './ProductDisplay';
 import CartBlock from './CartBlock';
 import { ProductFilters, ProductSearch } from './ProductFilters';
