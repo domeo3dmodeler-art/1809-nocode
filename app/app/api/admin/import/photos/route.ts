@@ -7,6 +7,86 @@ import { uploadRateLimiter, getClientIP, createRateLimitResponse } from '../../.
 
 const prisma = new PrismaClient();
 
+// DELETE /api/admin/import/photos - Очистка всех привязок фото в категории
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category');
+
+    if (!category) {
+      return NextResponse.json(
+        { success: false, message: 'Не указана категория для очистки' },
+        { status: 400 }
+      );
+    }
+
+    console.log('=== ОЧИСТКА ПРИВЯЗОК ФОТО ===');
+    console.log('Категория:', category);
+
+    // Получаем все товары из категории
+    const products = await prisma.product.findMany({
+      where: {
+        catalog_category_id: category
+      },
+      select: {
+        id: true,
+        sku: true,
+        properties_data: true
+      }
+    });
+
+    console.log(`Найдено ${products.length} товаров в категории ${category}`);
+
+    let cleanedProducts = 0;
+    let totalPhotosRemoved = 0;
+
+    // Очищаем привязки фото у всех товаров
+    for (const product of products) {
+      try {
+        const currentProperties = JSON.parse(product.properties_data || '{}');
+        if (currentProperties.photos && Array.isArray(currentProperties.photos)) {
+          const photosCount = currentProperties.photos.length;
+          if (photosCount > 0) {
+            currentProperties.photos = []; // Очищаем массив фото
+            
+            await prisma.product.update({
+              where: { id: product.id },
+              data: {
+                properties_data: JSON.stringify(currentProperties)
+              }
+            });
+            
+            cleanedProducts++;
+            totalPhotosRemoved += photosCount;
+            console.log(`Очищено ${photosCount} фото у товара ${product.sku}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Ошибка при очистке фото у товара ${product.sku}:`, error);
+      }
+    }
+
+    const result = {
+      success: true,
+      message: `Очистка завершена: ${cleanedProducts} товаров очищено, удалено ${totalPhotosRemoved} привязок фото`,
+      cleanedProducts: cleanedProducts,
+      totalPhotosRemoved: totalPhotosRemoved,
+      category: category
+    };
+
+    console.log('=== РЕЗУЛЬТАТ ОЧИСТКИ ===');
+    console.log(result);
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Ошибка при очистке привязок фото:', error);
+    return NextResponse.json(
+      { success: false, message: 'Ошибка сервера при очистке привязок фото' },
+      { status: 500 }
+    );
+  }
+}
+
 // POST /api/admin/import/photos - Загрузка фотографий товаров
 export async function POST(request: NextRequest) {
   try {
@@ -105,6 +185,9 @@ export async function POST(request: NextRequest) {
     if (mappingProperty && uploadedPhotos.length > 0) {
       console.log('Привязка фото к товарам по свойству:', mappingProperty);
       
+      // Очищаем существующие привязки фото с такими же именами (опционально)
+      // Это предотвратит накопление дублирующихся привязок при повторных загрузках
+      
       try {
         // Получаем все товары из категории
         const products = await prisma.product.findMany({
@@ -131,6 +214,36 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        // Сначала очищаем существующие привязки фото с такими же именами
+        const photoNamesToClean = uploadedPhotos.map(photo => path.parse(photo.originalName).name);
+        console.log('Очистка существующих привязок для имен фото:', photoNamesToClean);
+        
+        for (const product of products) {
+          try {
+            const currentProperties = JSON.parse(product.properties_data || '{}');
+            if (currentProperties.photos && Array.isArray(currentProperties.photos)) {
+              const originalPhotosCount = currentProperties.photos.length;
+              // Удаляем фото, которые содержат имена из загружаемых файлов
+              currentProperties.photos = currentProperties.photos.filter((photoPath: string) => {
+                const photoFileName = path.parse(photoPath).name;
+                return !photoNamesToClean.some(name => photoFileName.includes(name));
+              });
+              
+              if (currentProperties.photos.length !== originalPhotosCount) {
+                await prisma.product.update({
+                  where: { id: product.id },
+                  data: {
+                    properties_data: JSON.stringify(currentProperties)
+                  }
+                });
+                console.log(`Очищено ${originalPhotosCount - currentProperties.photos.length} привязок фото для товара ${product.sku}`);
+              }
+            }
+          } catch (error) {
+            console.error(`Ошибка при очистке фото для товара ${product.sku}:`, error);
+          }
+        }
+
         for (const photo of uploadedPhotos) {
           // Извлекаем имя файла без расширения для поиска
           const fileNameWithoutExt = path.parse(photo.originalName).name;
@@ -183,20 +296,16 @@ export async function POST(request: NextRequest) {
                   console.log(`Проверка товара ${product.sku} по ключу "${key}":`, {
                     propertyValue: valueStr,
                     fileNameWithoutExt: fileNameStr,
-                    exactMatch: valueStr === fileNameStr,
-                    partialMatch: valueStr.includes(fileNameStr) || fileNameStr.includes(valueStr)
+                    exactMatch: valueStr === fileNameStr
                   });
                   
-                  // Проверяем точное совпадение
+                  // Проверяем ТОЛЬКО точное совпадение
                   const exactMatch = valueStr === fileNameStr;
                   
-                  // Проверяем частичное совпадение
-                  const partialMatch = valueStr.includes(fileNameStr) || fileNameStr.includes(valueStr);
-                  
-                  if (exactMatch || partialMatch) {
+                  if (exactMatch) {
                     foundMatch = true;
                     matchedValue = valueStr;
-                    console.log(`✅ НАЙДЕНО СОВПАДЕНИЕ для товара ${product.sku}: ключ="${key}", значение="${valueStr}"`);
+                    console.log(`✅ НАЙДЕНО ТОЧНОЕ СОВПАДЕНИЕ для товара ${product.sku}: ключ="${key}", значение="${valueStr}"`);
                     break;
                   }
                 }
@@ -228,7 +337,14 @@ export async function POST(request: NextRequest) {
               currentProperties.photos = currentProperties.photos || [];
               
               // Проверяем, не привязано ли уже это фото к товару
-              if (!currentProperties.photos.includes(photo.filePath)) {
+              // Ищем по имени файла (без полного пути), так как путь может отличаться
+              const isAlreadyLinked = currentProperties.photos.some((existingPhoto: string) => {
+                const existingFileName = path.parse(existingPhoto).name;
+                const newFileName = path.parse(photo.filePath).name;
+                return existingFileName === newFileName;
+              });
+              
+              if (!isAlreadyLinked) {
                 currentProperties.photos.push(photo.filePath);
                 
                 await prisma.product.update({
@@ -276,13 +392,26 @@ export async function POST(request: NextRequest) {
       matchedProducts: photo.matchedProducts || []
     }));
 
+    // Подсчитываем количество уникальных товаров, которые получили фото
+    const uniqueProductsWithPhotos = new Set();
+    uploadedPhotos.forEach(photo => {
+      if (photo.matchedProducts) {
+        photo.matchedProducts.forEach((product: any) => {
+          if (!product.alreadyLinked) {
+            uniqueProductsWithPhotos.add(product.id);
+          }
+        });
+      }
+    });
+
     const result = {
       success: uploadErrors.length === 0,
       message: uploadErrors.length === 0 
-        ? `Успешно загружено ${uploadedPhotos.length} фотографий${linkedPhotos > 0 ? `, привязано к товарам: ${linkedPhotos} привязок` : ''}`
-        : `Загружено ${uploadedPhotos.length} фотографий, ${uploadErrors.length} ошибок${linkedPhotos > 0 ? `, привязано к товарам: ${linkedPhotos} привязок` : ''}`,
+        ? `Успешно загружено ${uploadedPhotos.length} фотографий${linkedPhotos > 0 ? `, привязано к товарам: ${linkedPhotos} привязок, уникальных товаров: ${uniqueProductsWithPhotos.size}` : ''}`
+        : `Загружено ${uploadedPhotos.length} фотографий, ${uploadErrors.length} ошибок${linkedPhotos > 0 ? `, привязано к товарам: ${linkedPhotos} привязок, уникальных товаров: ${uniqueProductsWithPhotos.size}` : ''}`,
       uploaded: uploadedPhotos.length,
       linked: linkedPhotos,
+      uniqueProducts: uniqueProductsWithPhotos.size,
       errors: uploadErrors.length,
       details: details,
       photos: uploadedPhotos,
