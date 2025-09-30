@@ -176,3 +176,4 @@ const handleResizeStart = useCallback((e: React.MouseEvent, handle: string) => {
 
 **Финальная версия стабильна и готова к продакшену!** 🎯
 
+

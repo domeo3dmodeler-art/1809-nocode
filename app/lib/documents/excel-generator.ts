@@ -170,3 +170,4 @@ export class ExcelGenerator {
     return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   }
 }
+

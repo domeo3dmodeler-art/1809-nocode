@@ -30,3 +30,4 @@ export function getCurrentUser() {
   // Проверяем, что все основные поля заполнены
   return userData.id && userData.email && userData.role ? userData : null;
 }
+

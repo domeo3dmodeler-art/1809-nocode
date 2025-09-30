@@ -375,3 +375,4 @@ if (category.displayConfig && Object.keys(category.displayConfig).length > 0) {
 
 **Система редактирования категорий работает полноценно!** 🎨✨
 
+

@@ -212,3 +212,4 @@ export interface CartStats {
   averageCartValue: number;
   averageItemsPerCart: number;
 }
+

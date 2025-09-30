@@ -47,3 +47,4 @@ async function createAdmin() {
 
 // Запускаем создание администратора
 createAdmin();
+

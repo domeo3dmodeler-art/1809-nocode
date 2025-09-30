@@ -342,3 +342,4 @@ export class PDFGenerator {
     return Buffer.from('PDF content would be here');
   }
 }
+

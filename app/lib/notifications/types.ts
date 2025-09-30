@@ -262,3 +262,4 @@ export interface NotificationStats {
   actionRate: number;      // Процент с действиями
   responseTime: number;    // Среднее время реакции (минуты)
 }
+

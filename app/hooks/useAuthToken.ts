@@ -27,3 +27,4 @@ export function useAuthToken() {
     isAuthenticated: !!token
   };
 }
+

@@ -502,3 +502,4 @@ export type ConstructorAction =
   | { type: 'TOGGLE_SHOW_GRID'; payload: boolean }
   | { type: 'UPDATE_PAGE_SETTINGS'; payload: Partial<ConstructorState['pageSettings']> };
 
+

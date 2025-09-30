@@ -348,3 +348,4 @@ function CartItemCard({ item, onUpdateQuantity, onRemove, isLoading }: CartItemC
     </div>
   );
 }
+
