@@ -148,12 +148,72 @@ export async function GET(req: NextRequest) {
         name: template.catalog_category.name,
         path: template.catalog_category.path
       } : null,
-      templateConfig: typeof template.template_config === 'string' ? JSON.parse(template.template_config || '{}') : template.template_config,
-      fieldMappings: typeof template.field_mappings === 'string' ? JSON.parse(template.field_mappings || '[]') : template.field_mappings,
-      requiredFields: typeof template.required_fields === 'string' ? JSON.parse(template.required_fields || '[]') : template.required_fields,
-      calculatorFields: typeof template.calculator_fields === 'string' ? JSON.parse(template.calculator_fields || '[]') : template.calculator_fields,
-      exportFields: typeof template.export_fields === 'string' ? JSON.parse(template.export_fields || '[]') : template.export_fields,
-      validationRules: typeof template.validation_rules === 'string' ? JSON.parse(template.validation_rules || '{}') : template.validation_rules,
+      templateConfig: (() => {
+        if (typeof template.template_config === 'string') {
+          try {
+            const parsed = JSON.parse(template.template_config);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return {};
+          }
+        }
+        return template.template_config || {};
+      })(),
+      fieldMappings: (() => {
+        if (typeof template.field_mappings === 'string') {
+          try {
+            const parsed = JSON.parse(template.field_mappings);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return [];
+          }
+        }
+        return template.field_mappings || [];
+      })(),
+      requiredFields: (() => {
+        if (typeof template.required_fields === 'string') {
+          try {
+            const parsed = JSON.parse(template.required_fields);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return [];
+          }
+        }
+        return template.required_fields || [];
+      })(),
+      calculatorFields: (() => {
+        if (typeof template.calculator_fields === 'string') {
+          try {
+            const parsed = JSON.parse(template.calculator_fields);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return [];
+          }
+        }
+        return template.calculator_fields || [];
+      })(),
+      exportFields: (() => {
+        if (typeof template.export_fields === 'string') {
+          try {
+            const parsed = JSON.parse(template.export_fields);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return [];
+          }
+        }
+        return template.export_fields || [];
+      })(),
+      validationRules: (() => {
+        if (typeof template.validation_rules === 'string') {
+          try {
+            const parsed = JSON.parse(template.validation_rules);
+            return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            return {};
+          }
+        }
+        return template.validation_rules || {};
+      })(),
       isActive: template.is_active,
       createdAt: template.created_at,
       updatedAt: template.updated_at

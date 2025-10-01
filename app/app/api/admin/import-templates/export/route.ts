@@ -62,15 +62,87 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Парсим поля шаблона
+    // Парсим поля шаблона - используем fieldMappings как основной источник
+    let fieldMappings = [];
     let requiredFields = [];
     let calculatorFields = [];
     let exportFields = [];
 
     try {
-      requiredFields = template.required_fields ? JSON.parse(template.required_fields) : [];
-      calculatorFields = template.calculator_fields ? JSON.parse(template.calculator_fields) : [];
-      exportFields = template.export_fields ? JSON.parse(template.export_fields) : [];
+      // Сначала пробуем получить fieldMappings
+      if (template.field_mappings) {
+        if (typeof template.field_mappings === 'string') {
+          try {
+            const parsed = JSON.parse(template.field_mappings);
+            fieldMappings = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+          } catch {
+            fieldMappings = [];
+          }
+        } else if (Array.isArray(template.field_mappings)) {
+          fieldMappings = template.field_mappings;
+        }
+      }
+      
+      // Если есть fieldMappings, фильтруем их по категориям
+      if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
+        requiredFields = fieldMappings.filter(f => f.isRequired);
+        calculatorFields = fieldMappings.filter(f => f.isCalculator || f.calculator_fields);
+        exportFields = fieldMappings.filter(f => f.isExport || f.export_fields);
+        
+        // Если категории не определены, используем все как requiredFields
+        if (requiredFields.length === 0 && calculatorFields.length === 0 && exportFields.length === 0) {
+          requiredFields = fieldMappings;
+        }
+      } else {
+        // Fallback к старому формату
+        // Обрабатываем requiredFields
+        if (template.required_fields) {
+          if (typeof template.required_fields === 'string') {
+            try {
+              const parsed = JSON.parse(template.required_fields);
+              requiredFields = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+              requiredFields = [];
+            }
+          } else if (Array.isArray(template.required_fields)) {
+            requiredFields = template.required_fields;
+          }
+        }
+        
+        // Обрабатываем calculatorFields
+        if (template.calculator_fields) {
+          if (typeof template.calculator_fields === 'string') {
+            try {
+              const parsed = JSON.parse(template.calculator_fields);
+              calculatorFields = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+              calculatorFields = [];
+            }
+          } else if (Array.isArray(template.calculator_fields)) {
+            calculatorFields = template.calculator_fields;
+          }
+        }
+        
+        // Обрабатываем exportFields
+        if (template.export_fields) {
+          if (typeof template.export_fields === 'string') {
+            try {
+              const parsed = JSON.parse(template.export_fields);
+              exportFields = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+              exportFields = [];
+            }
+          } else if (Array.isArray(template.export_fields)) {
+            exportFields = template.export_fields;
+          }
+        }
+      }
+      
+      // Проверяем, что все поля - массивы
+      if (!Array.isArray(requiredFields)) requiredFields = [];
+      if (!Array.isArray(calculatorFields)) calculatorFields = [];
+      if (!Array.isArray(exportFields)) exportFields = [];
+      
     } catch (error) {
       console.error('Error parsing template fields:', error);
       return NextResponse.json(
@@ -79,8 +151,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Объединяем все поля для экспорта
-    const allFields = [...requiredFields, ...calculatorFields, ...exportFields];
+    // Используем fieldMappings если есть, иначе объединяем все поля
+    const allFields = fieldMappings.length > 0 ? fieldMappings : [...requiredFields, ...calculatorFields, ...exportFields];
+    
     
     if (allFields.length === 0) {
       return NextResponse.json(
@@ -94,7 +167,7 @@ export async function GET(req: NextRequest) {
       if (typeof field === 'string') {
         return field;
       }
-      return field.displayName || field.fieldName || field;
+      return field?.displayName || field?.fieldName || field || '';
     });
 
     // Создаем данные для Excel (заголовки + 5 пустых строк для заполнения)
@@ -125,19 +198,19 @@ export async function GET(req: NextRequest) {
       ['3. Поля экспорта включаются в итоговый каталог'],
       [''],
       ['ОБЯЗАТЕЛЬНЫЕ ПОЛЯ:'],
-      ...requiredFields.map(field => [
-        `• ${field.displayName || field.fieldName || field} (${field.type || 'text'})`
-      ]),
+      ...(Array.isArray(requiredFields) ? requiredFields.map(field => [
+        `• ${field.displayName || field.fieldName || field} (${field.type || field.dataType || 'text'})`
+      ]) : []),
       [''],
       ['ПОЛЯ КАЛЬКУЛЯТОРА:'],
-      ...calculatorFields.map(field => [
-        `• ${field.displayName || field.fieldName || field} (${field.type || 'text'})`
-      ]),
+      ...(Array.isArray(calculatorFields) ? calculatorFields.map(field => [
+        `• ${field.displayName || field.fieldName || field} (${field.type || field.dataType || 'text'})`
+      ]) : []),
       [''],
       ['ПОЛЯ ЭКСПОРТА:'],
-      ...exportFields.map(field => [
-        `• ${field.displayName || field.fieldName || field} (${field.type || 'text'})`
-      ]),
+      ...(Array.isArray(exportFields) ? exportFields.map(field => [
+        `• ${field.displayName || field.fieldName || field} (${field.type || field.dataType || 'text'})`
+      ]) : []),
       [''],
       ['ПРИМЕЧАНИЯ:'],
       ['• Не изменяйте названия колонок'],
@@ -154,7 +227,7 @@ export async function GET(req: NextRequest) {
     // Генерируем Excel файл
     const excelBuffer = XLSX.write(workbook, { 
       bookType: 'xlsx', 
-      type: 'array',
+      type: 'buffer',
       compression: true
     });
 
@@ -169,7 +242,7 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
-        'Content-Length': excelBuffer.length.toString(),
+        'Content-Length': (excelBuffer?.length || 0).toString(),
       },
     });
 
