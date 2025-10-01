@@ -6,10 +6,14 @@ import { ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 interface Category {
   id: string;
   name: string;
-  parentId?: string;
-  children?: Category[];
+  parentId?: string | null;
+  level?: number;
   productCount?: number;
   imageUrl?: string;
+  description?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  children?: Category[];
 }
 
 interface CategoryTreeSelectorProps {
@@ -37,7 +41,14 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
 
   const buildTree = (categories: Category[], parentId: string | null = null): Category[] => {
     return categories
-      .filter(cat => cat.parentId === parentId)
+      .filter(cat => {
+        // Если parentId null, ищем корневые категории (level 0 или parentId null)
+        if (parentId === null) {
+          return cat.parentId === null || cat.level === 0;
+        }
+        return cat.parentId === parentId;
+      })
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
       .map(cat => ({
         ...cat,
         children: buildTree(categories, cat.id)
@@ -45,6 +56,10 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
   };
 
   const tree = buildTree(categories);
+  
+  // Отладка
+  console.log('CategoryTreeSelector - categories:', categories);
+  console.log('CategoryTreeSelector - tree:', tree);
 
   const renderNode = (node: Category, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
