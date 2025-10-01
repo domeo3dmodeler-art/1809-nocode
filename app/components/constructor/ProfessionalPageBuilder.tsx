@@ -263,7 +263,7 @@ interface ConstructorConfig {
   id: string;
   name: string;
   description: string;
-  categories: CategoryConfig[];
+  categories: any[]; // Данные из API /api/constructor/categories
   blocks: BlockSettings[];
   globalSettings: {
     theme: 'light' | 'dark' | 'custom';
@@ -930,26 +930,10 @@ export default function ProfessionalPageBuilder() {
           const categoriesData = await response.json();
           console.log('Categories data received:', categoriesData);
           
-          const categoryConfigs: CategoryConfig[] = categoriesData.map((cat: any) => ({
-            id: cat.id,
-            name: cat.name,
-            type: 'main',
-            catalogCategoryId: cat.id,
-            products: [],
-            properties: [],
-            pricingRules: {
-              basePrice: 0,
-              formula: '',
-              discounts: [],
-              markups: []
-            }
-          }));
-          
-          console.log('Category configs created:', categoryConfigs);
-          
+          // Используем данные напрямую из API
           setConfig(prev => ({
             ...prev,
-            categories: categoryConfigs
+            categories: categoriesData
           }));
         } else {
           console.error('Failed to fetch categories:', response.status, response.statusText);
@@ -1088,17 +1072,7 @@ export default function ProfessionalPageBuilder() {
           {!config.previewMode && (
             <ProfessionalPropertyPanel
               selectedBlock={selectedBlock}
-              categories={config.categories.map(cat => ({
-                id: cat.id,
-                name: cat.name,
-                parentId: null, // Пока все категории корневые
-                level: 0,
-                productCount: cat.products?.length || 0,
-                imageUrl: null,
-                description: cat.description || '',
-                isActive: true,
-                sortOrder: 0
-              }))}
+              categories={config.categories}
               onBlockUpdate={handleBlockUpdate}
               onCategoryChange={(categoryId, categoryInfo) => {
                 console.log('Category changed:', categoryId, categoryInfo);

@@ -149,3 +149,4 @@ block.mainCategorySettings?.columns === 3 ? 'grid-cols-3' :
 
 
 
+

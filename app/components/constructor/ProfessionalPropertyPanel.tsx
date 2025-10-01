@@ -9,9 +9,6 @@ import {
   Move, 
   Folder, 
   Image,
-  Search,
-  ChevronDown,
-  ChevronRight,
   Package,
   Maximize2
 } from 'lucide-react';
@@ -71,21 +68,11 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
   const [showDetailedEditor, setShowDetailedEditor] = useState(false);
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredCategories, setFilteredCategories] = useState(categories);
 
-  // Обновляем отфильтрованные категории при изменении поиска
+  // Отладка получения категорий
   useEffect(() => {
     console.log('Categories received:', categories);
-    if (searchTerm.trim()) {
-      const filtered = categories.filter(cat => 
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredCategories(filtered);
-    } else {
-      setFilteredCategories(categories);
-    }
-  }, [searchTerm, categories]);
+  }, [categories]);
 
   // Автоматическое обновление названия блока при выборе категории
   useEffect(() => {
@@ -388,20 +375,6 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
               icon={<Folder className="w-4 h-4" />}
             >
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Поиск категории
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Поиск по названию..."
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -419,7 +392,7 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
                         onCategoryChange(categoryId, categoryInfo);
                       }
                     }}
-                    categories={filteredCategories}
+                    categories={categories}
                   />
                 </div>
 
@@ -448,51 +421,185 @@ const ProfessionalPropertyPanel: React.FC<ProfessionalPropertyPanelProps> = ({
             </AccordionItem>
 
             <AccordionItem 
-              value="images" 
-              title="Изображения" 
+              value="display" 
+              title="Отображение" 
               icon={<Image className="w-4 h-4" />}
             >
               <div className="space-y-4">
+                {/* Режим отображения */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Размер иконок товаров (px)
+                    Режим отображения
+                  </label>
+                  <select
+                    value={selectedBlock.displayMode || 'cards'}
+                    onChange={(e) => handleBlockUpdate({
+                      ...selectedBlock,
+                      displayMode: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="cards">Карточки</option>
+                    <option value="list">Список</option>
+                    <option value="table">Таблица</option>
+                  </select>
+                </div>
+
+                {/* Количество колонок */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Количество колонок
                   </label>
                   <Input
                     type="number"
-                    value={selectedBlock.imageSettings?.iconSize || 32}
-                    onChange={(e) => handleImageSettingsChange('iconSize', Number(e.target.value) || 32)}
-                    placeholder="32"
+                    value={selectedBlock.columns || 3}
+                    onChange={(e) => handleBlockUpdate({
+                      ...selectedBlock,
+                      columns: parseInt(e.target.value) || 3
+                    })}
+                    min="1"
+                    max="6"
+                    placeholder="3"
                     className="w-full"
                   />
                 </div>
 
+                {/* Товаров на странице */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Размер фото товаров (px)
+                    Товаров на странице
                   </label>
                   <Input
                     type="number"
-                    value={selectedBlock.imageSettings?.photoSize || 200}
-                    onChange={(e) => handleImageSettingsChange('photoSize', Number(e.target.value) || 200)}
-                    placeholder="200"
+                    value={selectedBlock.itemsPerPage || 12}
+                    onChange={(e) => handleBlockUpdate({
+                      ...selectedBlock,
+                      itemsPerPage: parseInt(e.target.value) || 12
+                    })}
+                    min="1"
+                    max="100"
+                    placeholder="12"
                     className="w-full"
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={selectedBlock.imageSettings?.showPhotoCount || false}
-                    onCheckedChange={(checked) => handleImageSettingsChange('showPhotoCount', checked)}
-                  />
-                  <label className="text-sm text-gray-700">
-                    Показывать количество фото
+                {/* Размер изображений */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Размер изображений
                   </label>
+                  <select
+                    value={selectedBlock.imageSize || 'medium'}
+                    onChange={(e) => handleBlockUpdate({
+                      ...selectedBlock,
+                      imageSize: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="small">Маленький</option>
+                    <option value="medium">Средний</option>
+                    <option value="large">Большой</option>
+                  </select>
+                </div>
+
+                {/* Пропорции изображений */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Пропорции изображений
+                  </label>
+                  <select
+                    value={selectedBlock.imageAspectRatio || 'square'}
+                    onChange={(e) => handleBlockUpdate({
+                      ...selectedBlock,
+                      imageAspectRatio: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="square">Квадрат</option>
+                    <option value="landscape">Горизонтальный</option>
+                    <option value="portrait">Вертикальный</option>
+                    <option value="auto">Автоматически</option>
+                  </select>
+                </div>
+
+                {/* Чекбоксы отображения */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedBlock.showImages !== false}
+                      onCheckedChange={(checked) => handleBlockUpdate({
+                        ...selectedBlock,
+                        showImages: checked
+                      })}
+                    />
+                    <label className="text-sm text-gray-700">
+                      Показывать изображения
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedBlock.showPrices !== false}
+                      onCheckedChange={(checked) => handleBlockUpdate({
+                        ...selectedBlock,
+                        showPrices: checked
+                      })}
+                    />
+                    <label className="text-sm text-gray-700">
+                      Показывать цены
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedBlock.showDescriptions !== false}
+                      onCheckedChange={(checked) => handleBlockUpdate({
+                        ...selectedBlock,
+                        showDescriptions: checked
+                      })}
+                    />
+                    <label className="text-sm text-gray-700">
+                      Показывать описания
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedBlock.showFilters !== false}
+                      onCheckedChange={(checked) => handleBlockUpdate({
+                        ...selectedBlock,
+                        showFilters: checked
+                      })}
+                    />
+                    <label className="text-sm text-gray-700">
+                      Показывать фильтры
+                    </label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={selectedBlock.showSearch !== false}
+                      onCheckedChange={(checked) => handleBlockUpdate({
+                        ...selectedBlock,
+                        showSearch: checked
+                      })}
+                    />
+                    <label className="text-sm text-gray-700">
+                      Показывать поиск
+                    </label>
+                  </div>
                 </div>
 
                 {selectedBlock.catalogCategoryInfo && (
-                  <div className="bg-blue-50 rounded-lg p-3">
-                    <p className="text-sm text-blue-700">
-                      📷 Изображения берутся из привязанных фото товаров категории
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Package className="w-4 h-4 text-green-600" />
+                      <span className="font-medium text-green-900">
+                        {selectedBlock.catalogCategoryInfo.name}
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-700">
+                      Товаров: {selectedBlock.catalogCategoryInfo.productCount}
                     </p>
                   </div>
                 )}

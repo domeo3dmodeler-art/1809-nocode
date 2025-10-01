@@ -28,6 +28,7 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
   categories
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
 
   const toggleExpanded = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -42,24 +43,39 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
   const buildTree = (categories: Category[], parentId: string | null = null): Category[] => {
     return categories
       .filter(cat => {
-        // Если parentId null, ищем корневые категории (level 0 или parentId null)
+        // Если parentId null, ищем корневые категории
         if (parentId === null) {
-          return cat.parentId === null || cat.level === 0;
+          return cat.parentId === null;
         }
         return cat.parentId === parentId;
       })
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-      .map(cat => ({
-        ...cat,
-        children: buildTree(categories, cat.id)
-      }));
+      .map(cat => {
+        const children = buildTree(categories, cat.id);
+        return {
+          ...cat,
+          children: children.length > 0 ? children : undefined
+        };
+      });
   };
 
-  const tree = buildTree(categories);
+  // Фильтрация категорий по поиску
+  const filteredCategories = searchTerm.trim() 
+    ? categories.filter(cat => 
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : categories;
+
+  const tree = buildTree(filteredCategories);
   
   // Отладка
   console.log('CategoryTreeSelector - categories:', categories);
+  console.log('CategoryTreeSelector - filteredCategories:', filteredCategories);
   console.log('CategoryTreeSelector - tree:', tree);
+  
+  // Показываем категории "Двери"
+  const doorsCategories = categories.filter(cat => cat.name.includes('Двер'));
+  console.log('CategoryTreeSelector - doors categories:', doorsCategories);
 
   const renderNode = (node: Category, level: number = 0) => {
     const hasChildren = node.children && node.children.length > 0;
@@ -104,9 +120,9 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
           
           <span className="text-sm font-medium truncate">{node.name}</span>
           
-          {node.productCount !== undefined && (
-            <span className="ml-auto text-xs text-gray-500">
-              ({node.productCount})
+          {node.productCount !== undefined && node.productCount > 0 && (
+            <span className="ml-auto text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              {node.productCount}
             </span>
           )}
         </div>
@@ -121,14 +137,28 @@ const CategoryTreeSelector: React.FC<CategoryTreeSelectorProps> = ({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-      {tree.length === 0 ? (
-        <div className="p-4 text-center text-gray-500 text-sm">
-          Категории не найдены
-        </div>
-      ) : (
-        tree.map(node => renderNode(node))
-      )}
+    <div className="border border-gray-200 rounded-lg max-h-64 overflow-hidden flex flex-col">
+      {/* Поле поиска */}
+      <div className="p-2 border-b border-gray-200">
+        <input
+          type="text"
+          placeholder="Поиск категорий..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+      
+      {/* Список категорий */}
+      <div className="flex-1 overflow-y-auto">
+        {tree.length === 0 ? (
+          <div className="p-4 text-center text-gray-500 text-sm">
+            {searchTerm.trim() ? 'Категории не найдены' : 'Категории не загружены'}
+          </div>
+        ) : (
+          tree.map(node => renderNode(node))
+        )}
+      </div>
     </div>
   );
 };

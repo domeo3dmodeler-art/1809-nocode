@@ -118,3 +118,4 @@ const rect = e.currentTarget.getBoundingClientRect(); // ✅ Безопасно
 
 
 
+

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDrag } from 'react-dnd';
 import { Trash2, Move, RotateCcw, RotateCw } from 'lucide-react';
 import { Button } from '../ui';
+import ProductCatalogBlock from './ProductCatalogBlock';
 
 interface ProfessionalBlockProps {
   block: any;
@@ -231,6 +232,36 @@ const ProfessionalBlock: React.FC<ProfessionalBlockProps> = ({
         {block.type === 'advanced-pricing' && <p>Продвинутое ценообразование</p>}
         {block.type === 'subcategory' && <p>Подкатегория</p>}
       </div>
+
+      {/* Полноценное отображение товаров для блоков каталога */}
+      {(block.type === 'main-category' || block.type === 'subcategory' || block.type === 'additional-category') && 
+       block.catalogCategoryId && (
+        <div className="mt-4 h-96 overflow-hidden">
+          <ProductCatalogBlock
+            block={{
+              ...block,
+              catalogCategoryId: block.catalogCategoryId,
+              catalogCategoryInfo: block.catalogCategoryInfo,
+              displayMode: block.displayMode || 'cards',
+              itemsPerPage: block.itemsPerPage || 6,
+              showImages: block.showImages !== false,
+              showPrices: block.showPrices !== false,
+              showDescriptions: block.showDescriptions !== false,
+              showFilters: block.showFilters !== false,
+              showSearch: block.showSearch !== false,
+              imageSize: block.imageSize || 'medium',
+              columns: block.columns || 2
+            }}
+            isPreview={true}
+            onProductSelect={(product) => {
+              console.log('Product selected:', product);
+            }}
+            onProductAddToCart={(product) => {
+              console.log('Product added to cart:', product);
+            }}
+          />
+        </div>
+      )}
 
       {/* Ручки для изменения размера */}
       {isSelected && (

@@ -296,7 +296,9 @@ export default function CatalogPage() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [totalProductsCount, setTotalProductsCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(500);
+  const [currentLoadedCount, setCurrentLoadedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -323,16 +325,25 @@ export default function CatalogPage() {
   };
 
 
-  const loadCategoryProducts = async (categoryId: string, limit?: number) => {
+  const loadCategoryProducts = async (categoryId: string, limit?: number, append: boolean = false) => {
     const actualLimit = limit || itemsPerPage;
     try {
-      setProductsLoading(true);
-      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}`);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setProductsLoading(true);
+      }
+      
+      const offset = append ? currentLoadedCount : 0;
+      const response = await fetch(`/api/catalog/products?category=${categoryId}&limit=${actualLimit}&offset=${offset}`);
       const data = await response.json();
       
       console.log('=== PRODUCTS DEBUG ===');
       console.log('Products API response:', data);
       console.log('Products found:', data.products?.length || 0);
+      console.log('Append mode:', append);
+      console.log('Current loaded count:', currentLoadedCount);
+      console.log('Offset:', offset);
       
       if (data.success && data.products) {
         console.log('First product:', data.products[0]);
@@ -345,20 +356,35 @@ export default function CatalogPage() {
           console.log('First product specifications values:', Object.values(data.products[0].specifications));
         }
         
-        setCategoryProducts(data.products);
+        if (append) {
+          // Дозагружаем товары
+          setCategoryProducts(prev => [...prev, ...data.products]);
+          setCurrentLoadedCount(prev => prev + data.products.length);
+        } else {
+          // Загружаем с начала
+          setCategoryProducts(data.products);
+          setCurrentLoadedCount(data.products.length);
+        }
         setTotalProductsCount(data.total || 0);
         console.log(`Загружено ${data.products.length} товаров из ${data.total} для категории ${categoryId}`);
       } else {
         console.log('No products found');
-        setCategoryProducts([]);
+        if (!append) {
+          setCategoryProducts([]);
+          setCurrentLoadedCount(0);
+        }
         setTotalProductsCount(0);
       }
       console.log('=== END PRODUCTS DEBUG ===');
     } catch (error) {
       console.error('Error loading products:', error);
-      setCategoryProducts([]);
+      if (!append) {
+        setCategoryProducts([]);
+        setCurrentLoadedCount(0);
+      }
     } finally {
       setProductsLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -430,6 +456,7 @@ export default function CatalogPage() {
   const handleCategorySelect = (category: CatalogCategory) => {
     setSelectedCategory(category);
     setSelectedTemplate(null); // Сбрасываем шаблон - будем считать что следующая загрузка будет первая
+    setCurrentLoadedCount(0); // Сбрасываем счетчик загруженных товаров
     if (category.id) {
       loadTemplate(category.id);
       loadCategoryProducts(category.id); // Загружаем товары с настройками по умолчанию
@@ -631,8 +658,8 @@ export default function CatalogPage() {
                         <div className="flex items-center space-x-4">
                           <div className="text-sm text-gray-600">
                             Найдено товаров: <span className="font-semibold text-blue-600">{totalProductsCount}</span>
-                            {categoryProducts.length < totalProductsCount && (
-                              <span className="text-gray-500 ml-2">(показано {categoryProducts.length})</span>
+                            {currentLoadedCount < totalProductsCount && (
+                              <span className="text-gray-500 ml-2">(показано {currentLoadedCount})</span>
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
@@ -642,8 +669,9 @@ export default function CatalogPage() {
                               onChange={(e) => {
                                 const newItemsPerPage = parseInt(e.target.value);
                                 setItemsPerPage(newItemsPerPage);
+                                setCurrentLoadedCount(0); // Сбрасываем счетчик при изменении размера страницы
                                 if (selectedCategory) {
-                                  loadCategoryProducts(selectedCategory.id);
+                                  loadCategoryProducts(selectedCategory.id, newItemsPerPage);
                                 }
                               }}
                               className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -888,8 +916,8 @@ export default function CatalogPage() {
                           <div className="flex items-center justify-between text-xs text-gray-600">
                             <div className="flex items-center space-x-4">
                               <span>📊 Всего: {totalProductsCount} товаров</span>
-                              <span>👁️ Показано: {categoryProducts.length}</span>
-                              <span>📄 Страница: {Math.ceil(categoryProducts.length / itemsPerPage)} из {Math.ceil(totalProductsCount / itemsPerPage)}</span>
+                              <span>👁️ Показано: {currentLoadedCount}</span>
+                              <span>📄 Страница: {Math.ceil(currentLoadedCount / itemsPerPage)} из {Math.ceil(totalProductsCount / itemsPerPage)}</span>
                             </div>
                             <div className="flex items-center space-x-2">
                               <span>Горизонтальная прокрутка:</span>
@@ -918,23 +946,59 @@ export default function CatalogPage() {
                         </div>
                       </div>
                       
-                      {categoryProducts.length < totalProductsCount && (
+                      {currentLoadedCount < totalProductsCount && (
                         <div className="text-center pt-4 border-t border-gray-200">
                           <p className="text-sm text-gray-600 mb-3">
-                            Показано {categoryProducts.length} из {totalProductsCount} товаров
+                            Показано {currentLoadedCount} из {totalProductsCount} товаров
                           </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // Загрузить больше товаров
-                              if (selectedCategory) {
-                                loadCategoryProducts(selectedCategory.id);
-                              }
-                            }}
-                          >
-                            Показать все товары ({totalProductsCount})
-                          </Button>
+                          <div className="flex items-center justify-center space-x-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Дозагрузить еще товаров
+                                if (selectedCategory) {
+                                  loadCategoryProducts(selectedCategory.id, itemsPerPage, true);
+                                }
+                              }}
+                              disabled={loadingMore}
+                              className="flex items-center space-x-2"
+                            >
+                              {loadingMore ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                  <span>Загрузка...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Загрузить еще {Math.min(itemsPerPage, totalProductsCount - currentLoadedCount)}</span>
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Загрузить все оставшиеся товары
+                                if (selectedCategory) {
+                                  loadCategoryProducts(selectedCategory.id, totalProductsCount - currentLoadedCount, true);
+                                }
+                              }}
+                              disabled={loadingMore}
+                              className="flex items-center space-x-2"
+                            >
+                              {loadingMore ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                  <span>Загрузка...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Показать все ({totalProductsCount})</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>

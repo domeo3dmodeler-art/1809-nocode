@@ -37,18 +37,57 @@ export class CatalogService {
       ]
     });
 
-    // Подсчитываем товары для каждой категории напрямую из базы данных
+    // Подсчитываем товары для каждой категории (прямые + из всех подкатегорий)
     const categoriesWithCounts = await Promise.all(
       categories.map(async (category) => {
-        const productsCount = await prisma.product.count({
+        // Считаем прямые товары в категории
+        const directProductsCount = await prisma.product.count({
           where: {
             catalog_category_id: category.id
           }
         });
         
+        // Считаем товары во всех подкатегориях рекурсивно
+        const getAllSubcategoryIds = async (categoryId: string): Promise<string[]> => {
+          const subcategories = await prisma.catalogCategory.findMany({
+            where: {
+              parent_id: categoryId,
+              is_active: true
+            },
+            select: { id: true }
+          });
+          
+          let allIds = subcategories.map(sub => sub.id);
+          
+          // Рекурсивно получаем ID всех вложенных подкатегорий
+          for (const sub of subcategories) {
+            const nestedIds = await getAllSubcategoryIds(sub.id);
+            allIds = [...allIds, ...nestedIds];
+          }
+          
+          return allIds;
+        };
+        
+        const subcategoryIds = await getAllSubcategoryIds(category.id);
+        
+        // Считаем товары во всех подкатегориях
+        const subcategoryProductsCount = subcategoryIds.length > 0 
+          ? await prisma.product.count({
+              where: {
+                catalog_category_id: { in: subcategoryIds }
+              }
+            })
+          : 0;
+        
+        // Общее количество товаров = прямые + из подкатегорий
+        const totalProductsCount = directProductsCount + subcategoryProductsCount;
+        
         return {
           ...category,
-          products_count: productsCount
+          name: category.name, // Явно сохраняем UTF-8
+          products_count: totalProductsCount,
+          direct_products_count: directProductsCount,
+          subcategory_products_count: subcategoryProductsCount
         };
       })
     );

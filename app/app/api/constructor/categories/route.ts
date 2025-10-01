@@ -6,11 +6,12 @@ export async function GET(request: NextRequest) {
   try {
     const treeResult = await catalogService.getCatalogTree();
     
-    // Функция для преобразования дерева в плоский список
+    // Функция для преобразования дерева в плоский список с правильной иерархией
     const flattenCategories = (categories: any[], level = 0): any[] => {
       const result: any[] = [];
       
       categories.forEach(category => {
+        // Добавляем текущую категорию
         result.push({
           id: category.id,
           name: category.name,
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
           sortOrder: category.sort_order || 0
         });
         
-        // Добавляем подкатегории
+        // Добавляем подкатегории рекурсивно
         if (category.subcategories && category.subcategories.length > 0) {
           result.push(...flattenCategories(category.subcategories, level + 1));
         }
@@ -34,7 +35,11 @@ export async function GET(request: NextRequest) {
     
     const flatCategories = flattenCategories(treeResult.categories);
     
-    return NextResponse.json(flatCategories);
+    // Явно устанавливаем кодировку UTF-8 для ответа
+    const response = NextResponse.json(flatCategories);
+    response.headers.set('Content-Type', 'application/json; charset=utf-8');
+    
+    return response;
   } catch (error) {
     console.error('Error fetching constructor categories:', error);
     return NextResponse.json(

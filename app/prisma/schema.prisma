@@ -220,6 +220,7 @@ model Product {
   created_at          DateTime        @default(now())
   updated_at          DateTime        @updatedAt
   catalog_category    CatalogCategory @relation(fields: [catalog_category_id], references: [id], onDelete: Cascade)
+  images              ProductImage[]
 
   @@map("products")
 }
@@ -238,6 +239,7 @@ model ProductImage {
   is_primary    Boolean  @default(false)
   sort_order    Int      @default(0)
   created_at    DateTime @default(now())
+  product       Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
   @@map("product_images")
 }

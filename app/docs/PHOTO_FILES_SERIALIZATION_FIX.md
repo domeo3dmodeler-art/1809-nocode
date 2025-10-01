@@ -249,3 +249,4 @@ const updatedCategory = await prisma.frontendCategory.update({...});
 
 
 
+
