@@ -70,6 +70,12 @@ export default function CatalogImportPage() {
   const [photoMappingProperty, setPhotoMappingProperty] = useState<string>('');
   const [existingProductProperties, setExistingProductProperties] = useState<string[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+  const [fieldSettings, setFieldSettings] = useState<Record<string, {
+    displayName: string;
+    isRequired: boolean;
+    dataType: 'text' | 'number' | 'select' | 'boolean' | 'image';
+  }>>({});
 
   useEffect(() => {
     loadImportHistory();
@@ -277,6 +283,69 @@ export default function CatalogImportPage() {
       });
       
       setPriceListData(priceListData);
+      
+      // Инициализируем выбранные поля и настройки
+      const initialSelectedFields = new Set(headers);
+      const initialFieldSettings: Record<string, any> = {};
+      
+      headers.forEach(header => {
+        // Автодетект типа данных на основе содержимого ячеек
+        let detectedType: 'text' | 'number' | 'select' | 'boolean' | 'image' = 'text';
+        let isRequired = false;
+        
+        // Анализируем первые несколько строк для определения типа
+        const sampleValues = filteredRows.slice(0, 10).map(row => {
+          const headerIndex = headers.indexOf(header);
+          return row[headerIndex];
+        }).filter(val => val !== null && val !== undefined && val !== '');
+        
+        if (sampleValues.length > 0) {
+          // Проверяем, является ли числом
+          const numericValues = sampleValues.filter(val => {
+            const str = String(val).trim();
+            return !isNaN(Number(str)) && str !== '';
+          });
+          
+          if (numericValues.length === sampleValues.length) {
+            detectedType = 'number';
+          }
+          // Проверяем, является ли булевым значением
+          else if (sampleValues.every(val => {
+            const str = String(val).toLowerCase().trim();
+            return ['да', 'нет', 'true', 'false', '1', '0', 'да/нет'].includes(str);
+          })) {
+            detectedType = 'boolean';
+          }
+          // Проверяем, является ли URL изображения
+          else if (sampleValues.every(val => {
+            const str = String(val).toLowerCase().trim();
+            return str.startsWith('http') && (str.includes('.jpg') || str.includes('.png') || str.includes('.jpeg') || str.includes('.gif'));
+          })) {
+            detectedType = 'image';
+          }
+          // Проверяем, является ли списком (ограниченное количество уникальных значений)
+          else if (new Set(sampleValues).size <= Math.min(10, sampleValues.length * 0.5)) {
+            detectedType = 'select';
+          }
+        }
+        
+        // Определяем обязательность по названию поля
+        const headerLower = header.toLowerCase();
+        if (headerLower.includes('название') || headerLower.includes('модель') || 
+            headerLower.includes('артикул') || headerLower.includes('цена') || 
+            headerLower.includes('стоимость')) {
+          isRequired = true;
+        }
+        
+        initialFieldSettings[header] = {
+          displayName: header,
+          isRequired,
+          dataType: detectedType
+        };
+      });
+      
+      setSelectedFields(initialSelectedFields);
+      setFieldSettings(initialFieldSettings);
       setCompletedSteps(prev => [...prev, 'upload']);
       setCurrentStep('catalog');
       
@@ -347,7 +416,10 @@ export default function CatalogImportPage() {
       const productsResult = await productsResponse.json();
       console.log('Товары сохранены в БД:', productsResult);
 
-      // Создаем шаблон загрузки
+      // Создаем шаблон загрузки только с выбранными полями
+      const selectedFieldNames = fields.map(f => f.fieldName);
+      const requiredFieldNames = fields.filter(f => f.isRequired).map(f => f.fieldName);
+      
       const templateResponse = await fetch('/api/admin/import-templates', {
         method: 'POST',
         headers: {
@@ -358,13 +430,14 @@ export default function CatalogImportPage() {
           description: `Автоматически созданный шаблон загрузки`,
           catalog_category_id: selectedCatalogCategoryId,
           template_config: JSON.stringify({
-            headers: priceListData?.headers || [],
-            requiredFields: fields
+            headers: selectedFieldNames,
+            requiredFields: requiredFieldNames,
+            fieldMappings: fields
           }),
           field_mappings: JSON.stringify(fields),
-          required_fields: JSON.stringify(fields),
-          calculator_fields: JSON.stringify(fields),
-          export_fields: JSON.stringify(fields)
+          required_fields: JSON.stringify(requiredFieldNames),
+          calculator_fields: JSON.stringify(selectedFieldNames),
+          export_fields: JSON.stringify(selectedFieldNames)
         }),
       });
 
@@ -642,11 +715,40 @@ export default function CatalogImportPage() {
               {/* Информация о выбранной категории */}
               {selectedCatalogCategoryId && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-blue-900">
-                      Выбрана категория: {catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-blue-900">
+                        Выбрана категория: {catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name}
+                      </span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/catalog/products/import/template?catalogCategoryId=${selectedCatalogCategoryId}`);
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `template-${selectedCatalogCategoryId}.xlsx`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          } else {
+                            alert('Ошибка при скачивании шаблона');
+                          }
+                        } catch (error) {
+                          console.error('Error downloading template:', error);
+                          alert('Ошибка при скачивании шаблона');
+                        }
+                      }}
+                      className="inline-flex items-center px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      Скачать шаблон
+                    </button>
                   </div>
                 </div>
               )}
@@ -693,44 +795,84 @@ export default function CatalogImportPage() {
               {priceListData.headers.map((header, index) => (
                 <div key={index} className="grid grid-cols-12 gap-3 p-3 border rounded-lg items-center">
                   <div className="col-span-1">
-                  <input
+                    <input
                       type="checkbox"
                       id={`field-${index}`}
-                      defaultChecked={true}
+                      checked={selectedFields.has(header)}
+                      onChange={(e) => {
+                        const newSelectedFields = new Set(selectedFields);
+                        if (e.target.checked) {
+                          newSelectedFields.add(header);
+                        } else {
+                          newSelectedFields.delete(header);
+                        }
+                        setSelectedFields(newSelectedFields);
+                      }}
                       className="w-4 h-4 text-black"
                     />
                   </div>
                   <div className="col-span-3">
                     <label htmlFor={`field-${index}`} className="block text-sm font-medium text-gray-700">
                       {header}
-                </label>
-              </div>
+                    </label>
+                  </div>
                   <div className="col-span-3">
                     <input
                       type="text"
                       placeholder="Название в каталоге"
-                      defaultValue={header}
-                      data-header={header}
+                      value={fieldSettings[header]?.displayName || header}
+                      onChange={(e) => {
+                        setFieldSettings(prev => ({
+                          ...prev,
+                          [header]: {
+                            ...prev[header],
+                            displayName: e.target.value
+                          }
+                        }));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-            </div>
+                  </div>
                   <div className="col-span-2">
                     <label className="flex items-center space-x-1 text-sm">
                       <input
                         type="checkbox"
+                        checked={fieldSettings[header]?.isRequired || false}
+                        onChange={(e) => {
+                          setFieldSettings(prev => ({
+                            ...prev,
+                            [header]: {
+                              ...prev[header],
+                              isRequired: e.target.checked
+                            }
+                          }));
+                        }}
                         className="w-3 h-3"
                       />
                       <span>Обязательное</span>
                     </label>
-          </div>
+                  </div>
                   <div className="col-span-3">
-                    <select className="w-full text-sm border rounded px-2 py-1">
+                    <select 
+                      value={fieldSettings[header]?.dataType || 'text'}
+                      onChange={(e) => {
+                        setFieldSettings(prev => ({
+                          ...prev,
+                          [header]: {
+                            ...prev[header],
+                            dataType: e.target.value as 'text' | 'number' | 'select' | 'boolean' | 'image'
+                          }
+                        }));
+                      }}
+                      className="w-full text-sm border rounded px-2 py-1"
+                    >
                       <option value="text">Текст</option>
                       <option value="number">Число</option>
                       <option value="select">Список</option>
                       <option value="boolean">Да/Нет</option>
+                      <option value="image">Изображение</option>
                     </select>
-              </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -742,19 +884,18 @@ export default function CatalogImportPage() {
               </Button>
               <Button
                 onClick={() => {
-                  // Собираем выбранные поля с пользовательскими названиями
-                  const fields = priceListData.headers.map((header, index) => {
-                    // Получаем пользовательское название из input поля
-                    const displayNameInput = document.querySelector(`input[data-header="${header}"]`) as HTMLInputElement;
-                    const displayName = displayNameInput ? displayNameInput.value || header : header;
-                    
+                  // Собираем только выбранные поля с их настройками
+                  const fields = Array.from(selectedFields).map(header => {
+                    const settings = fieldSettings[header];
                     return {
                       fieldName: header,
-                      displayName: displayName,
-                      isRequired: false, // Будет установлено из чекбоксов
-                      dataType: 'text' // Будет установлено из селектов
+                      displayName: settings?.displayName || header,
+                      isRequired: settings?.isRequired || false,
+                      dataType: settings?.dataType || 'text'
                     };
                   });
+                  
+                  console.log('Собранные поля:', fields);
                   handlePropertiesComplete(fields);
                 }}
               >

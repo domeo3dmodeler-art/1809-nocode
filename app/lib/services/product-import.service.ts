@@ -449,12 +449,31 @@ export class ProductImportService {
     const template = templates[0]; // Используем первый шаблон
 
     // Формируем заголовки
-    const headers = ['SKU', 'Название', 'Цена', 'Остаток'];
+    let headers = ['SKU', 'Название', 'Цена', 'Остаток'];
     
     if (template) {
-      headers.push(...template.required_fields);
-      headers.push(...template.calculator_fields);
-      headers.push(...template.export_fields);
+      // Используем только поля из шаблона
+      try {
+        const templateConfig = JSON.parse(template.template_config || '{}');
+        if (templateConfig.headers && Array.isArray(templateConfig.headers)) {
+          headers = templateConfig.headers;
+        } else {
+          // Fallback к старому формату
+          const requiredFields = JSON.parse(template.required_fields || '[]');
+          const calculatorFields = JSON.parse(template.calculator_fields || '[]');
+          const exportFields = JSON.parse(template.export_fields || '[]');
+          
+          headers = [...new Set([...headers, ...requiredFields, ...calculatorFields, ...exportFields])];
+        }
+      } catch (error) {
+        console.warn('Error parsing template config:', error);
+        // Fallback к старому формату
+        const requiredFields = JSON.parse(template.required_fields || '[]');
+        const calculatorFields = JSON.parse(template.calculator_fields || '[]');
+        const exportFields = JSON.parse(template.export_fields || '[]');
+        
+        headers = [...new Set([...headers, ...requiredFields, ...calculatorFields, ...exportFields])];
+      }
     } else {
       // Если нет шаблона, используем свойства категории
       const propertyAssignments = catalogCategory.property_assignments || [];
