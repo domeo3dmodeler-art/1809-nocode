@@ -711,28 +711,28 @@ export default function CatalogPage() {
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                                 #
                               </th>
-                              {/* Динамические заголовки из шаблона */}
+                              {/* Динамические заголовки из fieldMappings шаблона */}
                               {(() => {
                                 
-                                if (selectedTemplate?.requiredFields) {
+                                if (selectedTemplate?.fieldMappings) {
                                   try {
-                                    let fields = selectedTemplate.requiredFields; // Уже парсится в API
+                                    let fieldMappings = selectedTemplate.fieldMappings; // Уже парсится в API
                                     
                                     console.log('TEMPLATE DEBUG:', {
                                       selectedTemplate,
-                                      requiredFields: selectedTemplate.requiredFields,
-                                      fieldsType: typeof fields,
-                                      fieldsIsArray: Array.isArray(fields)
+                                      fieldMappings: selectedTemplate.fieldMappings,
+                                      fieldMappingsType: typeof fieldMappings,
+                                      fieldMappingsIsArray: Array.isArray(fieldMappings)
                                     });
                                     
-                                    // Проверяем, что fields является массивом
-                                    if (typeof fields === 'string') {
-                                      fields = JSON.parse(fields);
+                                    // Проверяем, что fieldMappings является массивом
+                                    if (typeof fieldMappings === 'string') {
+                                      fieldMappings = JSON.parse(fieldMappings);
                                     }
                                     
-                                    if (Array.isArray(fields) && fields.length > 0) {
+                                    if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
                                       // Фильтруем поля, исключая нежелательные
-                                      const filteredFields = fields.filter((field: any) => {
+                                      const filteredFields = fieldMappings.filter((field: any) => {
                                         const fieldName = field.fieldName || field;
                                         return !fieldName.includes('№') && 
                                                !fieldName.includes('Domeo_Ссылка на фото двери') &&
@@ -746,7 +746,7 @@ export default function CatalogPage() {
                                       ));
                                     }
                                   } catch (error) {
-                                    console.error('Ошибка при обработке полей шаблона:', error);
+                                    console.error('Ошибка при обработке fieldMappings шаблона:', error);
                                   }
                                 }
                                 
@@ -790,24 +790,24 @@ export default function CatalogPage() {
                                 <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-500 border-r border-gray-200">
                                   {index + 1}
                                 </td>
-                                {/* Динамические ячейки свойств из шаблона */}
+                                {/* Динамические ячейки свойств из fieldMappings шаблона */}
                                 {(() => {
-                                  if (selectedTemplate?.requiredFields) {
+                                  if (selectedTemplate?.fieldMappings) {
                                     try {
-                                      let fields = selectedTemplate.requiredFields; // Уже парсится в API
+                                      let fieldMappings = selectedTemplate.fieldMappings; // Уже парсится в API
                                       
-                                      // Проверяем, что fields является массивом
-                                      if (typeof fields === 'string') {
-                                        fields = JSON.parse(fields);
+                                      // Проверяем, что fieldMappings является массивом
+                                      if (typeof fieldMappings === 'string') {
+                                        fieldMappings = JSON.parse(fieldMappings);
                                       }
                                       
                                       const specifications = product.properties_data ? 
                                         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {};
                                       
                                       
-                                      if (Array.isArray(fields) && fields.length > 0) {
+                                      if (Array.isArray(fieldMappings) && fieldMappings.length > 0) {
                                         // Фильтруем поля, исключая нежелательные
-                                        const filteredFields = fields.filter((field: any) => {
+                                        const filteredFields = fieldMappings.filter((field: any) => {
                                           const fieldName = field.fieldName || field;
                                           return !fieldName.includes('№') && 
                                                  !fieldName.includes('Domeo_Ссылка на фото двери') &&

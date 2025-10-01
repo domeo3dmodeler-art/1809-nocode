@@ -235,32 +235,36 @@ export class ProductImportService {
       if (!Array.isArray(row)) continue;
 
       // Извлекаем основные поля
-      const sku = row[0]?.toString().trim() || '';
-      const name = row[1]?.toString().trim() || '';
+      // В Excel файле: колонка A - номер, B - пустая, C - пустая (артикул), D - название модели
+      const sku = row[2]?.toString().trim() || '';
+      const name = row[3]?.toString().trim() || '';
       
-      if (!sku || !name) continue;
+      // Если SKU пустой, генерируем его автоматически
+      const finalSku = sku || `AUTO-${rowIndex + 1}`;
+      
+      if (!name) continue;
 
       // Извлекаем свойства товара
       const properties_data: Record<string, any> = {};
       
-      // Парсим остальные колонки как свойства
-      for (let colIndex = 2; colIndex < row.length; colIndex++) {
-        const columnName = `property_${colIndex - 1}`;
+      // Парсим все колонки как свойства, используя заголовки из шаблона
+      for (let colIndex = 0; colIndex < row.length; colIndex++) {
         const value = row[colIndex];
         
         if (value !== undefined && value !== null && value !== '') {
-          properties_data[columnName] = value;
+          // Используем номер колонки как ключ, так как у нас есть маппинг в шаблоне
+          properties_data[`column_${colIndex}`] = value;
         }
       }
 
-      // Извлекаем цену (если есть)
-      const base_price = parseFloat(row[2]?.toString()) || 0;
+      // Извлекаем цену (колонка P - индекс 15)
+      const base_price = parseFloat(row[15]?.toString()) || 0;
       
-      // Извлекаем остаток (если есть)
-      const stock_quantity = parseInt(row[3]?.toString()) || 0;
+      // Извлекаем остаток (колонка O - индекс 14, но это "Склад/заказ", не количество)
+      const stock_quantity = 0; // По умолчанию 0, так как в Excel нет поля количества
 
       products.push({
-        sku,
+        sku: finalSku,
         name,
         catalog_category_id: catalogCategoryId,
         properties_data,

@@ -9,7 +9,15 @@
     "install-deps": "cd app && npm install",
     "setup": "npm run install-deps && npm run dev"
   },
-  "keywords": ["nocode", "configurator", "ecommerce", "domeo"],
+  "keywords": [
+    "nocode",
+    "configurator",
+    "ecommerce",
+    "domeo"
+  ],
   "author": "Domeo Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
 }

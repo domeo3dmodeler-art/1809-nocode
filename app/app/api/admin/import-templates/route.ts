@@ -148,13 +148,12 @@ export async function GET(req: NextRequest) {
         name: template.catalog_category.name,
         path: template.catalog_category.path
       } : null,
-      templateConfig: JSON.parse(template.template_config || '{}'),
-      fieldMappings: JSON.parse(template.field_mappings || '[]'),
-      requiredFields: template.required_fields ? 
-        (typeof template.required_fields === 'string' ? JSON.parse(template.required_fields) : template.required_fields) : [],
-      calculatorFields: JSON.parse(template.calculator_fields || '[]'),
-      exportFields: JSON.parse(template.export_fields || '[]'),
-      validationRules: JSON.parse(template.validation_rules || '{}'),
+      templateConfig: typeof template.template_config === 'string' ? JSON.parse(template.template_config || '{}') : template.template_config,
+      fieldMappings: typeof template.field_mappings === 'string' ? JSON.parse(template.field_mappings || '[]') : template.field_mappings,
+      requiredFields: typeof template.required_fields === 'string' ? JSON.parse(template.required_fields || '[]') : template.required_fields,
+      calculatorFields: typeof template.calculator_fields === 'string' ? JSON.parse(template.calculator_fields || '[]') : template.calculator_fields,
+      exportFields: typeof template.export_fields === 'string' ? JSON.parse(template.export_fields || '[]') : template.export_fields,
+      validationRules: typeof template.validation_rules === 'string' ? JSON.parse(template.validation_rules || '{}') : template.validation_rules,
       isActive: template.is_active,
       createdAt: template.created_at,
       updatedAt: template.updated_at
