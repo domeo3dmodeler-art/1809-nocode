@@ -257,7 +257,7 @@ function DashboardContent() {
               </div>
               <div className="flex items-center">
                 <span className="text-black mx-3 text-lg font-bold">•</span>
-                <h2 className="text-lg font-semibold text-black">{roleContent.title}</h2>
+                <h2 className="text-lg font-semibold text-black">{getRoleDisplayName(user.role)}</h2>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -357,6 +357,15 @@ function DashboardContent() {
   );
 
   function getRoleText(role: string) {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Администратор',
+      'complectator': 'Комплектатор',
+      'executor': 'Исполнитель'
+    };
+    return roleMap[role] || 'Пользователь';
+  }
+
+  function getRoleDisplayName(role: string) {
     const roleMap: { [key: string]: string } = {
       'admin': 'Администратор',
       'complectator': 'Комплектатор',

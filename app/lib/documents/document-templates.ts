@@ -669,3 +669,4 @@ export function getTemplatesByRole(role: string): DocumentTemplate[] {
   return DOCUMENT_TEMPLATES.filter(template => template.role === role);
 }
 
+

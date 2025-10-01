@@ -13,8 +13,6 @@ interface CategoryData {
   name: string;
   description: string;
   slug: string;
-  is_main: boolean;
-  parent_id: string | null;
 }
 
 export default function CategoryInfoForm({ onComplete, onCancel, initialData }: CategoryInfoFormProps) {
@@ -22,8 +20,6 @@ export default function CategoryInfoForm({ onComplete, onCancel, initialData }: 
     name: initialData?.name || '',
     description: initialData?.description || '',
     slug: initialData?.slug || '',
-    is_main: true,
-    parent_id: null,
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -120,39 +116,6 @@ export default function CategoryInfoForm({ onComplete, onCancel, initialData }: 
                   placeholder="Краткое описание категории товаров"
                 ></textarea>
               </div>
-              <div>
-                <label htmlFor="is_main" className="block text-sm font-medium text-black mb-1">Тип категории</label>
-                <Select
-                  id="is_main"
-                  name="is_main"
-                  value={categoryData.is_main ? 'main' : 'sub'}
-                  onChange={(e) => setCategoryData(prev => ({
-                    ...prev,
-                    is_main: e.target.value === 'main',
-                    parent_id: e.target.value === 'main' ? null : prev.parent_id
-                  }))}
-                  options={[
-                    { value: 'main', label: 'Основная категория' },
-                    { value: 'sub', label: 'Подкатегория' }
-                  ]}
-                />
-              </div>
-              {!categoryData.is_main && (
-                <div>
-                  <label htmlFor="parent_id" className="block text-sm font-medium text-black mb-1">Родительская категория</label>
-                  <Select
-                    id="parent_id"
-                    name="parent_id"
-                    value={categoryData.parent_id || ''}
-                    onChange={handleInputChange}
-                    options={[
-                      { value: '', label: 'Выберите родительскую категорию' },
-                      { value: 'doors-main', label: 'Двери (Основная)' },
-                      { value: 'smart-main', label: 'Смарт (Основная)' }
-                    ]}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </Card>

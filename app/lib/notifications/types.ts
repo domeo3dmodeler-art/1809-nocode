@@ -263,3 +263,4 @@ export interface NotificationStats {
   responseTime: number;    // Среднее время реакции (минуты)
 }
 
+

@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui';
-import SimpleConstructor from '@/components/constructor/SimpleConstructor';
+import ProfessionalPageBuilder from '@/components/constructor/ProfessionalPageBuilder';
 
 export default function SimpleConstructorTestPage() {
   const [showConstructor, setShowConstructor] = useState(false);
 
   if (showConstructor) {
-    return <SimpleConstructor />;
+    return <ProfessionalPageBuilder />;
   }
 
   return (

@@ -184,6 +184,18 @@ model FrontendCategory {
   @@map("frontend_categories")
 }
 
+model ConstructorConfig {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      String   // JSON конфигурация конструктора
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("constructor_configs")
+}
+
 
 model Product {
   id                  String          @id @default(cuid())

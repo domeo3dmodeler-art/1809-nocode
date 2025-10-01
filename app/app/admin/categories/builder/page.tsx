@@ -6,8 +6,8 @@ import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
 import DataUpload from '../../../../components/category-builder/DataUpload';
-import UltimateConstructorFixed from '../../../../components/constructor/UltimateConstructorFixed';
-import PreviewModule from '../../../../components/category-builder/PreviewModule';
+import ProfessionalPageBuilder from '../../../../components/constructor/ProfessionalPageBuilder';
+import ProfessionalPreview from '../../../../components/constructor/ProfessionalPreview';
 
 type BuilderStep = 'info' | 'design' | 'preview' | 'generate';
 
@@ -23,6 +23,8 @@ export default function CategoryBuilderPage() {
   const [completedSteps, setCompletedSteps] = useState<BuilderStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [pageBuilderConfig, setPageBuilderConfig] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Загружаем существующую категорию для редактирования
   useEffect(() => {
@@ -126,7 +128,8 @@ export default function CategoryBuilderPage() {
 
   // Удалены функции загрузки данных - теперь они в /admin/catalog/import
 
-  const handleDesignComplete = () => {
+  const handleDesignComplete = (config: any) => {
+    setPageBuilderConfig(config);
     setCompletedSteps(prev => [...prev, 'design']);
     setCurrentStep('preview');
   };
@@ -339,12 +342,13 @@ export default function CategoryBuilderPage() {
         {/* Шаг загрузки данных удален - теперь в /admin/catalog/import */}
 
         {currentStep === 'design' && (
-          <div className="fixed inset-0 bg-white z-50 flex flex-col">
-            {/* Полноэкранный конструктор */}
-            <div className="flex-1 overflow-hidden">
-              <UltimateConstructorFixed hideHeader={true} />
-                  </div>
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Конструктор интерфейса</h2>
+              <p className="text-gray-600">Создайте профессиональный конфигуратор с drag & drop интерфейсом</p>
+            </div>
             
+            <ProfessionalPageBuilder />
           </div>
         )}
 
@@ -359,24 +363,51 @@ export default function CategoryBuilderPage() {
                 <Button variant="secondary" onClick={() => setCurrentStep('design')}>
                   ← Редактировать
                 </Button>
+                <Button variant="outline" onClick={() => setShowPreview(true)}>
+                  👁️ Предпросмотр
+                </Button>
                 <Button variant="primary" onClick={handleGenerate}>
                   Создать конфигуратор →
                 </Button>
               </div>
             </div>
             
-            <PreviewModule
-              modules={[]} // Здесь будут модули из конструктора
-              cartItems={cartItems}
-              onAddToCart={handleAddToCart}
-              onUpdateCartQuantity={handleUpdateCartQuantity}
-              onRemoveFromCart={handleRemoveFromCart}
-              onClearCart={handleClearCart}
-              onExport={handleExport}
-              onCreateQuote={handleCreateQuote}
-              onCreateInvoice={handleCreateInvoice}
-              onCreateFactoryOrder={handleCreateFactoryOrder}
-            />
+            <Card variant="base">
+              <div className="p-6">
+                <div className="text-center">
+                  <h4 className="text-lg font-semibold mb-2">Конфигуратор готов!</h4>
+                  <p className="text-gray-600 mb-4">
+                    Ваш конфигуратор создан с использованием профессионального конструктора страниц.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="text-2xl mb-2">🧩</div>
+                      <h5 className="font-medium">Блоков создано</h5>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {pageBuilderConfig?.blocks.length || 0}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="text-2xl mb-2">📂</div>
+                      <h5 className="font-medium">Категорий настроено</h5>
+                      <p className="text-2xl font-bold text-green-600">
+                        {pageBuilderConfig?.categories.length || 0}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <div className="text-2xl mb-2">💰</div>
+                      <h5 className="font-medium">Ценообразование</h5>
+                      <p className="text-sm text-purple-600">
+                        {pageBuilderConfig?.categories.filter(c => c.pricingRule === 'formula').length || 0} формул
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="primary" onClick={() => setShowPreview(true)}>
+                    Открыть предпросмотр
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -422,6 +453,26 @@ export default function CategoryBuilderPage() {
           </div>
         )}
       </div>
+      
+      {/* Модальное окно предпросмотра */}
+      {showPreview && pageBuilderConfig && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Предпросмотр конфигуратора</h3>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-full overflow-auto">
+              <ProfessionalPreview config={pageBuilderConfig} />
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
