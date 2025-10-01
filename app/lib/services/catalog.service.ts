@@ -120,7 +120,7 @@ export class CatalogService {
 
     // Функция для суммирования товаров в подкатегориях
     const calculateTotalProducts = (category: any): number => {
-      let total = category.products_count || 0;
+      let total = category.direct_products_count || 0; // Только прямые товары
       if (category.subcategories && category.subcategories.length > 0) {
         category.subcategories.forEach((subcategory: any) => {
           total += calculateTotalProducts(subcategory);
@@ -133,8 +133,10 @@ export class CatalogService {
     const updateCategoryCounts = (category: any) => {
       if (category.subcategories && category.subcategories.length > 0) {
         category.subcategories.forEach(updateCategoryCounts);
+        // Общее количество = прямые товары + товары из всех подкатегорий
         category.products_count = calculateTotalProducts(category);
       }
+      // Для листовых категорий products_count уже правильно установлен
     };
 
     rootCategories.forEach(updateCategoryCounts);
