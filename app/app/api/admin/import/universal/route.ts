@@ -545,7 +545,61 @@ export async function POST(req: NextRequest) {
           name: field.displayName || field.fieldName || field,
           required: true
         }));
-        
+
+        // ОБНОВЛЯЕМ ШАБЛОН с fieldMappings
+        if (mappingConfig && mappingConfig.fieldMappings) {
+          console.log('🐨 Saving fieldMappings to template:', mappingConfig.fieldMappings);
+          
+          // Парсим существующий шаблон
+          let existingTemplate = null;
+          try {
+            const existingTemplates = await prisma.importTemplate.findMany({
+              where: { catalog_category_id: category }
+            });
+            existingTemplate = existingTemplates[0];
+          } catch (error) {
+            console.log('No existing template found, will create new one');
+          }
+
+          // Подготавливаем fieldMappings для сохранения
+          const fieldMappingsData = mappingConfig.fieldMappings.map((mapping: any) => ({
+            fieldName: mapping.fieldName,
+            displayName: mapping.displayName,
+            dataType: mapping.dataType,
+            isRequired: mapping.isRequired,
+            isVisible: mapping.isVisible !== undefined ? mapping.isVisible : true
+          }));
+
+          if (existingTemplate) {
+            // Обновляем существующий шаблон
+            await prisma.importTemplate.update({
+              where: { id: existingTemplate.id },
+              data: {
+                field_mappings: JSON.stringify(fieldMappingsData),
+                updated_at: new Date()
+              }
+            });
+            console.log('✅ Updated existing template with fieldMappings');
+          } else {
+            // Создаем новый шаблон
+            await prisma.importTemplate.create({
+              data: {
+                name: `Шаблон для ${categoryInfo.name || 'категории'}`,
+                description: `Автоматически созданный шаблон`,
+                catalog_category_id: category,
+                field_mappings: JSON.stringify(fieldMappingsData),
+                required_fields: JSON.stringify([
+                  'Название товара',
+                  'Цена',
+                  ...templateFields.filter(f => f.name?.toLowerCase().includes('артикул')).map(f => f.name)
+                ]),
+                is_active: true
+              }
+            });
+            console.log('✅ Created new template with fieldMappings');
+          }
+        }
+
         console.log('Generated mapping config from template:', mappingConfig);
         console.log('Updated category properties:', categoryInfo.properties);
       }
@@ -820,10 +874,20 @@ export async function POST(req: NextRequest) {
           };
         });
 
+        // Создаем field_mappings для автоматического шаблона
+        const fieldMappingsData = templateFields.map(field => ({
+          fieldName: field.fieldName,
+          displayName: field.displayName,
+          dataType: field.type,
+          isRequired: field.required,
+          isVisible: true
+        }));
+
         const templateData = {
           name: `Автоматический шаблон для ${categoryInfo.name}`,
           description: `Шаблон создан автоматически при первой загрузке товаров в категорию ${categoryInfo.name}. Поля отфильтрованы и ограничены.`,
           catalog_category_id: category,
+          field_mappings: JSON.stringify(fieldMappingsData),
           required_fields: JSON.stringify(templateFields.filter(f => f.required)),
           calculator_fields: JSON.stringify(templateFields.filter(f => f.isForCalculator)),
           export_fields: JSON.stringify(templateFields),

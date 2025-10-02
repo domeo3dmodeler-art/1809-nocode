@@ -416,6 +416,9 @@ export default function CatalogPage() {
         const template = data.templates[0];
         console.log('SELECTED TEMPLATE:', template);
         console.log('Template requiredFields:', template.requiredFields);
+        console.log('Template fieldMappings:', template.fieldMappings);
+        console.log('Template fieldMappings type:', typeof template.fieldMappings);
+        console.log('Template fieldMappings length:', Array.isArray(template.fieldMappings) ? template.fieldMappings.length : 'not an array');
         console.log('Template requiredFields type:', typeof template.requiredFields);
         
         if (template.requiredFields) {

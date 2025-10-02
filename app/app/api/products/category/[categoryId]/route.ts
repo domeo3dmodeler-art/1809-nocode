@@ -190,17 +190,48 @@ async function getAvailableProperties(categoryId: string) {
       take: 100 // Ограничиваем для производительности
     });
     
+    // Получаем шаблон для маппинга displayName
+    let templateFieldMappings: any[] = [];
+    try {
+      const templatePrisma = prisma;
+      
+      const template = await templatePrisma.importTemplate.findFirst({
+        where: { catalog_category_id: categoryId }
+      });
+      
+      if (template?.field_mappings) {
+        const fieldMappingsData = typeof template.field_mappings === 'string' 
+          ? JSON.parse(template.field_mappings) 
+          : template.field_mappings;
+        templateFieldMappings = fieldMappingsData || [];
+        console.log('🐨 Template field mappings loaded:', templateFieldMappings.length);
+      }
+    } catch (templateError) {
+      console<｜tool▁call▁begin｜>log('No template found, using raw field names:', templateError);
+    }
+
     const propertiesMap = new Map<string, Set<string>>();
+    
+    // Создаем маппинг fieldName -> displayName из шаблона
+    const keyToDisplayNameMap = new Map<string, string>();
+    templateFieldMappings.forEach(mapping => {
+      if (mapping.fieldName && mapping.displayName) {
+        keyToDisplayNameMap.set(mapping.fieldName, mapping.displayName);
+      }
+    });
     
     products.forEach(product => {
       try {
         const properties = JSON.parse(product.properties_data || '{}');
         Object.entries(properties).forEach(([key, value]) => {
-          if (!propertiesMap.has(key)) {
-            propertiesMap.set(key, new Set());
+          // Используем displayName из шаблона или оригинальный key
+          const displayKey = keyToDisplayNameMap.get(key) || key;
+          
+          if (!propertiesMap.has(displayKey)) {
+            propertiesMap.set(displayKey, new Set());
           }
           if (value !== null && value !== undefined) {
-            propertiesMap.get(key)!.add(String(value));
+            propertiesMap.get(displayKey)!.add(String(value));
           }
         });
       } catch (e) {
@@ -209,13 +240,15 @@ async function getAvailableProperties(categoryId: string) {
     });
     
     // Преобразуем в массив объектов
-    const availableProperties = Array.from(propertiesMap.entries()).map(([key, values]) => ({
-      key,
-      type: 'select', // По умолчанию select, можно определить тип по значениям
+    const availableProperties = Array.from(propertiesMap.entries()).map(([displayName, values]) => ({
+      key: displayName, // Теперь key содержит displayName из шаблона
+      displayName: displayName,
+      type: 'select',
       values: Array.from(values).sort(),
       count: values.size
     }));
     
+    console.log('🐨 Available properties with displayNames:', availableProperties.slice(0, 3));
     return availableProperties;
     
   } catch (error) {
