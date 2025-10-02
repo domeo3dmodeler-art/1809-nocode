@@ -480,14 +480,17 @@ export default function CatalogPage() {
 
   const handleDeleteAllProducts = async (categoryId: string) => {
     try {
+      console.log('🗑️ Начинаем удаление товаров из категории:', categoryId);
+      
       const response = await fetch(`/api/admin/products/delete-all?categoryId=${categoryId}`, {
         method: 'DELETE'
       });
 
       const result = await response.json();
+      console.log('🗑️ Результат удаления:', result);
 
       if (response.ok) {
-        alert(`Успешно удалено ${result.deleted} товаров`);
+        alert(`✅ Успешно удалено ${result.deleted} товаров из категории "${selectedCategory?.name}"`);
         
         // Обновляем счетчики товаров в категориях каталога
         try {
@@ -691,7 +694,8 @@ export default function CatalogPage() {
                           size="sm"
                           className="flex items-center space-x-1"
                           onClick={() => {
-                            if (confirm(`Вы уверены, что хотите удалить все товары (${categoryProducts.length} шт.) из категории "${selectedCategory.name}"? Это действие нельзя отменить.`)) {
+                            const totalProductsCount = selectedCategory.products_count || 0;
+                            if (confirm(`Вы уверены, что хотите удалить все товары (${totalProductsCount} шт.) из категории "${selectedCategory.name}"? Это действие нельзя отменить.`)) {
                               handleDeleteAllProducts(selectedCategory.id);
                             }
                           }}

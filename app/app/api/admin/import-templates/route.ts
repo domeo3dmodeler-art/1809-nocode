@@ -46,24 +46,9 @@ export async function POST(req: NextRequest) {
     });
     
     if (existingTemplate) {
-      // Если шаблон уже существует, обновляем его
-      console.log('Шаблон уже существует для catalog_category, обновляем его...');
-      importTemplate = await prisma.importTemplate.update({
-        where: { id: existingTemplate.id },
-        data: {
-          name,
-          description: description || '',
-          template_config: template_config ? JSON.stringify(template_config) : '{}',
-          field_mappings: field_mappings ? JSON.stringify(field_mappings) : '[]',
-          required_fields: required_fields ? JSON.stringify(required_fields) : '[]',
-          calculator_fields: calculator_fields ? JSON.stringify(calculator_fields) : '[]',
-          export_fields: export_fields ? JSON.stringify(export_fields) : '[]',
-          validation_rules: validation_rules ? JSON.stringify(validation_rules) : '{}',
-          is_active: true,
-          updated_at: new Date()
-        }
-      });
-      console.log('Обновлен существующий шаблон:', importTemplate.id);
+      // Если шаблон уже существует, НЕ обновляем его - используем существующий
+      console.log('Шаблон уже существует для catalog_category, используем существующий:', existingTemplate.id);
+      importTemplate = existingTemplate;
     } else {
       // Если шаблона нет, создаем новый
       importTemplate = await prisma.importTemplate.create({

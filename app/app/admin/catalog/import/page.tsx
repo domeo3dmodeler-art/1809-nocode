@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Badge } from '../../../../components/ui';
 import { Upload, Download, FileText, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Trash2, Database, Upload as UploadIcon, ArrowRight, ArrowLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import FieldMappingInterface from '../../../../components/import/FieldMappingInterface';
+import { useImportTemplate, useFileAnalysis } from '../../../../hooks/useImportTemplate';
 
 interface ImportHistoryItem {
   id: string;
@@ -45,7 +47,7 @@ interface CatalogCategory {
   displayName?: string;
 }
 
-type ImportStep = 'upload' | 'catalog' | 'properties' | 'photos' | 'complete';
+type ImportStep = 'upload' | 'catalog' | 'mapping' | 'properties' | 'photos' | 'complete';
 
 export default function CatalogImportPage() {
   // Основные состояния
@@ -59,6 +61,14 @@ export default function CatalogImportPage() {
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  
+  // Новые состояния для маппинга
+  const [fileHeaders, setFileHeaders] = useState<any[]>([]);
+  const [fieldMappings, setFieldMappings] = useState<any[]>([]);
+  
+  // Хуки для работы с шаблонами
+  const { template, loading: templateLoading, loadTemplate, createTemplate } = useImportTemplate();
+  const { analyzeFile, analyzing } = useFileAnalysis();
   
   // Состояния для истории и результатов
   const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
@@ -363,15 +373,71 @@ export default function CatalogImportPage() {
 
   const handleCatalogComplete = async () => {
     setCompletedSteps(prev => [...prev, 'catalog']);
-    setCurrentStep('properties');
+    
+    // Загружаем шаблон для выбранной категории
+    if (selectedCatalogCategoryId) {
+      await loadTemplate(selectedCatalogCategoryId);
+    }
+    
+    // Анализируем файл для получения заголовков
+    if (priceListData) {
+      try {
+        // Создаем временный файл из данных для анализа
+        const csvContent = [
+          priceListData.headers.join(','),
+          ...priceListData.rows.slice(0, 10).map(row => row.join(','))
+        ].join('\n');
+        
+        const tempFile = new File([csvContent], 'temp.csv', { type: 'text/csv' });
+        const analysis = await analyzeFile(tempFile);
+        setFileHeaders(analysis.headers);
+      } catch (error) {
+        console.error('Ошибка анализа файла:', error);
+      }
+    }
+    
+    setCurrentStep('mapping');
   };
 
-  const handlePropertiesComplete = async (fields: any[]) => {
-    console.log('=== handlePropertiesComplete ВЫЗВАН ===');
-    console.log('fields:', fields);
-    console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+  const handleMappingComplete = (mappings: any[]) => {
+    console.log('🎯 handleMappingComplete вызван с mappings:', mappings);
+    console.log('🎯 template:', template);
+    console.log('🎯 mappings.length:', mappings.length);
     
-    setRequiredFields(fields);
+    setFieldMappings(mappings);
+    setCompletedSteps(prev => [...prev, 'mapping']);
+    
+    // Если есть шаблон и маппинги, переходим к properties для автоматической обработки
+    if (template && mappings.length > 0) {
+      console.log('✅ Есть шаблон и маппинги, переходим к properties');
+      setCurrentStep('properties');
+    } else {
+      console.log('❌ Нет шаблона или маппингов, переходим к properties для создания');
+      // Если шаблона нет, переходим к созданию properties
+      setCurrentStep('properties');
+    }
+  };
+
+  const handlePropertiesComplete = useCallback(async (fields: any[]) => {
+    console.log('🚀🚀🚀 === handlePropertiesComplete ВЫЗВАН === 🚀🚀🚀');
+    console.log('fields:', fields);
+    console.log('fieldMappings:', fieldMappings);
+    console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+    console.log('priceListData:', priceListData);
+    console.log('template:', template);
+    
+    // Используем поля из маппинга, если они есть, иначе из fields
+    const finalFields = fieldMappings.length > 0 
+      ? fieldMappings.map((mapping: any) => ({
+          fieldName: mapping.templateField.fieldName,
+          displayName: mapping.templateField.displayName,
+          dataType: mapping.templateField.dataType,
+          isRequired: mapping.templateField.isRequired,
+          mappedToFileField: mapping.fileHeader?.name
+        }))
+      : fields;
+    
+    setRequiredFields(finalFields);
     
     setShowProgressModal(true);
     setProgressMessage('Сохранение товаров в базу данных...');
@@ -385,6 +451,7 @@ export default function CatalogImportPage() {
 
       console.log('Сохранение товаров и свойств в БД...');
       console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+      console.log('finalFields:', finalFields);
       console.log('priceListData:', priceListData);
 
       setProgressMessage('Создание файла данных...');
@@ -398,10 +465,26 @@ export default function CatalogImportPage() {
       const formData = new FormData();
       formData.append('file', csvFile);
       formData.append('category', selectedCatalogCategoryId);
-      formData.append('mapping', JSON.stringify(fields));
+      
+      // Добавляем информацию о маппинге или полях
+      if (fieldMappings.length > 0) {
+        console.log('Отправляем с маппингом:', fieldMappings);
+        formData.append('mapping', JSON.stringify(fieldMappings));
+        // Если есть шаблон, передаем его ID
+        if (template?.id) {
+          formData.append('templateId', template.id);
+        }
+      } else {
+        console.log('Отправляем с полями:', fields);
+        formData.append('fields', JSON.stringify(fields));
+      }
       formData.append('mode', 'full');
       
       console.log('Отправляем данные на /api/admin/import/universal...');
+      console.log('selectedCatalogCategoryId:', selectedCatalogCategoryId);
+      console.log('priceListData headers:', priceListData?.headers);
+      console.log('priceListData rows count:', priceListData?.rows?.length);
+      
       const productsResponse = await fetch('/api/admin/import/universal', {
         method: 'POST',
         body: formData,
@@ -410,10 +493,19 @@ export default function CatalogImportPage() {
       console.log('Ответ от API импорта:', productsResponse.status, productsResponse.statusText);
 
       if (!productsResponse.ok) {
-        throw new Error('Ошибка при сохранении товаров в БД');
+        const errorText = await productsResponse.text();
+        console.error('Ошибка API:', errorText);
+        throw new Error('Ошибка при сохранении товаров в БД: ' + errorText);
       }
 
       const productsResult = await productsResponse.json();
+      console.log('🔍 ПОЛНЫЙ результат импорта товаров:', productsResult);
+      console.log('🔍 productsResult.database_saved:', productsResult.database_saved);
+      console.log('🔍 productsResult.imported:', productsResult.imported);
+      console.log('🔍 productsResult.total_processed:', productsResult.total_processed);
+      console.log('🔍 productsResult.failed_products:', productsResult.failed_products);
+      console.log('🔍 productsResult.error_stats:', productsResult.error_stats);
+      console.log('🔍 productsResult.failed_products_sample:', productsResult.failed_products_sample);
       console.log('Товары сохранены в БД:', productsResult);
 
       // Создаем шаблон загрузки только с выбранными полями
@@ -448,16 +540,37 @@ export default function CatalogImportPage() {
       }
       
       const savedProductsCount = productsResult.database_saved || productsResult.imported || 0;
+      const totalProcessedCount = productsResult.total_processed || productsResult.imported || 0;
       const categoryName = catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name || 'категории';
       
-      console.log('Итоговое количество сохраненных товаров:', savedProductsCount);
+      console.log('🔍 ИТОГОВАЯ СТАТИСТИКА:');
+      console.log('🔍 Всего обработано товаров:', totalProcessedCount);
+      console.log('🔍 Сохранено в БД:', savedProductsCount);
+      console.log('🔍 Не сохранено:', totalProcessedCount - savedProductsCount);
       
       if (savedProductsCount === 0) {
-        console.warn('ВНИМАНИЕ: Товары не сохранились в базу данных!');
+        console.warn('⚠️ ВНИМАНИЕ: Товары не сохранились в базу данных!');
+        alert(`❌ Ошибка!\nТовары не были сохранены в базу данных.\nПроверьте логи в консоли.`);
+        return;
       }
       
       // Показываем результат
-      alert(`✅ Данные успешно сохранены!\nКатегория: ${categoryName}\nТоваров сохранено: ${savedProductsCount}\nШаблон загрузки: Создан`);
+      let message;
+      if (totalProcessedCount > savedProductsCount) {
+        const failedCount = productsResult.failed_products || 0;
+        const errorStats = productsResult.error_stats || {};
+        const topErrors = Object.entries(errorStats)
+          .sort(([,a], [,b]) => (b as number) - (a as number))
+          .slice(0, 3)
+          .map(([error, count]) => `• ${error}: ${count} шт.`)
+          .join('\n');
+        
+        message = `⚠️ Частичный успех!\nКатегория: ${categoryName}\nОбработано: ${totalProcessedCount} товаров\nСохранено: ${savedProductsCount} товаров\nНе сохранено: ${failedCount} товаров\n\nОсновные ошибки:\n${topErrors}\n\nПодробности в консоли браузера (F12).`;
+      } else {
+        message = `✅ Данные успешно сохранены!\nКатегория: ${categoryName}\nТоваров сохранено: ${savedProductsCount}\nШаблон: Используется существующий`;
+      }
+      
+      alert(message);
       
       setCompletedSteps(prev => [...prev, 'properties']);
       setShowProgressModal(false);
@@ -468,7 +581,41 @@ export default function CatalogImportPage() {
       setShowProgressModal(false);
       alert(`Ошибка при сохранении данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
-  };
+  }, [fieldMappings, selectedCatalogCategoryId, priceListData, template, catalogCategories]);
+
+  // Автоматический переход через properties, если есть маппинги
+  useEffect(() => {
+    console.log('🔍 useEffect сработал:', {
+      currentStep,
+      fieldMappingsLength: fieldMappings.length,
+      hasTemplate: !!template,
+      templateId: template?.id
+    });
+    
+    if (currentStep === 'properties' && fieldMappings.length > 0 && template) {
+      console.log('✅ Автоматически пропускаем шаг properties, используя маппинги');
+      console.log('fieldMappings:', fieldMappings);
+      
+      const mappedFields = fieldMappings.map((mapping: any) => ({
+        fieldName: mapping.templateField.fieldName,
+        displayName: mapping.templateField.displayName,
+        dataType: mapping.templateField.dataType,
+        isRequired: mapping.templateField.isRequired,
+        mappedToFileField: mapping.fileHeader?.name
+      }));
+      
+      console.log('🚀 Вызываем handlePropertiesComplete с mappedFields:', mappedFields);
+      
+      // ВАЖНО: Вызываем handlePropertiesComplete для загрузки прайса
+      handlePropertiesComplete(mappedFields);
+    } else {
+      console.log('❌ Условие не выполнено:', {
+        isPropertiesStep: currentStep === 'properties',
+        hasMappings: fieldMappings.length > 0,
+        hasTemplate: !!template
+      });
+    }
+  }, [currentStep, fieldMappings, template, handlePropertiesComplete]);
 
   const handlePhotosComplete = async (photoFiles: File[]) => {
     const photoData: PhotoData = {
@@ -545,6 +692,7 @@ export default function CatalogImportPage() {
     switch (currentStep) {
       case 'upload': return 'Загрузка прайс-листа';
       case 'catalog': return 'Выбор категории каталога';
+      case 'mapping': return 'Сопоставление полей';
       case 'properties': return 'Настройка свойств товаров';
       case 'photos': return 'Загрузка фотографий';
       case 'complete': return 'Завершение импорта';
@@ -556,6 +704,7 @@ export default function CatalogImportPage() {
     switch (currentStep) {
       case 'upload': return 'Загрузите файл с данными о товарах';
       case 'catalog': return 'Выберите категорию каталога для привязки товаров';
+      case 'mapping': return 'Сопоставьте поля файла с полями шаблона';
       case 'properties': return 'Выберите поля для конфигуратора и отметьте обязательные';
       case 'photos': return 'Загрузите фотографии товаров';
       case 'complete': return 'Все данные загружены и настроены';
@@ -771,12 +920,67 @@ export default function CatalogImportPage() {
       </div>
         );
 
+      case 'mapping':
+        return template && fileHeaders.length > 0 ? (
+          <FieldMappingInterface
+            templateFields={template.fieldMappings || []}
+            fileHeaders={fileHeaders}
+            onMappingComplete={handleMappingComplete}
+            onCancel={() => setCurrentStep('catalog')}
+          />
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-6xl mb-6">⏳</div>
+            <h3 className="text-xl font-semibold text-black mb-4">Подготовка данных для сопоставления</h3>
+            <p className="text-gray-600 mb-6">
+              {templateLoading && 'Загружаем шаблон...'}
+              {analyzing && 'Анализируем файл...'}
+              {!templateLoading && !analyzing && !template && 'Шаблон не найден для данной категории'}
+              {!templateLoading && !analyzing && template && fileHeaders.length === 0 && 'Не удалось проанализировать файл'}
+            </p>
+            
+            {!templateLoading && !analyzing && !template && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-yellow-800 text-sm">
+                  Для данной категории не найден шаблон импорта. 
+                  Будет создан новый шаблон на основе полей файла.
+                </p>
+                <Button
+                  onClick={() => setCurrentStep('properties')}
+                  className="mt-3 bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Создать шаблон
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+
       case 'properties':
+        // Если есть маппинги, показываем информацию о том, что они используются
+        if (fieldMappings.length > 0) {
+          return (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-6">⚡</div>
+              <h3 className="text-xl font-semibold text-black mb-4">Используем сопоставленные поля</h3>
+              <p className="text-gray-600 mb-6">
+                Поля уже сопоставлены с шаблоном на предыдущем шаге. 
+                Переходим к следующему этапу...
+              </p>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-gray-700 text-sm">
+                  Сопоставлено полей: {fieldMappings.filter((m: any) => m.fileHeader).length} из {fieldMappings.length}
+                </p>
+              </div>
+            </div>
+          );
+        }
+
         return priceListData ? (
           <div className="space-y-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">Настройка свойств товаров</h4>
-              <p className="text-blue-700 text-sm">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Настройка свойств товаров</h4>
+              <p className="text-gray-700 text-sm">
                 Выберите поля из прайс-листа, которые будут использоваться в конфигураторе.
                 Отметьте обязательные поля для корректной работы системы.
             </p>
@@ -909,269 +1113,142 @@ export default function CatalogImportPage() {
       case 'photos':
         return (
           <div className="space-y-6">
-            <div className="text-center py-8">
-              <div className="text-6xl mb-6">📸</div>
-              <h3 className="text-xl font-semibold text-black mb-4">Загрузка фотографий</h3>
-              <p className="text-gray-600 mb-6">Настройте параметры загрузки и привязки фото к товарам</p>
+            {/* Современный минималистичный интерфейс */}
+            <div className="max-w-2xl mx-auto">
               
-              {/* Индикатор прогресса */}
-              <div className="max-w-2xl mx-auto mb-6">
-                <div className="flex items-center justify-center space-x-4">
-                  <div className={`flex items-center space-x-2 ${selectedCatalogCategoryId ? 'text-green-600' : 'text-gray-400'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedCatalogCategoryId ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      {selectedCatalogCategoryId ? '✓' : '1'}
-                    </div>
-                    <span className="text-sm font-medium">Категория</span>
-                  </div>
-                  <div className="w-8 h-0.5 bg-gray-200"></div>
-                  <div className={`flex items-center space-x-2 ${photoMappingProperty ? 'text-green-600' : selectedCatalogCategoryId ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${photoMappingProperty ? 'bg-green-100' : selectedCatalogCategoryId ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                      {photoMappingProperty ? '✓' : '2'}
-                    </div>
-                    <span className="text-sm font-medium">Свойство</span>
-                  </div>
-                  <div className="w-8 h-0.5 bg-gray-200"></div>
-                  <div className={`flex items-center space-x-2 ${selectedCatalogCategoryId && photoMappingProperty ? 'text-blue-600' : 'text-gray-400'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${selectedCatalogCategoryId && photoMappingProperty ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                      3
-                    </div>
-                    <span className="text-sm font-medium">Загрузка</span>
-                  </div>
-                </div>
-            </div>
-
-              <div className="max-w-2xl mx-auto space-y-6">
-                {/* Выбор категории для загрузки фото */}
-                <div className={`bg-white border-2 rounded-lg p-4 transition-all ${selectedCatalogCategoryId ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    1. Выберите категорию для загрузки фото:
-                    {selectedCatalogCategoryId && <span className="ml-2 text-green-600">✓ Выполнено</span>}
-                  </label>
+              {/* Компактная настройка */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   
-                  {/* Поиск по категориям */}
-                  <div className="mb-3">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Поиск по названию категории..."
-                        value={photoCategorySearchTerm}
-                        onChange={(e) => setPhotoCategorySearchTerm(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <div className="absolute right-3 top-2.5 text-gray-400">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                  {/* Выбор категории */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Категория
+                    </label>
+                    <select
+                      value={selectedCatalogCategoryId}
+                      onChange={(e) => setSelectedCatalogCategoryId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">Выберите категорию...</option>
+                      {catalogCategories
+                        .filter(cat => cat.product_count > 0)
+                        .map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name} ({category.product_count} товаров)
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Выбор свойства */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Свойство для привязки
+                    </label>
+                    <select
+                      value={photoMappingProperty}
+                      onChange={(e) => setPhotoMappingProperty(e.target.value)}
+                      disabled={!selectedCatalogCategoryId}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                    >
+                      <option value="">Выберите свойство...</option>
+                      {(priceListData?.headers || existingProductProperties).map((property, index) => (
+                        <option key={index} value={property}>
+                          {property}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+
+                {/* Краткая инструкция */}
+                {selectedCatalogCategoryId && photoMappingProperty && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm">
+                    <p className="text-blue-800">
+                      <strong>Привязка:</strong> Название файла (без расширения) = значение свойства "{photoMappingProperty}"
+                    </p>
                   </div>
-
-                  {/* Дерево каталога */}
-                  <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
-                    {(() => {
-                      // Фильтруем категории по поисковому запросу
-                      const filteredCategories = catalogCategories.filter(category =>
-                        category.name.toLowerCase().includes(photoCategorySearchTerm.toLowerCase())
-                      );
-
-                      if (filteredCategories.length === 0) {
-                        return (
-                          <div className="p-4 text-center text-gray-500">
-                            {photoCategorySearchTerm ? 'Категории не найдены' : 'Загрузка категорий...'}
-                </div>
-                        );
-                      }
-
-                      return (
-                        <div className="divide-y divide-gray-200">
-                          {filteredCategories.map((category) => (
-                            <div
-                              key={category.id}
-                              className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                                selectedCatalogCategoryId === category.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                              }`}
-                              onClick={() => setSelectedCatalogCategoryId(category.id)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                  <span className="text-sm text-gray-600 mr-2">
-                                    {'  '.repeat(category.level)}
-                                  </span>
-                                  <span className="font-medium text-gray-900">
-                                    {category.name}
-                                  </span>
-                  </div>
-                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                  {category.product_count || 0} товаров
-                                </span>
-                </div>
-              </div>
-                          ))}
-                </div>
-                      );
-                    })()}
-                  </div>
-                  
-                  {selectedCatalogCategoryId && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
-                      <p className="text-xs text-blue-800">
-                        <strong>Выбрана категория:</strong> {
-                          catalogCategories.find(c => c.id === selectedCatalogCategoryId)?.name
-                        }
-                      </p>
-              </div>
-            )}
-
-                  <p className="text-xs text-gray-500 mt-2">
-                    Фото будут загружены в выбранную категорию
-                  </p>
-                </div>
-
-                {/* Выбор свойства для привязки фото */}
-                <div className={`bg-white border-2 rounded-lg p-4 transition-all ${photoMappingProperty ? 'border-green-200 bg-green-50' : selectedCatalogCategoryId ? 'border-blue-200 bg-blue-50' : 'border-gray-200'}`}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    2. Выберите свойство для привязки фото к товарам:
-                    {photoMappingProperty && <span className="ml-2 text-green-600">✓ Выполнено</span>}
-                  </label>
-                  
-                  {(() => {
-                    // Определяем доступные свойства
-                    const availableProperties = priceListData && priceListData.headers.length > 0 
-                      ? priceListData.headers 
-                      : existingProductProperties;
-
-                    if (loadingProperties) {
-                      return (
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                          <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                            <span className="text-sm text-blue-800">Загрузка свойств товаров...</span>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (availableProperties.length > 0) {
-                      return (
-                        <>
-                          <select
-                            value={photoMappingProperty}
-                            onChange={(e) => setPhotoMappingProperty(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            <option value="">Выберите свойство...</option>
-                            {availableProperties.map((property, index) => (
-                              <option key={index} value={property}>
-                                {property}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                            <p className="text-xs text-blue-800">
-                              <strong>Принцип привязки:</strong> Название файла фото (без расширения) должно совпадать со значением выбранного свойства товара.
-                            </p>
-                            <p className="text-xs text-blue-800 mt-1">
-                              <strong>Пример:</strong> Если файл называется "door-123.jpg", то он привяжется к товару, у которого значение выбранного свойства равно "door-123".
-                            </p>
-                            {existingProductProperties.length > 0 && (
-                              <p className="text-xs text-green-800 mt-1">
-                                <strong>Источник:</strong> Свойства загружены из существующих товаров в категории ({existingProductProperties.length} свойств найдено).
-                              </p>
-                            )}
-                </div>
-                        </>
-                      );
-                    } else {
-                      return (
-                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <div className="flex items-start">
-                            <div className="text-yellow-600 text-lg mr-2">⚠️</div>
-                            <div>
-                              <h4 className="text-sm font-medium text-yellow-800 mb-1">Нет доступных свойств</h4>
-                              <p className="text-xs text-yellow-700">
-                                В выбранной категории не найдено товаров с свойствами. Загрузите прайс-лист с товарами или выберите другую категорию.
-                              </p>
-                              <button
-                                onClick={() => setCurrentStep('upload')}
-                                className="mt-2 text-xs text-yellow-800 underline hover:text-yellow-900"
-                              >
-                                Перейти к загрузке прайс-листа →
-                              </button>
-              </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  })()}
-                </div>
-
-                {/* Информация о множественной привязке */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <div className="text-yellow-600 text-lg mr-2">💡</div>
-                    <div>
-                      <h4 className="text-sm font-medium text-yellow-800 mb-1">Поддержка множественной привязки</h4>
-                      <p className="text-xs text-yellow-700">
-                        Одно фото может быть привязано к нескольким товарам, если у них одинаковое значение выбранного свойства.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* Область загрузки файлов */}
-              <div className="mt-6">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  disabled={!selectedCatalogCategoryId || !photoMappingProperty}
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length > 0 && selectedCatalogCategoryId && photoMappingProperty) {
+              {/* Drag & Drop зона */}
+              <div 
+                className={`border-2 border-dashed rounded-lg p-12 text-center transition-all ${
+                  !selectedCatalogCategoryId || !photoMappingProperty
+                    ? 'border-gray-300 bg-gray-50'
+                    : uploadingPhotos
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50'
+                }`}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (selectedCatalogCategoryId && photoMappingProperty && !uploadingPhotos) {
+                    const files = Array.from(e.dataTransfer.files).filter(file => 
+                      file.type.startsWith('image/')
+                    );
+                    if (files.length > 0) {
                       handlePhotosComplete(files);
                     }
-                  }}
-                  className="hidden"
-                  id="photos-upload"
-                />
-                <label
-                  htmlFor="photos-upload"
-                  className={`inline-flex items-center px-6 py-3 rounded-lg transition-colors ${
-                    !selectedCatalogCategoryId || !photoMappingProperty || uploadingPhotos
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                  }`}
-                >
-                  {uploadingPhotos ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Загрузка...
-                    </>
-                  ) : (
-                    '📸 Выбрать фотографии'
-                  )}
-                </label>
-                
-                {/* Статус готовности к загрузке */}
-                <div className="mt-3">
-                  {!selectedCatalogCategoryId ? (
-                    <p className="text-sm text-red-600">❌ Выберите категорию для загрузки</p>
-                  ) : !photoMappingProperty ? (
-                    <p className="text-sm text-red-600">❌ Выберите свойство для привязки фото</p>
-                  ) : (
-                    <p className="text-sm text-green-600">✅ Готово к загрузке фото!</p>
-                        )}
-                      </div>
-                
-                <div className="mt-4 text-sm text-gray-500">
-                  <p>• Поддерживаются форматы: JPG, PNG, GIF до 5MB каждый</p>
-                  <p>• Можно выбрать несколько файлов одновременно</p>
-                  <p>• Обязательно выберите категорию и свойство для привязки</p>
+                  }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnter={(e) => e.preventDefault()}
+              >
+                {uploadingPhotos ? (
+                  <div className="space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Загрузка фотографий...</h3>
+                      <p className="text-blue-700 text-sm">Пожалуйста, подождите</p>
+                    </div>
                   </div>
-                </div>
+                ) : !selectedCatalogCategoryId || !photoMappingProperty ? (
+                  <div className="space-y-4">
+                    <div className="text-6xl text-gray-400">📸</div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-500">Настройте параметры</h3>
+                      <p className="text-gray-400 text-sm">Выберите категорию и свойство для привязки</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-6xl text-blue-500">📸</div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Перетащите фото сюда</h3>
+                      <p className="text-gray-600 text-sm mb-4">или нажмите для выбора файлов</p>
+                      
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) {
+                            handlePhotosComplete(files);
+                          }
+                        }}
+                        className="hidden"
+                        id="photos-upload-modern"
+                      />
+                      <label
+                        htmlFor="photos-upload-modern"
+                        className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                      >
+                        Выбрать файлы
+                      </label>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p>• JPG, PNG, GIF до 5MB</p>
+                      <p>• Множественный выбор</p>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
             
+            {/* Навигация */}
             <div className="flex justify-between">
               <Button variant="secondary" onClick={() => setCurrentStep('properties')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />

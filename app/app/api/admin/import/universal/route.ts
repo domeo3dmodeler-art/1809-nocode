@@ -909,15 +909,28 @@ export async function POST(req: NextRequest) {
         }
       });
       
-      // Ищем поле с ценой для product.price
-      const priceFields = ['Цена ррц', 'Цена', 'Price', 'цена', 'price'];
-      for (const priceField of priceFields) {
-        const priceIndex = headers.findIndex(h => h.includes(priceField));
-        if (priceIndex !== -1 && row[priceIndex] !== undefined && row[priceIndex] !== null && row[priceIndex] !== '') {
-            product.price = row[priceIndex];
-          console.log(`Added price from field "${headers[priceIndex]}": ${row[priceIndex]}`);
-          break;
+      // Ищем поле с ценой для product.price - используем точный маппинг из шаблона
+      if (mappingConfig && mappingConfig.fieldMappings) {
+        // Находим поле цены из шаблона
+        const priceMapping = mappingConfig.fieldMappings.find(field => 
+          field.dataType === 'number' && 
+          (field.displayName.toLowerCase().includes('цена') || 
+           field.fieldName.toLowerCase().includes('цена'))
+        );
+        
+        if (priceMapping) {
+          const priceValue = specifications[priceMapping.fieldName];
+          if (priceValue !== undefined && priceValue !== null && priceValue !== '') {
+            product.price = priceValue;
+            console.log(`✅ Found price from template mapping "${priceMapping.fieldName}" (${priceMapping.displayName}): "${priceValue}" (type: ${typeof priceValue})`);
+          } else {
+            console.log(`❌ Price field "${priceMapping.fieldName}" is empty or undefined`);
+          }
+        } else {
+          console.log(`❌ No price mapping found in template`);
         }
+      } else {
+        console.log(`❌ No mapping config available`);
       }
       
       console.log('Specifications after mapping:', specifications);
@@ -934,6 +947,31 @@ export async function POST(req: NextRequest) {
         console.log('Specifications after fallback:', specifications);
       }
       
+      // Извлекаем основные поля товара используя маппинг из шаблона
+      if (mappingConfig && mappingConfig.fieldMappings) {
+        const fieldMappings = mappingConfig.fieldMappings;
+        
+        // Ищем поле для названия товара
+        const nameMapping = fieldMappings.find(f => 
+          f.displayName && f.displayName.toLowerCase().includes('наименование')
+        );
+        
+        if (nameMapping && specifications[nameMapping.fieldName]) {
+          product.name = specifications[nameMapping.fieldName].toString().trim();
+          console.log(`✅ Found product name from template: "${product.name}"`);
+        }
+        
+        // Ищем поле для артикула/SKU
+        const skuMapping = fieldMappings.find(f => 
+          f.displayName && f.displayName.toLowerCase().includes('артикул')
+        );
+        
+        if (skuMapping && specifications[skuMapping.fieldName]) {
+          product.sku = specifications[skuMapping.fieldName].toString().trim();
+          console.log(`✅ Found product SKU from template: "${product.sku}"`);
+        }
+      }
+      
       // Сохраняем все данные в specifications
       product.specifications = specifications;
       
@@ -944,6 +982,9 @@ export async function POST(req: NextRequest) {
         console.log('Headers:', headers);
         console.log('Mapping config:', mappingConfig);
         console.log('Specifications:', specifications);
+        console.log('Product name:', product.name);
+        console.log('Product SKU:', product.sku);
+        console.log('Product price:', product.price);
         console.log('Product before saving:', product);
         console.log('=== END FIRST PRODUCT DEBUG ===');
       }
@@ -1078,6 +1119,8 @@ export async function POST(req: NextRequest) {
       const prisma = new PrismaClient();
       
       const savedProducts = [];
+      const failedProducts = [];
+      const errorStats = {};
       
       if (products.length === 0) {
         console.log('WARNING: No products to save - products array is empty');
@@ -1085,45 +1128,165 @@ export async function POST(req: NextRequest) {
         result.save_message = 'Предупреждение: Нет товаров для сохранения - возможно, все товары были отклонены при валидации';
       }
       
-      for (const product of products) {
+      for (let i = 0; i < products.length; i++) {
+        const product = products[i];
         try {
-          // Создаем товар в базе данных
-          const savedProduct = await prisma.product.create({
-            data: {
-              catalog_category_id: category,
-              sku: product.sku || `SKU_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              name: product.name || 'Без названия',
-              base_price: parseFloat(product.price || product.base_price || 0),
-              stock_quantity: parseInt(product.stock || product.stock_quantity || 0),
-              brand: product.brand || '',
-              model: product.model || '',
-              description: product.description || '',
-              specifications: JSON.stringify(product.specifications || {}),
-              properties_data: JSON.stringify(product.specifications || {}), // Добавляем properties_data
-              is_active: true
+          // Минимальная валидация - только проверяем что товар не пустой
+          if (!product.specifications || Object.keys(product.specifications).length === 0) {
+            throw new Error('Товар не содержит данных');
+          }
+          
+          // Профессиональная валидация и парсинг цены
+          let basePrice = 0;
+          if (product.price !== undefined && product.price !== null && product.price !== '') {
+            console.log(`🔍 Processing price for product ${i+1}: raw value = "${product.price}" (type: ${typeof product.price})`);
+            
+            // Конвертируем в строку и очищаем
+            const priceString = product.price.toString().trim();
+            console.log(`🔍 Price string after trim: "${priceString}"`);
+            
+            // Удаляем все кроме цифр, точек и запятых
+            const cleanedPrice = priceString.replace(/[^\d.,]/g, '').replace(',', '.');
+            console.log(`🔍 Cleaned price: "${cleanedPrice}"`);
+            
+            const parsedPrice = parseFloat(cleanedPrice);
+            console.log(`🔍 Parsed price: ${parsedPrice} (isNaN: ${isNaN(parsedPrice)})`);
+            
+            if (isNaN(parsedPrice)) {
+              throw new Error(`Invalid price value: "${product.price}" -> "${cleanedPrice}" -> NaN`);
+            }
+            
+            basePrice = parsedPrice;
+          } else {
+            console.log(`🔍 Product ${i+1}: price is empty/null/undefined`);
+          }
+          
+          // Профессиональная валидация количества
+          let stockQuantity = 0;
+          if (product.stock !== undefined && product.stock !== null && product.stock !== '') {
+            const parsedStock = parseInt(product.stock.toString());
+            if (isNaN(parsedStock)) {
+              throw new Error(`Invalid stock quantity: "${product.stock}"`);
+            }
+            stockQuantity = parsedStock;
+          }
+          
+          // Генерируем SKU если его нет
+          const productSku = product.sku || `SKU_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Профессиональная проверка на существование товара
+          const existingProduct = await prisma.product.findFirst({
+            where: {
+              AND: [
+                { catalog_category_id: category },
+                { sku: productSku }
+              ]
             }
           });
           
+          let savedProduct;
+          if (existingProduct) {
+            // Обновляем существующий товар
+            savedProduct = await prisma.product.update({
+              where: { id: existingProduct.id },
+              data: {
+                name: product.name || 'Без названия',
+                base_price: basePrice,
+                stock_quantity: stockQuantity,
+                brand: product.brand || '',
+                model: product.model || '',
+                description: product.description || '',
+                specifications: JSON.stringify(product.specifications || {}),
+                properties_data: JSON.stringify(product.specifications || {}),
+                is_active: true,
+                updated_at: new Date()
+              }
+            });
+            console.log(`🔄 Updated existing product: ${productSku}`);
+          } else {
+            // Создаем новый товар
+            savedProduct = await prisma.product.create({
+              data: {
+                catalog_category_id: category,
+                sku: productSku,
+                name: product.name || 'Без названия',
+                base_price: basePrice,
+                stock_quantity: stockQuantity,
+                brand: product.brand || '',
+                model: product.model || '',
+                description: product.description || '',
+                specifications: JSON.stringify(product.specifications || {}),
+                properties_data: JSON.stringify(product.specifications || {}),
+                is_active: true
+              }
+            });
+            console.log(`✅ Created new product: ${productSku}`);
+          }
+          
           savedProducts.push(savedProduct);
-          console.log('Product saved:', savedProduct.id, savedProduct.name);
+          if (i < 5) { // Логируем первые 5 товаров
+            console.log(`✅ Product ${i+1} saved:`, savedProduct.id, savedProduct.name);
+          }
           
         } catch (productError) {
-          console.error('Error saving product:', {
-            product: product,
-            error: productError,
-            errorMessage: productError instanceof Error ? productError.message : 'Unknown error',
-            errorCode: (productError as any)?.code
+          const errorMessage = productError instanceof Error ? productError.message : 'Unknown error';
+          const errorCode = (productError as any)?.code;
+          
+          // Собираем статистику ошибок
+          const errorKey = errorCode || errorMessage;
+          errorStats[errorKey] = (errorStats[errorKey] || 0) + 1;
+          
+          failedProducts.push({
+            index: i + 1,
+            product: {
+              name: product.name,
+              sku: product.sku,
+              price: product.price
+            },
+            error: errorMessage,
+            errorCode: errorCode
           });
-          // Продолжаем с остальными товарами
+          
+          console.error(`❌ Product ${i+1} failed:`, {
+            name: product.name,
+            sku: product.sku,
+            error: errorMessage,
+            errorCode: errorCode
+          });
         }
       }
       
       await prisma.$disconnect();
       
-      console.log('Products saved directly to database:', savedProducts.length);
+      console.log('🔍 СТАТИСТИКА СОХРАНЕНИЯ:');
+      console.log('🔍 Всего товаров обработано:', products.length);
+      console.log('🔍 Товаров сохранено в БД:', savedProducts.length);
+      console.log('🔍 Товаров не сохранено:', failedProducts.length);
+      console.log('🔍 Разница (не сохранено):', products.length - savedProducts.length);
+      
+      if (failedProducts.length > 0) {
+        console.log('📊 СТАТИСТИКА ОШИБОК:');
+        console.log('📊 Типы ошибок:', errorStats);
+        console.log('📊 Первые 10 неудачных товаров:', failedProducts.slice(0, 10));
+        
+        // Анализ причин ошибок
+        const emptyNames = failedProducts.filter(f => !f.product.name || f.product.name.trim() === '').length;
+        const duplicateSkus = failedProducts.filter(f => f.errorCode === 'P2002').length;
+        const validationErrors = failedProducts.filter(f => f.error.includes('validation')).length;
+        
+        console.log('🔍 АНАЛИЗ ОШИБОК:');
+        console.log('🔍 Пустые названия:', emptyNames);
+        console.log('🔍 Дублирующиеся SKU:', duplicateSkus);
+        console.log('🔍 Ошибки валидации:', validationErrors);
+      }
+      
       result.imported = savedProducts.length;
       result.database_saved = savedProducts.length;
-      result.save_message = `Успешно сохранено ${savedProducts.length} товаров в базу данных`;
+      result.total_processed = products.length;
+      result.failed_products = failedProducts.length;
+      result.error_stats = errorStats;
+      result.failed_products_sample = failedProducts.slice(0, 10);
+      result.save_message = `Успешно сохранено ${savedProducts.length} из ${products.length} товаров в базу данных`;
       
     } catch (saveError) {
       console.error('Error saving products directly:', saveError);
