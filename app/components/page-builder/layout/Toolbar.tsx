@@ -9,7 +9,6 @@ export function Toolbar({
   onZoomChange,
   onViewModeChange,
   onSave,
-  onExport,
   onUndo,
   onRedo,
   canUndo,
@@ -21,7 +20,8 @@ export function Toolbar({
   onToggleComponentsPanel,
   onTogglePropertiesPanel,
   onTogglePagesPanel,
-  onToggleCatalogPanel
+  onToggleCatalogPanel,
+  onShowTemplates
 }: ToolbarProps) {
   return (
     <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4">
@@ -34,6 +34,35 @@ export function Toolbar({
           </div>
           <span className="font-semibold text-gray-900">Domeo Builder</span>
         </div>
+        
+        {/* Templates Button */}
+        <button
+          onClick={onShowTemplates}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          title="Выбрать шаблон"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+          </svg>
+          <span>Шаблоны</span>
+        </button>
+
+        {/* Preview Button */}
+        <button
+          onClick={() => {
+            // Открываем предварительный просмотр в новом окне
+            const previewUrl = window.location.origin + '/preview';
+            window.open(previewUrl, '_blank');
+          }}
+          className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
+          title="Предварительный просмотр"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span>Просмотр</span>
+        </button>
 
         {/* Undo/Redo */}
         <div className="flex items-center space-x-1">

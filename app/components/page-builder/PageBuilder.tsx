@@ -7,10 +7,11 @@ import { ComponentsPanel } from './panels/ComponentsPanel';
 import { PropertiesPanel } from './panels/PropertiesPanel';
 import { PagesPanel } from './panels/PagesPanel';
 import { CatalogTreePanel } from './panels/CatalogTreePanel';
+import { TemplateSelector } from './templates/TemplateSelector';
 import { useHistory } from './hooks/useHistory';
 import { DocumentProvider } from './context/DocumentContext';
 import { ExportManager } from './export/ExportManager';
-import { DocumentData, Page, BaseElement, ExportOptions, ExportResult } from './types';
+import { DocumentData, Page, BaseElement, ExportOptions, ExportResult, BlockConnection } from './types';
 
 // Начальный документ
 const initialDocument: DocumentData = {
@@ -29,6 +30,44 @@ const initialDocument: DocumentData = {
         backgroundColor: '#ffffff',
         padding: { top: 0, right: 0, bottom: 0, left: 0 },
         margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      },
+      theme: {
+        colors: {
+          primary: '#3b82f6',
+          secondary: '#64748b',
+          accent: '#f59e0b',
+          background: '#ffffff',
+          text: '#1f2937'
+        },
+        typography: {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: {
+            small: '14px',
+            medium: '16px',
+            large: '18px',
+            xlarge: '24px'
+          },
+          lineHeight: {
+            tight: 1.2,
+            normal: 1.5,
+            relaxed: 1.8
+          }
+        },
+        spacing: {
+          small: '8px',
+          medium: '16px',
+          large: '24px'
+        },
+        borderRadius: {
+          small: '4px',
+          medium: '8px',
+          large: '12px'
+        },
+        shadows: [
+          '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+          '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+          '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+        ]
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -74,6 +113,7 @@ const initialDocument: DocumentData = {
       ]
     }
   },
+  connections: [], // Связи между блоками
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   status: 'draft' as const
@@ -89,6 +129,7 @@ export function PageBuilder() {
   const [showPropertiesPanel, setShowPropertiesPanel] = useState<boolean>(true);
   const [showPagesPanel, setShowPagesPanel] = useState<boolean>(true);
   const [showCatalogPanel, setShowCatalogPanel] = useState<boolean>(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState<boolean>(false);
 
   const {
     history,
@@ -310,6 +351,84 @@ export function PageBuilder() {
     }
   }, [currentDocument]);
 
+  // Обработчик выбора шаблона
+  const handleSelectTemplate = useCallback((template: any) => {
+    const newPage: Page = {
+      id: `page-${Date.now()}`,
+      name: template.name,
+      slug: template.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      elements: template.elements.map((element: any, index: number) => ({
+        ...element,
+        id: `element-${Date.now()}-${index}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })),
+    settings: {
+      width: 1200,
+      height: 1000,
+      backgroundColor: '#ffffff',
+      padding: { top: 0, right: 0, bottom: 0, left: 0 },
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      breakpoints: {
+        mobile: 768,
+        tablet: 1024,
+        desktop: 1200
+      }
+    },
+    theme: {
+      colors: {
+        primary: '#3b82f6',
+        secondary: '#64748b',
+        accent: '#f59e0b',
+        background: '#ffffff',
+        text: '#1f2937'
+      },
+      typography: {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: {
+          small: '14px',
+          medium: '16px',
+          large: '18px',
+          xlarge: '24px'
+        },
+        lineHeight: {
+          tight: 1.2,
+          normal: 1.5,
+          relaxed: 1.8
+        }
+      },
+      spacing: {
+        small: '8px',
+        medium: '16px',
+        large: '24px'
+      },
+      borderRadius: {
+        small: '4px',
+        medium: '8px',
+        large: '12px'
+      },
+      shadows: [
+        '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+        '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+      ]
+    },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    const newDocument: DocumentData = {
+      ...currentDocument,
+      pages: [newPage]
+    };
+    
+    setCurrentDocument(newDocument);
+    setSelectedPageId(newDocument.pages[0].id);
+    setSelectedElementId(null);
+    addToHistory(newDocument);
+    setShowTemplateSelector(false);
+  }, [currentDocument, addToHistory]);
+
   // Обработчики для страниц
   const handleAddPage = useCallback(() => {
     const newPage: Page = {
@@ -323,6 +442,44 @@ export function PageBuilder() {
         backgroundColor: '#ffffff',
         padding: { top: 0, right: 0, bottom: 0, left: 0 },
         margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      },
+      theme: {
+        colors: {
+          primary: '#3b82f6',
+          secondary: '#64748b',
+          accent: '#f59e0b',
+          background: '#ffffff',
+          text: '#1f2937'
+        },
+        typography: {
+          fontFamily: 'Inter, sans-serif',
+          fontSize: {
+            small: '14px',
+            medium: '16px',
+            large: '18px',
+            xlarge: '24px'
+          },
+          lineHeight: {
+            tight: 1.2,
+            normal: 1.5,
+            relaxed: 1.8
+          }
+        },
+        spacing: {
+          small: '8px',
+          medium: '16px',
+          large: '24px'
+        },
+        borderRadius: {
+          small: '4px',
+          medium: '8px',
+          large: '12px'
+        },
+        shadows: [
+          '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+          '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+          '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+        ]
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -356,6 +513,47 @@ export function PageBuilder() {
     }
     setSelectedElementId(null);
   }, [currentDocument, selectedPageId, addToHistory]);
+
+  // Функции для работы со связями
+  const handleAddConnection = useCallback((connectionData: Omit<BlockConnection, 'id'>) => {
+    const newConnection: BlockConnection = {
+      ...connectionData,
+      id: `connection-${Date.now()}`
+    };
+
+    const updatedDocument = {
+      ...currentDocument,
+      connections: [...currentDocument.connections, newConnection],
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, addToHistory]);
+
+  const handleUpdateConnection = useCallback((connectionId: string, updates: Partial<BlockConnection>) => {
+    const updatedDocument = {
+      ...currentDocument,
+      connections: currentDocument.connections.map(conn =>
+        conn.id === connectionId ? { ...conn, ...updates } : conn
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, addToHistory]);
+
+  const handleDeleteConnection = useCallback((connectionId: string) => {
+    const updatedDocument = {
+      ...currentDocument,
+      connections: currentDocument.connections.filter(conn => conn.id !== connectionId),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, addToHistory]);
 
   const handleDuplicatePage = useCallback((pageId: string) => {
     const pageToDuplicate = currentDocument.pages.find(page => page.id === pageId);
@@ -401,25 +599,26 @@ export function PageBuilder() {
     <DocumentProvider value={currentDocument}>
       <div className="h-screen flex flex-col bg-gray-100">
         {/* Toolbar */}
-        <Toolbar
-          zoom={zoom}
-          viewMode={viewMode}
-          onZoomChange={handleZoomChange}
-          onViewModeChange={handleViewModeChange}
-          onSave={handleSave}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          showComponentsPanel={showComponentsPanel}
-          showPropertiesPanel={showPropertiesPanel}
-          onToggleComponentsPanel={() => setShowComponentsPanel(!showComponentsPanel)}
-          onTogglePropertiesPanel={() => setShowPropertiesPanel(!showPropertiesPanel)}
+               <Toolbar
+                 zoom={zoom}
+                 viewMode={viewMode}
+                 onZoomChange={handleZoomChange}
+                 onViewModeChange={handleViewModeChange}
+                 onSave={handleSave}
+                 onUndo={handleUndo}
+                 onRedo={handleRedo}
+                 canUndo={canUndo}
+                 canRedo={canRedo}
+                 showComponentsPanel={showComponentsPanel}
+                 showPropertiesPanel={showPropertiesPanel}
+                 onToggleComponentsPanel={() => setShowComponentsPanel(!showComponentsPanel)}
+                 onTogglePropertiesPanel={() => setShowPropertiesPanel(!showPropertiesPanel)}
                  onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
                  showCatalogPanel={showCatalogPanel}
                  onToggleCatalogPanel={() => setShowCatalogPanel(!showCatalogPanel)}
-          showPagesPanel={showPagesPanel}
-        />
+                 showPagesPanel={showPagesPanel}
+                 onShowTemplates={() => setShowTemplateSelector(true)}
+               />
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
@@ -480,10 +679,14 @@ export function PageBuilder() {
         </div>
 
         {/* Export Manager */}
-        <ExportManager
-          document={currentDocument}
-          onExport={handleExport}
-        />
+
+        {/* Template Selector Modal */}
+        {showTemplateSelector && (
+          <TemplateSelector
+            onSelectTemplate={handleSelectTemplate}
+            onClose={() => setShowTemplateSelector(false)}
+          />
+        )}
       </div>
     </DocumentProvider>
   );

@@ -5,6 +5,21 @@ export interface Position {
   y: number;
 }
 
+// ===================== СВЯЗИ МЕЖДУ БЛОКАМИ =====================
+
+export interface BlockConnection {
+  id: string;
+  sourceElementId: string;
+  targetElementId: string;
+  connectionType: 'data' | 'filter' | 'cart' | 'navigate';
+  sourceProperty?: string; // Какое свойство источника
+  targetProperty?: string; // В какое свойство назначения
+  description?: string; // Описание связи
+  isActive: boolean;
+}
+
+export type ConnectionType = 'data' | 'filter' | 'cart' | 'navigate';
+
 export interface Size {
   width: number;
   height: number;
@@ -42,22 +57,24 @@ export interface Style {
 // ===================== ЭЛЕМЕНТЫ =====================
 
 export type ElementType = 
+  // Макеты и секции
+  | 'section' | 'row' | 'column' | 'grid' | 'container' | 'spacer' | 'divider'
   // Базовые элементы
-  | 'text' | 'heading' | 'image' | 'button' | 'container' | 'spacer' | 'divider'
+  | 'text' | 'heading' | 'image' | 'button' | 'icon' | 'badge'
+  // Навигация
+  | 'header' | 'footer' | 'menu' | 'breadcrumb' | 'tabs'
+  // Контентные блоки
+  | 'hero' | 'card' | 'gallery' | 'video' | 'testimonial' | 'faq'
   // Товарные компоненты
-  | 'productConfigurator' | 'productGrid' | 'productFilters' | 'productCarousel'
+  | 'productConfigurator' | 'productGrid' | 'productFilters' | 'productCarousel' | 'catalogTree'
   // Калькуляторы
   | 'priceCalculator' | 'deliveryCalculator' | 'discountCalculator'
   // Интерактивные элементы
   | 'cart' | 'wishlist' | 'comparison' | 'search'
   // Формы
   | 'form' | 'input' | 'textarea' | 'select' | 'checkbox' | 'radio'
-  // Навигация
-  | 'nav' | 'breadcrumb' | 'tabs' | 'accordion'
-  // Медиа
-  | 'video' | 'audio' | 'gallery'
   // Специальные
-  | 'hero' | 'testimonial' | 'faq' | 'contact';
+  | 'contact' | 'accordion';
 
 export interface BaseElement {
   id: string;
@@ -109,6 +126,7 @@ export interface Page {
   description?: string;
   elements: BaseElement[];
   settings: PageSettings;
+  theme: Theme;
   seo?: {
     title?: string;
     description?: string;
@@ -181,6 +199,7 @@ export interface DocumentData {
   description?: string;
   pages: Page[];
   settings: DocumentSettings;
+  connections: BlockConnection[]; // Связи между блоками
   status: 'draft' | 'published' | 'archived';
   publishedAt?: string;
   createdAt: string;
@@ -438,6 +457,7 @@ export interface ToolbarProps {
   onTogglePropertiesPanel: () => void;
   onTogglePagesPanel: () => void;
   onToggleCatalogPanel: () => void;
+  onShowTemplates: () => void;
 }
 
 export interface CanvasProps {

@@ -49,6 +49,18 @@ export async function GET(request: NextRequest) {
               level: true,
               path: true
             }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              alt_text: true,
+              is_primary: true,
+              sort_order: true
+            },
+            orderBy: {
+              sort_order: 'asc'
+            }
           }
         },
         orderBy: {
@@ -68,7 +80,8 @@ export async function GET(request: NextRequest) {
       properties_data: product.properties_data ? 
         (typeof product.properties_data === 'string' ? JSON.parse(product.properties_data) : product.properties_data) : {},
       dimensions: product.dimensions ? JSON.parse(product.dimensions) : {},
-      tags: product.tags ? JSON.parse(product.tags) : []
+      tags: product.tags ? JSON.parse(product.tags) : [],
+      images: product.images || []
     }));
 
     return NextResponse.json({

@@ -3,6 +3,10 @@
 import React, { useState, useRef } from 'react';
 import { BaseElement, ElementRendererProps, Size } from '../types';
 import { SelectionOverlay } from './SelectionOverlay';
+import { ProductDisplay } from './ProductDisplay';
+import { ProductConfiguratorAdvanced } from './ProductConfiguratorAdvanced';
+import { Cart } from './Cart';
+import { CatalogTree } from './CatalogTree';
 
 interface ExtendedElementRendererProps extends ElementRendererProps {
   onMouseDown: (e: React.MouseEvent) => void;
@@ -196,44 +200,278 @@ export function ElementRenderer({
                 onMouseDown={() => {}}
                 onResize={() => {}}
               />
-            ))}
+            )) || (
+              <div className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <div className="text-2xl mb-2">📦</div>
+                  <div className="text-sm">Контейнер</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Перетащите элементы сюда
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
 
-           case 'productConfigurator':
+      case 'section':
+        return (
+          <div className="w-full h-full bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="p-4">
+              <div className="text-center text-gray-600">
+                <div className="text-2xl mb-2">📋</div>
+                <div className="text-sm font-medium">Секция</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Основная секция страницы
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'row':
+        return (
+          <div className="w-full h-full bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-4">
+              <div className="text-center text-blue-600">
+                <div className="text-2xl mb-2">↔️</div>
+                <div className="text-sm font-medium">Строка</div>
+                <div className="text-xs text-blue-400 mt-1">
+                  Горизонтальная строка элементов
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'column':
+        return (
+          <div className="w-full h-full bg-green-50 border border-green-200 rounded-lg">
+            <div className="p-4">
+              <div className="text-center text-green-600">
+                <div className="text-2xl mb-2">↕️</div>
+                <div className="text-sm font-medium">Колонка</div>
+                <div className="text-xs text-green-400 mt-1">
+                  Вертикальная колонка элементов
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'grid':
+        return (
+          <div className="w-full h-full bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="p-4">
+              <div className="text-center text-purple-600">
+                <div className="text-2xl mb-2">⊞</div>
+                <div className="text-sm font-medium">Сетка</div>
+                <div className="text-xs text-purple-400 mt-1">
+                  Сетка элементов
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'spacer':
+        return (
+          <div className="w-full h-full bg-gray-100 border border-gray-300 rounded flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <div className="text-lg mb-1">↔️</div>
+              <div className="text-xs">Отступ</div>
+            </div>
+          </div>
+        );
+
+      case 'divider':
+        return (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+        );
+
+      case 'icon':
+        return (
+          <div className="w-full h-full bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-yellow-600">
+              <div className="text-4xl mb-2">{element.props.icon || '⭐'}</div>
+              <div className="text-xs">Иконка</div>
+            </div>
+          </div>
+        );
+
+      case 'badge':
+        return (
+          <div className="w-full h-full bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">
+            <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm">
+              {element.props.text || 'Значок'}
+            </div>
+          </div>
+        );
+
+      case 'header':
+        return (
+          <div className="w-full h-full bg-blue-600 text-white rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-2xl mb-2">📄</div>
+              <div className="text-sm font-medium">Шапка страницы</div>
+              <div className="text-xs text-blue-200 mt-1">
+                Навигация и логотип
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'footer':
+        return (
+          <div className="w-full h-full bg-gray-800 text-white rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-2xl mb-2">📄</div>
+              <div className="text-sm font-medium">Подвал страницы</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Контакты и ссылки
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'menu':
+        return (
+          <div className="w-full h-full bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-center">
+            <div className="text-center text-gray-600">
+              <div className="text-2xl mb-2">☰</div>
+              <div className="text-sm font-medium">Меню</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Навигационное меню
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'breadcrumb':
+        return (
+          <div className="w-full h-full bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-gray-600">
+              <div className="text-2xl mb-2">🍞</div>
+              <div className="text-sm font-medium">Хлебные крошки</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Навигация по сайту
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'tabs':
+        return (
+          <div className="w-full h-full bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-indigo-600">
+              <div className="text-2xl mb-2">📑</div>
+              <div className="text-sm font-medium">Вкладки</div>
+              <div className="text-xs text-indigo-400 mt-1">
+                Переключение контента
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'hero':
+        return (
+          <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🎯</div>
+              <div className="text-xl font-bold mb-2">Hero секция</div>
+              <div className="text-sm text-blue-100">
+                Главная секция страницы
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'card':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="p-4">
+              <div className="text-center text-gray-600">
+                <div className="text-2xl mb-2">🃏</div>
+                <div className="text-sm font-medium">Карточка</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Блок с контентом
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'gallery':
+        return (
+          <div className="w-full h-full bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-gray-600">
+              <div className="text-2xl mb-2">🖼️</div>
+              <div className="text-sm font-medium">Галерея</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Изображения
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'video':
+        return (
+          <div className="w-full h-full bg-black border border-gray-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="text-4xl mb-2">🎥</div>
+              <div className="text-sm font-medium">Видео</div>
+              <div className="text-xs text-gray-300 mt-1">
+                Видео контент
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'testimonial':
+        return (
+          <div className="w-full h-full bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-yellow-700">
+              <div className="text-2xl mb-2">💬</div>
+              <div className="text-sm font-medium">Отзыв</div>
+              <div className="text-xs text-yellow-600 mt-1">
+                Отзыв клиента
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'faq':
+        return (
+          <div className="w-full h-full bg-green-50 border border-green-200 rounded-lg flex items-center justify-center">
+            <div className="text-center text-green-600">
+              <div className="text-2xl mb-2">❓</div>
+              <div className="text-sm font-medium">FAQ</div>
+              <div className="text-xs text-green-500 mt-1">
+                Часто задаваемые вопросы
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'productConfigurator':
              return (
-               <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4 overflow-auto">
-                 <div className="text-center text-gray-500">
-                   <div className="text-2xl mb-2">⚙️</div>
-                   <div className="text-sm">Конфигуратор товаров</div>
-                   <div className="text-xs text-gray-400 mt-1">
-                     {element.props.categoryIds?.length > 0
-                       ? `${element.props.categoryIds.length} категорий`
-                       : 'Настройте категории'
-                     }
-                   </div>
-                   {element.props.categoryIds?.length > 0 && (
-                     <div className="mt-3 p-2 bg-blue-50 rounded text-xs">
-                       <div className="font-medium text-blue-800">Подключенные категории:</div>
-                       <div className="text-blue-600 mt-1">
-                         {element.props.categoryIds.join(', ')}
-                       </div>
-                     </div>
-                   )}
-                 </div>
+               <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+                 <ProductConfiguratorAdvanced
+                   element={element}
+                   onUpdate={onUpdate}
+                 />
                </div>
              );
 
       case 'productGrid':
         return (
-          <div className="w-full h-full bg-white border border-gray-200 rounded-lg p-4 overflow-auto">
-            <div className="text-center text-gray-500">
-              <div className="text-2xl mb-2">📦</div>
-              <div className="text-sm">Сетка товаров</div>
-              <div className="text-xs text-gray-400 mt-1">
-                {element.props.limit || 12} товаров
-              </div>
-            </div>
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <ProductDisplay
+              element={element}
+              onUpdate={onUpdate}
+            />
           </div>
         );
 
@@ -252,11 +490,21 @@ export function ElementRenderer({
 
       case 'cart':
         return (
-          <div className="w-full h-full bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <div className="text-2xl mb-2">🛒</div>
-              <div className="text-sm">Корзина</div>
-            </div>
+          <div className="w-full h-full flex items-center justify-center">
+            <Cart
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'catalogTree':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <CatalogTree
+              element={element}
+              onUpdate={onUpdate}
+            />
           </div>
         );
 

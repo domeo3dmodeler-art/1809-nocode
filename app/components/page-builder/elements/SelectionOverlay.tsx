@@ -106,7 +106,7 @@ export function SelectionOverlay({ element, onDelete, onResize }: SelectionOverl
 
       {/* Element Info */}
       <div className="absolute -top-8 left-0 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-        {element.type} ({element.size.width}×{element.size.height})
+        {(element as any).props?.title || element.type} ({element.size.width}×{element.size.height})
       </div>
     </>
   );

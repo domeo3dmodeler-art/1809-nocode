@@ -1,63 +1,138 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { catalogService } from '@/lib/services/catalog.service';
-import { CreateProductPropertyDto } from '@/lib/types/catalog';
+import { prisma } from '../../../../lib/prisma';
 
-// GET /api/catalog/properties - Получить свойства для модерации
+// GET /api/catalog/properties - Получить все свойства
 export async function GET(request: NextRequest) {
   try {
-    const result = await catalogService.getPropertiesForModeration();
-    return NextResponse.json(result);
+    const properties = await prisma.productProperty.findMany({
+      where: {
+        is_active: true
+      },
+      include: {
+        category_assignments: {
+          include: {
+            catalog_category: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
+
+    const formattedProperties = properties.map(property => ({
+      id: property.id,
+      name: property.name,
+      type: property.type,
+      description: property.description,
+      options: property.options ? JSON.parse(property.options) : null,
+      is_required: property.is_required,
+      categories: property.category_assignments.map(assignment => ({
+        id: assignment.catalog_category_id,
+        name: assignment.catalog_category.name,
+        is_required: assignment.is_required,
+        is_for_calculator: assignment.is_for_calculator,
+        is_for_export: assignment.is_for_export
+      }))
+    }));
+
+    return NextResponse.json({
+      success: true,
+      properties: formattedProperties
+    });
+
   } catch (error) {
-    console.error('Error fetching product properties:', error);
+    console.error('Error fetching properties:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch product properties' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/catalog/properties - Создать новое свойство
 export async function POST(request: NextRequest) {
   try {
-    const data: CreateProductPropertyDto = await request.json();
+    const { categoryIds } = await request.json();
 
-    // Валидация
-    if (!data.name || data.name.trim().length === 0) {
+    if (!categoryIds || !Array.isArray(categoryIds) || categoryIds.length === 0) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: 'Category IDs are required' },
         { status: 400 }
       );
     }
 
-    if (!data.type) {
-      return NextResponse.json(
-        { error: 'Type is required' },
-        { status: 400 }
-      );
-    }
+    // Получаем свойства товаров для указанных категорий
+    const properties = await prisma.productProperty.findMany({
+      where: {
+        category_assignments: {
+          some: {
+            catalog_category_id: { in: categoryIds }
+          }
+        },
+        is_active: true
+      },
+      include: {
+        category_assignments: {
+          where: {
+            catalog_category_id: { in: categoryIds }
+          },
+          include: {
+            catalog_category: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
 
-    const validTypes = ['text', 'number', 'select', 'boolean', 'date', 'file'];
-    if (!validTypes.includes(data.type)) {
-      return NextResponse.json(
-        { error: 'Invalid property type' },
-        { status: 400 }
+    // Группируем свойства по категориям
+    const propertiesByCategory = categoryIds.reduce((acc, categoryId) => {
+      acc[categoryId] = properties.filter(property => 
+        property.category_assignments.some(assignment => 
+          assignment.catalog_category_id === categoryId
+        )
       );
-    }
+      return acc;
+    }, {} as Record<string, any[]>);
 
-    // Для select полей нужны опции
-    if (data.type === 'select' && (!data.options || data.options.length === 0)) {
-      return NextResponse.json(
-        { error: 'Options are required for select type' },
-        { status: 400 }
-      );
-    }
+    // Формируем список всех уникальных свойств
+    const allProperties = properties.map(property => ({
+      id: property.id,
+      name: property.name,
+      type: property.type,
+      description: property.description,
+      options: property.options ? JSON.parse(property.options) : null,
+      is_required: property.is_required,
+      categories: property.category_assignments.map(assignment => ({
+        id: assignment.catalog_category_id,
+        name: assignment.catalog_category.name,
+        is_required: assignment.is_required,
+        is_for_calculator: assignment.is_for_calculator,
+        is_for_export: assignment.is_for_export
+      }))
+    }));
 
-    const property = await catalogService.createProperty(data);
-    return NextResponse.json(property, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      properties: allProperties,
+      propertiesByCategory
+    });
+
   } catch (error) {
-    console.error('Error creating product property:', error);
+    console.error('Error fetching properties:', error);
     return NextResponse.json(
-      { error: 'Failed to create product property' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

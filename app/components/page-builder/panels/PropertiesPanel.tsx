@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { PropertiesPanelProps, BaseElement, Page, Spacing, Style } from '../types';
+import { CategoryTreeSelector } from './CategoryTreeSelector';
+import { ProductPropertiesSelector } from './ProductPropertiesSelector';
 
 export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'page'>('content');
@@ -13,7 +15,7 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
     const loadCategories = async () => {
       setLoadingCategories(true);
       try {
-        const response = await fetch('/api/catalog/categories');
+        const response = await fetch('/api/catalog/categories/tree');
         if (response.ok) {
           const data = await response.json();
           setCategories(data.categories || []);
@@ -240,100 +242,174 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
             case 'productConfigurator':
               return (
                 <div className="space-y-4">
+                  {/* Заголовок и описание */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Категории товаров
+                      Заголовок
+                    </label>
+                    <input
+                      type="text"
+                      value={element.props.title || ''}
+                      onChange={(e) => handleElementPropChange('title', e.target.value)}
+                      placeholder="Конфигуратор товаров"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Описание
+                    </label>
+                    <textarea
+                      value={element.props.description || ''}
+                      onChange={(e) => handleElementPropChange('description', e.target.value)}
+                      placeholder="Выберите товар и настройте его под свои потребности"
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Выбор категорий товаров */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Выбор категорий товаров
                     </label>
                     {loadingCategories ? (
                       <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
                         <div className="text-sm text-gray-500">Загрузка категорий...</div>
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {categories.map((category) => (
-                          <label key={category.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={element.props.categoryIds?.includes(category.id) || false}
-                              onChange={(e) => {
-                                const currentIds = element.props.categoryIds || [];
-                                const newIds = e.target.checked
-                                  ? [...currentIds, category.id]
-                                  : currentIds.filter(id => id !== category.id);
-                                handleElementPropChange('categoryIds', newIds);
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm text-gray-700">{category.name}</span>
-                            <span className="text-xs text-gray-400">({category.id})</span>
-                          </label>
-                        ))}
-                        {categories.length === 0 && (
-                          <div className="text-sm text-gray-500">Нет доступных категорий</div>
-                        )}
-                      </div>
+                      <CategoryTreeSelector
+                        categories={categories}
+                        selectedIds={element.props.categoryIds || []}
+                        onSelectionChange={(selectedIds) => {
+                          handleElementPropChange('categoryIds', selectedIds);
+                        }}
+                      />
                     )}
                   </div>
-            <div>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={element.props.showFilters || false}
-                  onChange={(e) => handleElementPropChange('showFilters', e.target.checked)}
-                  className="mr-2"
-                />
-                Показывать фильтры
-              </label>
-            </div>
-            <div>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={element.props.showGrid || false}
-                  onChange={(e) => handleElementPropChange('showGrid', e.target.checked)}
-                  className="mr-2"
-                />
-                Показывать сетку товаров
-              </label>
-            </div>
-          </div>
-        );
+
+                  {/* Свойства товаров для отображения */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Свойства товаров для отображения
+                    </label>
+                    <ProductPropertiesSelector
+                      categoryIds={element.props.categoryIds || []}
+                      selectedPropertyIds={element.props.selectedPropertyIds || []}
+                      onPropertiesChange={(selectedPropertyIds) => {
+                        handleElementPropChange('selectedPropertyIds', selectedPropertyIds);
+                      }}
+                    />
+                  </div>
+
+                  {/* Дополнительные настройки */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Лимит товаров
+                      </label>
+                      <input
+                        type="number"
+                        value={element.props.limit || 6}
+                        onChange={(e) =>
+                          handleElementPropChange('limit', parseInt(e.target.value))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        min="1"
+                        max="50"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Колонок в сетке
+                      </label>
+                      <select
+                        value={element.props.columns || 3}
+                        onChange={(e) => handleElementPropChange('columns', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value={2}>2 колонки</option>
+                        <option value={3}>3 колонки</option>
+                        <option value={4}>4 колонки</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Настройки отображения */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Настройки отображения
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={element.props.showFilters !== false}
+                          onChange={(e) => handleElementPropChange('showFilters', e.target.checked)}
+                          className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Показывать фильтры</span>
+                      </label>
+                      
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={element.props.showProductSelector !== false}
+                          onChange={(e) => handleElementPropChange('showProductSelector', e.target.checked)}
+                          className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Показывать селектор товаров</span>
+                      </label>
+                      
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={element.props.showConfiguration !== false}
+                          onChange={(e) => handleElementPropChange('showConfiguration', e.target.checked)}
+                          className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Показывать конфигурацию</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              );
 
             case 'productGrid':
               return (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Категории товаров
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Выбор категорий товаров
                     </label>
                     {loadingCategories ? (
                       <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
                         <div className="text-sm text-gray-500">Загрузка категорий...</div>
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {categories.map((category) => (
-                          <label key={category.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={element.props.categoryIds?.includes(category.id) || false}
-                              onChange={(e) => {
-                                const currentIds = element.props.categoryIds || [];
-                                const newIds = e.target.checked
-                                  ? [...currentIds, category.id]
-                                  : currentIds.filter(id => id !== category.id);
-                                handleElementPropChange('categoryIds', newIds);
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm text-gray-700">{category.name}</span>
-                          </label>
-                        ))}
-                        {categories.length === 0 && (
-                          <div className="text-sm text-gray-500">Нет доступных категорий</div>
-                        )}
-                      </div>
+                      <CategoryTreeSelector
+                        categories={categories}
+                        selectedIds={element.props.categoryIds || []}
+                        onSelectionChange={(selectedIds) => {
+                          handleElementPropChange('categoryIds', selectedIds);
+                        }}
+                      />
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Свойства товаров для отображения
+                    </label>
+                    <ProductPropertiesSelector
+                      categoryIds={element.props.categoryIds || []}
+                      selectedPropertyIds={element.props.selectedPropertyIds || []}
+                      onPropertiesChange={(selectedPropertyIds) => {
+                        handleElementPropChange('selectedPropertyIds', selectedPropertyIds);
+                      }}
+                    />
+                    
                   </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -445,6 +521,244 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
                 />
                 Показывать валюту
               </label>
+            </div>
+          </div>
+        );
+
+      case 'section':
+      case 'row':
+      case 'column':
+      case 'grid':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Фоновый цвет
+              </label>
+              <input
+                type="color"
+                value={element.style.backgroundColor || '#ffffff'}
+                onChange={(e) => handleElementStyleChange('backgroundColor', e.target.value)}
+                className="w-full h-10 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Отступы
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Верх"
+                  value={element.style.padding?.top || 0}
+                  onChange={(e) => handleElementSpacingChange('padding', 'top', parseInt(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded"
+                />
+                <input
+                  type="number"
+                  placeholder="Низ"
+                  value={element.style.padding?.bottom || 0}
+                  onChange={(e) => handleElementSpacingChange('padding', 'bottom', parseInt(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded"
+                />
+                <input
+                  type="number"
+                  placeholder="Лево"
+                  value={element.style.padding?.left || 0}
+                  onChange={(e) => handleElementSpacingChange('padding', 'left', parseInt(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded"
+                />
+                <input
+                  type="number"
+                  placeholder="Право"
+                  value={element.style.padding?.right || 0}
+                  onChange={(e) => handleElementSpacingChange('padding', 'right', parseInt(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'hero':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Заголовок
+              </label>
+              <input
+                type="text"
+                value={element.props.title || ''}
+                onChange={(e) => handleElementPropChange('title', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Заголовок Hero секции"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Подзаголовок
+              </label>
+              <textarea
+                value={element.props.subtitle || ''}
+                onChange={(e) => handleElementPropChange('subtitle', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Подзаголовок Hero секции"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Текст кнопки
+              </label>
+              <input
+                type="text"
+                value={element.props.buttonText || ''}
+                onChange={(e) => handleElementPropChange('buttonText', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Текст кнопки"
+              />
+            </div>
+          </div>
+        );
+
+      case 'card':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Заголовок карточки
+              </label>
+              <input
+                type="text"
+                value={element.props.title || ''}
+                onChange={(e) => handleElementPropChange('title', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Заголовок"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Описание
+              </label>
+              <textarea
+                value={element.props.description || ''}
+                onChange={(e) => handleElementPropChange('description', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Описание карточки"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                URL изображения
+              </label>
+              <input
+                type="url"
+                value={element.props.imageUrl || ''}
+                onChange={(e) => handleElementPropChange('imageUrl', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+          </div>
+        );
+
+      case 'header':
+      case 'footer':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Логотип URL
+              </label>
+              <input
+                type="url"
+                value={element.props.logoUrl || ''}
+                onChange={(e) => handleElementPropChange('logoUrl', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Пункты меню (через запятую)
+              </label>
+              <input
+                type="text"
+                value={element.props.menuItems?.join(', ') || ''}
+                onChange={(e) => handleElementPropChange('menuItems', e.target.value.split(',').map(item => item.trim()))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Главная, О нас, Контакты"
+              />
+            </div>
+          </div>
+        );
+
+      case 'icon':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Иконка (эмодзи)
+              </label>
+              <input
+                type="text"
+                value={element.props.icon || '⭐'}
+                onChange={(e) => handleElementPropChange('icon', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="⭐"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Размер иконки
+              </label>
+              <select
+                value={element.props.size || 'medium'}
+                onChange={(e) => handleElementPropChange('size', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="small">Маленький</option>
+                <option value="medium">Средний</option>
+                <option value="large">Большой</option>
+                <option value="xl">Очень большой</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'badge':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Текст значка
+              </label>
+              <input
+                type="text"
+                value={element.props.text || ''}
+                onChange={(e) => handleElementPropChange('text', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Новинка"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Цвет значка
+              </label>
+              <select
+                value={element.props.variant || 'red'}
+                onChange={(e) => handleElementPropChange('variant', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="red">Красный</option>
+                <option value="blue">Синий</option>
+                <option value="green">Зеленый</option>
+                <option value="yellow">Желтый</option>
+                <option value="purple">Фиолетовый</option>
+                <option value="gray">Серый</option>
+              </select>
             </div>
           </div>
         );

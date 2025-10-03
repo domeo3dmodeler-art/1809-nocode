@@ -18,68 +18,45 @@ interface ComponentItem {
   description: string;
 }
 
+// Упрощенный набор компонентов для конфигураторов товаров
 const componentCategories: ComponentCategory[] = [
   {
-    id: 'basic',
-    name: 'Базовые элементы',
-    icon: '📝',
+    id: 'essential',
+    name: 'Основные компоненты',
+    icon: '⭐',
     components: [
-      { id: 'text', name: 'Текст', type: 'text', icon: '📝', description: 'Простой текстовый блок' },
-      { id: 'heading', name: 'Заголовок', type: 'heading', icon: '📰', description: 'Заголовок H1-H6' },
-      { id: 'image', name: 'Изображение', type: 'image', icon: '🖼️', description: 'Изображение или фото' },
-      { id: 'button', name: 'Кнопка', type: 'button', icon: '🔘', description: 'Интерактивная кнопка' },
-      { id: 'container', name: 'Контейнер', type: 'container', icon: '📦', description: 'Контейнер для группировки элементов' },
-      { id: 'spacer', name: 'Отступ', type: 'spacer', icon: '↔️', description: 'Пространство между элементами' },
-      { id: 'divider', name: 'Разделитель', type: 'divider', icon: '➖', description: 'Горизонтальная линия' }
+      { id: 'heading', name: 'Заголовок', type: 'heading', icon: '📰', description: 'Заголовок страницы или секции' },
+      { id: 'text', name: 'Текст', type: 'text', icon: '📝', description: 'Описательный текст' },
+      { id: 'image', name: 'Изображение', type: 'image', icon: '🖼️', description: 'Фото или иллюстрация' },
+      { id: 'button', name: 'Кнопка', type: 'button', icon: '🔘', description: 'Кнопка действия' }
     ]
   },
   {
     id: 'product',
-    name: 'Товарные компоненты',
+    name: 'Товарные блоки',
     icon: '📦',
     components: [
-      { id: 'productConfigurator', name: 'Конфигуратор товаров', type: 'productConfigurator', icon: '⚙️', description: 'Интерактивный конфигуратор для выбора товаров' },
-      { id: 'productGrid', name: 'Сетка товаров', type: 'productGrid', icon: '📊', description: 'Сетка для отображения товаров' },
-      { id: 'productFilters', name: 'Фильтры товаров', type: 'productFilters', icon: '🔍', description: 'Фильтры для поиска товаров' },
-      { id: 'productCarousel', name: 'Карусель товаров', type: 'productCarousel', icon: '🎠', description: 'Карусель для показа товаров' }
+      { id: 'productConfigurator', name: 'Конфигуратор товаров', type: 'productConfigurator', icon: '⚙️', description: 'Полный конфигуратор с фильтрами и настройкой' },
+      { id: 'productGrid', name: 'Каталог товаров', type: 'productGrid', icon: '📊', description: 'Сетка товаров с фото и свойствами' },
+      { id: 'catalogTree', name: 'Дерево каталога', type: 'catalogTree', icon: '🌳', description: 'Навигация по категориям товаров' },
+      { id: 'cart', name: 'Корзина', type: 'cart', icon: '🛒', description: 'Корзина для добавленных товаров' }
     ]
   },
   {
-    id: 'calculator',
-    name: 'Калькуляторы',
-    icon: '💰',
+    id: 'layout',
+    name: 'Структура страницы',
+    icon: '🏗️',
     components: [
-      { id: 'priceCalculator', name: 'Калькулятор цены', type: 'priceCalculator', icon: '💵', description: 'Расчет цены товаров' },
-      { id: 'deliveryCalculator', name: 'Калькулятор доставки', type: 'deliveryCalculator', icon: '🚚', description: 'Расчет стоимости доставки' },
-      { id: 'discountCalculator', name: 'Калькулятор скидок', type: 'discountCalculator', icon: '🏷️', description: 'Расчет скидок и акций' }
-    ]
-  },
-  {
-    id: 'interaction',
-    name: 'Интерактивные элементы',
-    icon: '🔄',
-    components: [
-      { id: 'cart', name: 'Корзина', type: 'cart', icon: '🛒', description: 'Корзина для товаров' },
-      { id: 'wishlist', name: 'Избранное', type: 'wishlist', icon: '❤️', description: 'Список избранных товаров' },
-      { id: 'comparison', name: 'Сравнение', type: 'comparison', icon: '⚖️', description: 'Сравнение товаров' },
-      { id: 'search', name: 'Поиск', type: 'search', icon: '🔍', description: 'Поиск по товарам' }
-    ]
-  },
-  {
-    id: 'forms',
-    name: 'Формы',
-    icon: '📋',
-    components: [
-      { id: 'form', name: 'Форма', type: 'form', icon: '📝', description: 'Форма для ввода данных' },
-      { id: 'input', name: 'Поле ввода', type: 'input', icon: '📝', description: 'Поле для ввода текста' },
-      { id: 'textarea', name: 'Текстовая область', type: 'textarea', icon: '📄', description: 'Многострочное поле ввода' },
-      { id: 'select', name: 'Выпадающий список', type: 'select', icon: '📋', description: 'Список для выбора' }
+      { id: 'section', name: 'Секция', type: 'section', icon: '📋', description: 'Основная секция страницы' },
+      { id: 'row', name: 'Строка', type: 'row', icon: '↔️', description: 'Горизонтальная строка элементов' },
+      { id: 'column', name: 'Колонка', type: 'column', icon: '↕️', description: 'Вертикальная колонка элементов' },
+      { id: 'spacer', name: 'Отступ', type: 'spacer', icon: '↔️', description: 'Пространство между блоками' }
     ]
   }
 ];
 
 export function ComponentsPanel({ onAddElement, selectedCategory }: ComponentsPanelProps) {
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['basic']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['essential', 'product']);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Фильтрация компонентов по поиску
