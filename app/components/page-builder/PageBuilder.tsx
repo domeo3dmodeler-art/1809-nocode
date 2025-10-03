@@ -1,530 +1,545 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Card, Button } from '../ui';
+import React, { useState, useCallback } from 'react';
+import { Toolbar } from './layout/Toolbar';
+import { Canvas } from './layout/Canvas';
+import { ComponentsPanel } from './panels/ComponentsPanel';
+import { PropertiesPanel } from './panels/PropertiesPanel';
+import { PagesPanel } from './panels/PagesPanel';
+import { CatalogTreePanel } from './panels/CatalogTreePanel';
+import { useHistory } from './hooks/useHistory';
+import { DocumentProvider } from './context/DocumentContext';
+import { ExportManager } from './export/ExportManager';
+import { DocumentData, Page, BaseElement, ExportOptions, ExportResult } from './types';
 
-// Типы для блоков конструктора
-export interface PageBlock {
-  id: string;
-  type: string;
-  title: string;
-  config: any;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  children?: PageBlock[];
-  parentId?: string;
-}
+// Начальный документ
+const initialDocument: DocumentData = {
+  id: 'doc-1',
+  name: 'Новый проект',
+  description: '',
+  pages: [
+    {
+      id: 'page-1',
+      name: 'Главная страница',
+      slug: 'main',
+      elements: [],
+      settings: {
+        width: 1200,
+        height: 800,
+        backgroundColor: '#ffffff',
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ],
+  settings: {
+    theme: {
+      colors: {
+        primary: '#3b82f6',
+        secondary: '#64748b',
+        accent: '#f59e0b',
+        background: '#ffffff',
+        text: '#1f2937'
+      },
+      typography: {
+        fontFamily: 'Inter, sans-serif',
+        fontSize: {
+          small: '14px',
+          medium: '16px',
+          large: '18px',
+          xlarge: '24px'
+        },
+        lineHeight: {
+          tight: 1.2,
+          normal: 1.5,
+          relaxed: 1.8
+        }
+      },
+      spacing: {
+        small: '8px',
+        medium: '16px',
+        large: '24px'
+      },
+      borderRadius: {
+        small: '4px',
+        medium: '8px',
+        large: '12px'
+      },
+      shadows: [
+        '0 1px 3px rgba(0, 0, 0, 0.1)',
+        '0 4px 6px rgba(0, 0, 0, 0.1)',
+        '0 10px 15px rgba(0, 0, 0, 0.1)'
+      ]
+    }
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  status: 'draft' as const
+};
 
-// Типы для категорий
-export interface CategoryConfig {
-  id: string;
-  name: string;
-  type: 'main' | 'additional';
-  parentId?: string;
-  isRequired: boolean;
-  pricingRule: 'separate' | 'included' | 'formula';
-  pricingFormula?: string;
-  displayOrder: number;
-  maxItems?: number;
-}
+export function PageBuilder() {
+  const [currentDocument, setCurrentDocument] = useState<DocumentData>(initialDocument);
+  const [selectedPageId, setSelectedPageId] = useState<string>('page-1');
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<number>(100);
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+  const [showComponentsPanel, setShowComponentsPanel] = useState<boolean>(true);
+  const [showPropertiesPanel, setShowPropertiesPanel] = useState<boolean>(true);
+  const [showPagesPanel, setShowPagesPanel] = useState<boolean>(true);
+  const [showCatalogPanel, setShowCatalogPanel] = useState<boolean>(false);
 
-// Типы для элементов drag & drop
-export interface DragItem {
-  type: 'block' | 'category';
-  id: string;
-  blockType?: string;
-  categoryType?: 'main' | 'additional';
-}
+  const {
+    history,
+    currentIndex,
+    addToHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  } = useHistory(initialDocument);
 
-interface PageBuilderProps {
-  onSave: (config: PageBuilderConfig) => void;
-  onCancel: () => void;
-  initialConfig?: PageBuilderConfig;
-}
+  const selectedPage = currentDocument.pages.find(page => page.id === selectedPageId);
+  const selectedElement = selectedElementId 
+    ? findElementById((selectedPage?.elements as BaseElement[]) || [], selectedElementId)
+    : null;
 
-export interface PageBuilderConfig {
-  id: string;
-  name: string;
-  description: string;
-  categories: CategoryConfig[];
-  blocks: PageBlock[];
-  layout: {
-    gridEnabled: boolean;
-    snapToGrid: boolean;
-    gridSize: number;
-  };
-  pricing: {
-    currency: string;
-    showTotal: boolean;
-    showBreakdown: boolean;
-  };
-}
-
-// Компонент блока в конструкторе
-const BuilderBlock: React.FC<{
-  block: PageBlock;
-  onUpdate: (block: PageBlock) => void;
-  onDelete: (id: string) => void;
-  onSelect: (id: string) => void;
-  isSelected: boolean;
-}> = ({ block, onUpdate, onDelete, onSelect, isSelected }) => {
-  const [{ isDragging }, drag] = useDrag({
-    type: 'block',
-    item: { type: 'block' as const, id: block.id, blockType: block.type },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const [{ isOver }, drop] = useDrop({
-    accept: 'block',
-    drop: (item: DragItem) => {
-      if (item.id !== block.id) {
-        // Логика перемещения блоков
-        console.log(`Moving block ${item.id} to ${block.id}`);
+  // Функция для поиска элемента по ID
+  function findElementById(elements: BaseElement[], id: string): BaseElement | null {
+    for (const element of elements) {
+      if (element.id === id) {
+        return element;
       }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-    }),
-  });
-
-  return (
-    <div
-      ref={(node) => drag(drop(node))}
-      className={`relative border-2 rounded-lg p-4 cursor-move transition-all ${
-        isSelected 
-          ? 'border-blue-500 bg-blue-50' 
-          : 'border-gray-300 hover:border-gray-400'
-      } ${isDragging ? 'opacity-50' : ''} ${isOver ? 'border-green-500' : ''}`}
-      style={{
-        position: 'absolute',
-        left: block.position.x,
-        top: block.position.y,
-        width: block.size.width,
-        height: block.size.height,
-      }}
-      onClick={() => onSelect(block.id)}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold text-gray-800">{block.title}</h3>
-        <div className="flex space-x-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(block.id);
-            }}
-            className="text-gray-400 hover:text-blue-500"
-          >
-            ⚙️
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(block.id);
-            }}
-            className="text-gray-400 hover:text-red-500"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      
-      <div className="text-sm text-gray-600">
-        {block.type === 'category-selector' && 'Выбор категории'}
-        {block.type === 'product-selector' && 'Выбор товара'}
-        {block.type === 'price-calculator' && 'Калькулятор цены'}
-        {block.type === 'cart' && 'Корзина'}
-        {block.type === 'product-gallery' && 'Галерея товаров'}
-      </div>
-    </div>
-  );
-};
-
-// Панель блоков
-const BlocksPanel: React.FC<{
-  onAddBlock: (type: string) => void;
-}> = ({ onAddBlock }) => {
-  const blockTypes = [
-    { type: 'category-selector', title: 'Выбор категории', icon: '📂', description: 'Основная категория товаров' },
-    { type: 'product-selector', title: 'Выбор товара', icon: '🛍️', description: 'Выбор конкретного товара' },
-    { type: 'additional-category', title: 'Доп. категория', icon: '➕', description: 'Дополнительные товары' },
-    { type: 'price-calculator', title: 'Калькулятор', icon: '💰', description: 'Расчет цены в реальном времени' },
-    { type: 'cart', title: 'Корзина', icon: '🛒', description: 'Корзина товаров' },
-    { type: 'product-gallery', title: 'Галерея', icon: '🖼️', description: 'Отображение товаров' },
-    { type: 'text-block', title: 'Текст', icon: '📝', description: 'Текстовый блок' },
-    { type: 'image-block', title: 'Изображение', icon: '🖼️', description: 'Блок с изображением' },
-  ];
-
-  return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-      <h3 className="font-semibold text-gray-800 mb-4">Блоки</h3>
-      <div className="space-y-2">
-        {blockTypes.map((blockType) => (
-          <div
-            key={blockType.type}
-            className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-white hover:border-gray-300 transition-colors"
-            onClick={() => onAddBlock(blockType.type)}
-          >
-            <div className="flex items-center space-x-3">
-              <span className="text-xl">{blockType.icon}</span>
-              <div>
-                <h4 className="font-medium text-gray-800">{blockType.title}</h4>
-                <p className="text-xs text-gray-600">{blockType.description}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Панель свойств
-const PropertiesPanel: React.FC<{
-  selectedBlock: PageBlock | null;
-  onUpdateBlock: (block: PageBlock) => void;
-  categories: CategoryConfig[];
-  onUpdateCategories: (categories: CategoryConfig[]) => void;
-}> = ({ selectedBlock, onUpdateBlock, categories, onUpdateCategories }) => {
-  if (!selectedBlock) {
-    return (
-      <div className="w-80 bg-gray-50 border-l border-gray-200 p-4">
-        <h3 className="font-semibold text-gray-800 mb-4">Свойства</h3>
-        <p className="text-gray-600">Выберите блок для редактирования свойств</p>
-      </div>
-    );
+      if (element.type === 'container' && 'children' in element) {
+        const found = findElementById(element.children as BaseElement[], id);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
-  const handleCategoryUpdate = (index: number, updatedCategory: CategoryConfig) => {
-    const newCategories = [...categories];
-    newCategories[index] = updatedCategory;
-    onUpdateCategories(newCategories);
-  };
+  // Обработчики элементов
+  const handleAddElement = useCallback((elementType: string, position: { x: number; y: number }) => {
+    if (!selectedPage) return;
 
-  const addCategory = () => {
-    const newCategory: CategoryConfig = {
-      id: `cat_${Date.now()}`,
-      name: 'Новая категория',
-      type: 'additional',
-      isRequired: false,
-      pricingRule: 'separate',
-      displayOrder: categories.length,
+    const newElement: BaseElement = {
+      id: `element-${Date.now()}`,
+      type: elementType as any,
+      position,
+      size: { width: 200, height: 100 },
+      constraints: {
+        minWidth: 50,
+        minHeight: 50,
+        maxWidth: 800,
+        maxHeight: 600
+      },
+      style: {
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        borderWidth: 0,
+        borderRadius: 0,
+        padding: { top: 8, right: 8, bottom: 8, left: 8 },
+        margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      },
+      props: getDefaultProps(elementType),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    onUpdateCategories([...categories, newCategory]);
-  };
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.map(page =>
+        page.id === selectedPageId
+          ? { ...page, elements: [...page.elements, newElement] }
+          : page
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    setSelectedElementId(newElement.id);
+  }, [currentDocument, selectedPageId, addToHistory]);
+
+  const handleUpdateElement = useCallback((elementId: string, updates: Partial<BaseElement>) => {
+    if (!selectedPage) return;
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.map(page =>
+        page.id === selectedPageId
+          ? {
+              ...page,
+              elements: updateElementInTree(page.elements, elementId, updates)
+            }
+          : page
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, selectedPageId, addToHistory]);
+
+  const handleDeleteElement = useCallback((elementId: string) => {
+    if (!selectedPage) return;
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.map(page =>
+        page.id === selectedPageId
+          ? {
+              ...page,
+              elements: removeElementFromTree(page.elements, elementId)
+            }
+          : page
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    setSelectedElementId(null);
+  }, [currentDocument, selectedPageId, addToHistory]);
+
+  const handleSelectElement = useCallback((elementId: string | null) => {
+    setSelectedElementId(elementId);
+  }, []);
+
+  // Функции для работы с деревом элементов
+  function updateElementInTree(elements: BaseElement[], elementId: string, updates: Partial<BaseElement>): BaseElement[] {
+    return elements.map(element => {
+      if (element.id === elementId) {
+        return { ...element, ...updates };
+      }
+        if (element.type === 'container' && 'children' in element) {
+          return {
+            ...element,
+            children: updateElementInTree(element.children as BaseElement[], elementId, updates)
+          };
+        }
+      return element;
+    });
+  }
+
+  function removeElementFromTree(elements: BaseElement[], elementId: string): BaseElement[] {
+    return elements.filter(element => {
+      if (element.id === elementId) {
+        return false;
+      }
+      if (element.type === 'container' && 'children' in element) {
+        element.children = removeElementFromTree(element.children as BaseElement[], elementId);
+      }
+      return true;
+    });
+  }
+
+  // Получение дефолтных свойств для элемента
+  function getDefaultProps(elementType: string): Record<string, any> {
+    const defaultProps: Record<string, Record<string, any>> = {
+      text: { content: 'Текст', fontSize: 16, color: '#1f2937', fontWeight: 'normal' },
+      heading: { content: 'Заголовок', level: 1, fontSize: 24, color: '#1f2937', fontWeight: 'bold' },
+      image: { src: '', alt: 'Изображение', width: 200, height: 150 },
+      button: { text: 'Кнопка', variant: 'primary', size: 'medium' },
+      container: { children: [], layout: 'block', gap: 0 },
+      productConfigurator: { categoryIds: [], showFilters: true, showGrid: true },
+      productGrid: { categoryIds: [], limit: 12, columns: 3, showPrice: true },
+      priceCalculator: { categoryIds: [], showBreakdown: true },
+      cart: { showItems: true, showTotal: true }
+    };
+    return defaultProps[elementType] || {};
+  }
+
+  // Обработчики истории
+  const handleUndo = useCallback(() => {
+    const previousDocument = undo();
+    if (previousDocument) {
+      setCurrentDocument(previousDocument);
+    }
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    const nextDocument = redo();
+    if (nextDocument) {
+      setCurrentDocument(nextDocument);
+    }
+  }, [redo]);
+
+  // Обработчики UI
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setZoom(newZoom);
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: 'edit' | 'preview') => {
+    setViewMode(mode);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    // TODO: Реализовать сохранение проекта
+    console.log('Сохранение проекта:', currentDocument);
+  }, [currentDocument]);
+
+  const handleExport = useCallback(async (options: ExportOptions): Promise<ExportResult> => {
+    try {
+      // Генерируем имя файла
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `${currentDocument.name.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}`;
+
+      switch (options.format) {
+        case 'html':
+          return await exportToHTML(currentDocument, options, filename);
+        case 'pdf':
+          return await exportToPDF(currentDocument, options, filename);
+        case 'xlsx':
+          return await exportToXLSX(currentDocument, options, filename);
+        case 'csv':
+          return await exportToCSV(currentDocument, options, filename);
+        default:
+          return {
+            success: false,
+            error: 'Неподдерживаемый формат экспорта'
+          };
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Неизвестная ошибка экспорта'
+      };
+    }
+  }, [currentDocument]);
+
+  // Обработчики для страниц
+  const handleAddPage = useCallback(() => {
+    const newPage: Page = {
+      id: `page-${Date.now()}`,
+      name: `Страница ${currentDocument.pages.length + 1}`,
+      slug: `page-${currentDocument.pages.length + 1}`,
+      elements: [],
+      settings: {
+        width: 1200,
+        height: 800,
+        backgroundColor: '#ffffff',
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+        margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: [...currentDocument.pages, newPage],
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    setSelectedPageId(newPage.id);
+  }, [currentDocument, addToHistory]);
+
+  const handleDeletePage = useCallback((pageId: string) => {
+    if (currentDocument.pages.length <= 1) return;
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.filter(page => page.id !== pageId),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+
+    if (selectedPageId === pageId) {
+      setSelectedPageId(updatedDocument.pages[0].id);
+    }
+    setSelectedElementId(null);
+  }, [currentDocument, selectedPageId, addToHistory]);
+
+  const handleDuplicatePage = useCallback((pageId: string) => {
+    const pageToDuplicate = currentDocument.pages.find(page => page.id === pageId);
+    if (!pageToDuplicate) return;
+
+    const newPage: Page = {
+      ...pageToDuplicate,
+      id: `page-${Date.now()}`,
+      name: `${pageToDuplicate.name} (копия)`,
+      slug: `${pageToDuplicate.slug}-copy`,
+      elements: JSON.parse(JSON.stringify(pageToDuplicate.elements)), // Deep clone
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedDocument = {
+      ...currentDocument,
+      pages: [...currentDocument.pages, newPage],
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+    setSelectedPageId(newPage.id);
+  }, [currentDocument, addToHistory]);
+
+  const handleUpdatePage = useCallback((pageId: string, updates: Partial<Page>) => {
+    const updatedDocument = {
+      ...currentDocument,
+      pages: currentDocument.pages.map(page =>
+        page.id === pageId
+          ? { ...page, ...updates, updatedAt: new Date().toISOString() }
+          : page
+      ),
+      updatedAt: new Date().toISOString()
+    };
+
+    setCurrentDocument(updatedDocument);
+    addToHistory(updatedDocument);
+  }, [currentDocument, addToHistory]);
 
   return (
-    <div className="w-80 bg-gray-50 border-l border-gray-200 p-4 overflow-y-auto">
-      <h3 className="font-semibold text-gray-800 mb-4">Свойства</h3>
-      
-      {/* Настройки блока */}
-      <div className="mb-6">
-        <h4 className="font-medium text-gray-700 mb-3">Настройки блока</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">
-              Заголовок
-            </label>
-            <input
-              type="text"
-              value={selectedBlock.title}
-              onChange={(e) => onUpdateBlock({
-                ...selectedBlock,
-                title: e.target.value
-              })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <DocumentProvider value={currentDocument}>
+      <div className="h-screen flex flex-col bg-gray-100">
+        {/* Toolbar */}
+        <Toolbar
+          zoom={zoom}
+          viewMode={viewMode}
+          onZoomChange={handleZoomChange}
+          onViewModeChange={handleViewModeChange}
+          onSave={handleSave}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          showComponentsPanel={showComponentsPanel}
+          showPropertiesPanel={showPropertiesPanel}
+          onToggleComponentsPanel={() => setShowComponentsPanel(!showComponentsPanel)}
+          onTogglePropertiesPanel={() => setShowPropertiesPanel(!showPropertiesPanel)}
+                 onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
+                 showCatalogPanel={showCatalogPanel}
+                 onToggleCatalogPanel={() => setShowCatalogPanel(!showCatalogPanel)}
+          showPagesPanel={showPagesPanel}
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Pages Panel */}
+          {showPagesPanel && (
+            <PagesPanel
+              document={currentDocument}
+              selectedPageId={selectedPageId}
+              onSelectPage={setSelectedPageId}
+              onAddPage={handleAddPage}
+              onDeletePage={handleDeletePage}
+              onDuplicatePage={handleDuplicatePage}
+              onUpdatePage={handleUpdatePage}
+            />
+          )}
+
+          {/* Catalog Panel */}
+          {showCatalogPanel && (
+            <CatalogTreePanel
+              onCategorySelect={(categoryId) => {
+                console.log('Selected category:', categoryId);
+                // TODO: Handle category selection
+              }}
+            />
+          )}
+
+          {/* Components Panel */}
+          {showComponentsPanel && (
+            <ComponentsPanel
+              onAddElement={handleAddElement}
+              selectedCategory={null}
+            />
+          )}
+
+          {/* Canvas */}
+          <div className="flex-1 flex flex-col">
+            <Canvas
+              page={selectedPage}
+              selectedElementId={selectedElementId}
+              zoom={zoom}
+              viewMode={viewMode}
+              onSelectElement={handleSelectElement}
+              onUpdateElement={handleUpdateElement}
+              onDeleteElement={handleDeleteElement}
+              onAddElement={handleAddElement}
             />
           </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                X
-              </label>
-              <input
-                type="number"
-                value={selectedBlock.position.x}
-                onChange={(e) => onUpdateBlock({
-                  ...selectedBlock,
-                  position: { ...selectedBlock.position, x: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Y
-              </label>
-              <input
-                type="number"
-                value={selectedBlock.position.y}
-                onChange={(e) => onUpdateBlock({
-                  ...selectedBlock,
-                  position: { ...selectedBlock.position, y: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Ширина
-              </label>
-              <input
-                type="number"
-                value={selectedBlock.size.width}
-                onChange={(e) => onUpdateBlock({
-                  ...selectedBlock,
-                  size: { ...selectedBlock.size, width: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Высота
-              </label>
-              <input
-                type="number"
-                value={selectedBlock.size.height}
-                onChange={(e) => onUpdateBlock({
-                  ...selectedBlock,
-                  size: { ...selectedBlock.size, height: parseInt(e.target.value) }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
+
+          {/* Properties Panel */}
+          {showPropertiesPanel && (
+            <PropertiesPanel
+              element={selectedElement}
+              page={selectedPage}
+              onUpdateElement={handleUpdateElement}
+              onUpdatePage={(updates) => handleUpdatePage(selectedPageId, updates)}
+            />
+          )}
         </div>
+
+        {/* Export Manager */}
+        <ExportManager
+          document={currentDocument}
+          onExport={handleExport}
+        />
       </div>
-
-      {/* Настройки категорий */}
-      {selectedBlock.type === 'category-selector' && (
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-medium text-gray-700">Категории</h4>
-            <button
-              onClick={addCategory}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              + Добавить
-            </button>
-          </div>
-          
-          <div className="space-y-3">
-            {categories.map((category, index) => (
-              <Card key={category.id} variant="base">
-                <div className="p-3">
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={category.name}
-                      onChange={(e) => handleCategoryUpdate(index, {
-                        ...category,
-                        name: e.target.value
-                      })}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    
-                    <div className="flex items-center space-x-2">
-                      <select
-                        value={category.type}
-                        onChange={(e) => handleCategoryUpdate(index, {
-                          ...category,
-                          type: e.target.value as 'main' | 'additional'
-                        })}
-                        className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="main">Основная</option>
-                        <option value="additional">Дополнительная</option>
-                      </select>
-                      
-                      <select
-                        value={category.pricingRule}
-                        onChange={(e) => handleCategoryUpdate(index, {
-                          ...category,
-                          pricingRule: e.target.value as 'separate' | 'included' | 'formula'
-                        })}
-                        className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="separate">Отдельно</option>
-                        <option value="included">Включено</option>
-                        <option value="formula">Формула</option>
-                      </select>
-                    </div>
-                    
-                    {category.pricingRule === 'formula' && (
-                      <input
-                        type="text"
-                        placeholder="Например: base_price * 0.1"
-                        value={category.pricingFormula || ''}
-                        onChange={(e) => handleCategoryUpdate(index, {
-                          ...category,
-                          pricingFormula: e.target.value
-                        })}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </DocumentProvider>
   );
-};
+}
 
-// Основной компонент конструктора
-const PageBuilder: React.FC<PageBuilderProps> = ({
-  onSave,
-  onCancel,
-  initialConfig
-}) => {
-  const [config, setConfig] = useState<PageBuilderConfig>(
-    initialConfig || {
-      id: `config_${Date.now()}`,
-      name: 'Новый конфигуратор',
-      description: '',
-      categories: [],
-      blocks: [],
-      layout: {
-        gridEnabled: true,
-        snapToGrid: true,
-        gridSize: 20,
-      },
-      pricing: {
-        currency: 'RUB',
-        showTotal: true,
-        showBreakdown: true,
-      },
-    }
-  );
-
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-
-  const selectedBlock = config.blocks.find(block => block.id === selectedBlockId) || null;
-
-  const addBlock = useCallback((type: string) => {
-    const newBlock: PageBlock = {
-      id: `block_${Date.now()}`,
-      type,
-      title: `Новый ${type}`,
-      config: {},
-      position: { x: 100, y: 100 },
-      size: { width: 300, height: 200 },
-    };
-
-    setConfig(prev => ({
-      ...prev,
-      blocks: [...prev.blocks, newBlock]
-    }));
-
-    setSelectedBlockId(newBlock.id);
-  }, []);
-
-  const updateBlock = useCallback((updatedBlock: PageBlock) => {
-    setConfig(prev => ({
-      ...prev,
-      blocks: prev.blocks.map(block =>
-        block.id === updatedBlock.id ? updatedBlock : block
-      )
-    }));
-  }, []);
-
-  const deleteBlock = useCallback((blockId: string) => {
-    setConfig(prev => ({
-      ...prev,
-      blocks: prev.blocks.filter(block => block.id !== blockId)
-    }));
-    
-    if (selectedBlockId === blockId) {
-      setSelectedBlockId(null);
-    }
-  }, [selectedBlockId]);
-
-  const updateCategories = useCallback((categories: CategoryConfig[]) => {
-    setConfig(prev => ({
-      ...prev,
-      categories
-    }));
-  }, []);
-
-  const handleSave = () => {
-    onSave(config);
+// Функции экспорта
+async function exportToHTML(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
+  // TODO: Реализовать экспорт в HTML
+  console.log('Exporting to HTML:', document, options);
+  
+  return {
+    success: true,
+    data: '<html><body><h1>HTML Export</h1><p>Функция экспорта в HTML будет реализована</p></body></html>',
+    filename: `${filename}.html`,
+    mimeType: 'text/html'
   };
+}
 
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="h-screen flex flex-col bg-white">
-        {/* Заголовок */}
-        <div className="flex-shrink-0 p-4 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-800">Конструктор страниц</h1>
-              <p className="text-gray-600">Создание конфигуратора товаров</p>
-            </div>
-            <div className="flex space-x-3">
-              <Button variant="secondary" onClick={onCancel}>
-                Отмена
-              </Button>
-              <Button variant="primary" onClick={handleSave}>
-                Сохранить
-              </Button>
-            </div>
-          </div>
-        </div>
+async function exportToPDF(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
+  // TODO: Реализовать экспорт в PDF
+  console.log('Exporting to PDF:', document, options);
+  
+  return {
+    success: true,
+    data: 'PDF content will be here',
+    filename: `${filename}.pdf`,
+    mimeType: 'application/pdf'
+  };
+}
 
-        {/* Основная область */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Панель блоков */}
-          <BlocksPanel onAddBlock={addBlock} />
+async function exportToXLSX(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
+  // TODO: Реализовать экспорт в XLSX
+  console.log('Exporting to XLSX:', document, options);
+  
+  return {
+    success: true,
+    data: 'XLSX content will be here',
+    filename: `${filename}.xlsx`,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  };
+}
 
-          {/* Область конструирования */}
-          <div className="flex-1 relative overflow-hidden">
-            <div
-              ref={canvasRef}
-              className="w-full h-full relative bg-gray-100"
-              style={{
-                backgroundImage: config.layout.gridEnabled
-                  ? `radial-gradient(circle, #e5e7eb 1px, transparent 1px)`
-                  : 'none',
-                backgroundSize: `${config.layout.gridSize}px ${config.layout.gridSize}px`,
-              }}
-              onClick={() => setSelectedBlockId(null)}
-            >
-              {config.blocks.map((block) => (
-                <BuilderBlock
-                  key={block.id}
-                  block={block}
-                  onUpdate={updateBlock}
-                  onDelete={deleteBlock}
-                  onSelect={setSelectedBlockId}
-                  isSelected={block.id === selectedBlockId}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Панель свойств */}
-          <PropertiesPanel
-            selectedBlock={selectedBlock}
-            onUpdateBlock={updateBlock}
-            categories={config.categories}
-            onUpdateCategories={updateCategories}
-          />
-        </div>
-      </div>
-    </DndProvider>
-  );
-};
-
-export default PageBuilder;
-
+async function exportToCSV(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
+  // TODO: Реализовать экспорт в CSV
+  console.log('Exporting to CSV:', document, options);
+  
+  const csvData = [
+    'Name,Type,Description',
+    `${document.name},Document,${document.description || ''}`,
+    ...document.pages.map(page => `${page.name},Page,${page.description || ''}`)
+  ].join('\n');
+  
+  return {
+    success: true,
+    data: csvData,
+    filename: `${filename}.csv`,
+    mimeType: 'text/csv'
+  };
+}

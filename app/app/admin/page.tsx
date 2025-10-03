@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Users, ShoppingCart, FileText, Settings, BarChart3, Bell } from 'lucide-react';
+import { Users, ShoppingCart, FileText, Settings, BarChart3, Bell, Wrench } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
@@ -73,6 +73,14 @@ export default function AdminDashboard() {
       icon: FileText,
       available: hasPermission('categories'),
       color: 'bg-green-500'
+    },
+    {
+      title: 'Профессиональный конструктор',
+      description: 'Продвинутый конструктор с интеграцией каталога',
+      href: '/professional-builder',
+      icon: Wrench,
+      available: hasPermission('categories'),
+      color: 'bg-indigo-500'
     },
     {
       title: 'Пользователи',

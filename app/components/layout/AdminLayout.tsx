@@ -15,6 +15,7 @@ function getPageTitle(pathname: string): string {
     '/admin': 'Панель управления',
     '/admin/categories': 'Категории конфигуратора',
     '/admin/categories/builder': 'Конструктор страниц',
+    '/professional-builder': 'Профессиональный конструктор',
     '/admin/catalog': 'Каталог товаров',
     '/admin/catalog/import': 'Импорт товаров',
     '/admin/users': 'Пользователи',
@@ -81,6 +82,7 @@ const menuItems: MenuItem[] = [
     children: [
       { id: 'configurator-list', label: 'Список категорий', href: '/admin/categories' },
       { id: 'configurator-create', label: 'Создать категорию', href: '/admin/categories/builder' },
+      { id: 'configurator-professional', label: 'Профессиональный конструктор', href: '/professional-builder' },
       { id: 'configurator-export', label: 'Настройки экспорта', href: '/admin/categories/export-settings' }
     ]
   },

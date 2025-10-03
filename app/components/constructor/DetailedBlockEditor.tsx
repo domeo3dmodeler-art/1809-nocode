@@ -1277,6 +1277,28 @@ const DetailedBlockEditor: React.FC<DetailedBlockEditorProps> = ({
                           <p className="text-xs text-gray-500 mt-1">
                             {property.count} значений
                           </p>
+                          
+                          {/* Кнопка для работы только с этим свойством */}
+                          <div className="mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                handleBlockUpdate({
+                                  ...editedBlock,
+                                  simpleMode: true,
+                                  focusedProperty: property.key,
+                                  displayFields: [property.key],
+                                  propertyDisplayMode: 'chips',
+                                  showProductList: true
+                                });
+                                setShowPropertySelection(false);
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              ⚡ Работать только с этим свойством
+                            </Button>
+                          </div>
                           {property.description && (
                             <p className="text-xs text-gray-400 mt-1 line-clamp-2">
                               {property.description}

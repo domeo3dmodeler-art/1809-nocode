@@ -6,7 +6,7 @@ import AdminLayout from '../../../../components/layout/AdminLayout';
 import { Card, Button } from '../../../../components/ui';
 import CategoryInfoForm from '../../../../components/category-builder/CategoryInfoForm';
 import DataUpload from '../../../../components/category-builder/DataUpload';
-import ProfessionalPageBuilder from '../../../../components/constructor/ProfessionalPageBuilder';
+import { PageBuilder } from '../../../../components/page-builder/PageBuilder';
 import ProfessionalPreview from '../../../../components/constructor/ProfessionalPreview';
 
 type BuilderStep = 'info' | 'design' | 'preview' | 'generate';
@@ -348,7 +348,7 @@ export default function CategoryBuilderPage() {
               <p className="text-gray-600">Создайте профессиональный конфигуратор с drag & drop интерфейсом</p>
             </div>
             
-            <ProfessionalPageBuilder />
+            <PageBuilder />
           </div>
         )}
 

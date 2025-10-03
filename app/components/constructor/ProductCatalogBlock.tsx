@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Select, Badge, Checkbox } from '../ui';
+import PropertyValueSelector from './PropertyValueSelector';
 import { 
   Search, 
   Filter, 
@@ -84,17 +85,25 @@ interface ProductCatalogBlockProps {
     sortOrder?: 'asc' | 'desc';
     // Поля для отображения
     displayFields?: string[];
+    // Упрощенный режим для работы с отдельными свойствами
+    simpleMode?: boolean;
+    focusedProperty?: string; // Конкретное свойство для работы
+    // Настройки отображения значений свойств
+    propertyDisplayMode?: 'chips' | 'list' | 'grid' | 'radio'; // Способ отображения значений
+    showProductList?: boolean; // Показывать ли список товаров или только выбор значения
   };
   isPreview?: boolean;
   onProductSelect?: (product: Product) => void;
   onProductAddToCart?: (product: Product) => void;
+  onModeChange?: (mode: 'simple' | 'full', property?: string) => void; // Коллбек для смены режима
 }
 
 const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
   block,
   isPreview = false,
   onProductSelect,
-  onProductAddToCart
+  onProductAddToCart,
+  onModeChange
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -398,6 +407,158 @@ const ProductCatalogBlock: React.FC<ProductCatalogBlockProps> = ({
       <div className="p-8 text-center text-gray-500">
         <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
         <p>Выберите категорию товаров для отображения</p>
+      </div>
+    );
+  }
+
+  // Упрощенный режим для работы с одним свойством
+  if (block.simpleMode && block.focusedProperty) {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        {/* Современный заголовок без лишней информации */}
+        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Выберите {block.focusedProperty?.toLowerCase()}
+              </h3>
+            </div>
+            <div className="flex items-center space-x-3">
+              <select 
+                value={block.propertyDisplayMode || 'chips'}
+                onChange={(e) => {
+                  // TODO: Обновить displayMode через коллбек
+                  console.log('Change display mode to:', e.target.value);
+                }}
+                className="px-3 py-1 text-xs border border-gray-300 rounded-md bg-white"
+              >
+                <option value="chips">Плашки</option>
+                <option value="grid">Сетка</option>
+                <option value="radio">Радио</option>
+                <option value="list">Список</option>
+              </select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onModeChange?.('full')}
+                className="text-xs text-gray-600 hover:text-gray-800"
+              >
+                Настройки
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Селектор значений свойства */}
+        {availableFilters.some(f => f.key === block.focusedProperty) && (
+          <div className="p-6 bg-white border-b border-gray-100">
+            <PropertyValueSelector
+              propertyKey={block.focusedProperty}
+              values={availableFilters.find(f => f.key === block.focusedProperty)?.values || []}
+              selectedValue={appliedFilters[block.focusedProperty!] || undefined}
+              displayMode={block.propertyDisplayMode || 'chips'}
+              onValueChange={(value) => handleFilterChange(block.focusedProperty!, value)}
+              productsCount={pagination.total}
+            />
+          </div>
+        )}
+
+        {/* Результаты выбора или товары */}
+        {block.showProductList !== false && (
+          <div className="flex-1 overflow-auto p-6">
+            {loading ? (
+              <div className="flex items-center justify-center h-48">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-500">Загрузка...</p>
+                </div>
+              </div>
+            ) : appliedFilters[block.focusedProperty!] ? (
+              /* Список товаров с выбранным свойством */
+              <div className="space-y-4">
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 mb-1">
+                    Товары со {block.focusedProperty?.toLowerCase()} «{appliedFilters[block.focusedProperty!]}»
+                  </h4>
+                  <p className="text-xs text-blue-700">{products.length} из {pagination.total} товаров</p>
+                </div>
+                
+                {products.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <p>Нет товаров с выбранным значением</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {products.slice(0, 12).map(product => (
+                      <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        {product.primaryImage && block.showImages && (
+                          <img
+                            src={product.primaryImage.url}
+                            alt={product.name}
+                            className="w-full h-32 object-cover rounded mb-3"
+                          />
+                        )}
+                        <div>
+                          <h5 className="font-medium text-gray-900 truncate">{product.name}</h5>
+                          <p className="text-xs text-gray-500 mb-2">{product.sku}</p>
+                          <div className="text-sm bg-gray-100 px-2 py-1 rounded">
+                            <strong>{block.focusedProperty}:</strong> {product.properties[block.focusedProperty!]}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {products.length > 12 && (
+                  <div className="text-center mt-6">
+                    <p className="text-sm text-gray-500">
+                      Показано 12 из {products.length} товаров
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Инструкция для пользователя */
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">🎯</div>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">
+                  Выберите значение выше
+                </h4>
+                <p className="text-gray-500 text-sm">
+                  После выбора вы увидите товары с этим свойством
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Минимальная пагинация */}
+        {pagination.totalPages > 1 && (
+          <div className="p-2 border-t bg-gray-50">
+            <div className="flex items-center justify-center space-x-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={!pagination.hasPrev}
+              >
+                ←
+              </Button>
+              <span className="text-xs text-gray-600">
+                {pagination.page} из {pagination.totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={!pagination.hasNext}
+              >
+                →
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -388,10 +388,10 @@ function CreateFrontendCategoryDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Макет</label>
-                <Select value={formData.display_config.layout} onValueChange={(value: 'grid' | 'list' | 'table') => 
+                <Select value={formData.display_config.layout} onValueChange={(value: string) => 
                   setFormData(prev => ({
                     ...prev,
-                    display_config: { ...prev.display_config, layout: value }
+                    display_config: { ...prev.display_config, layout: value as 'grid' | 'list' | 'table' }
                   }))
                 }>
                   <SelectTrigger>
@@ -605,10 +605,10 @@ function EditFrontendCategoryDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Макет</label>
-                <Select value={formData.display_config.layout} onValueChange={(value: 'grid' | 'list' | 'table') => 
+                <Select value={formData.display_config.layout} onValueChange={(value: string) => 
                   setFormData(prev => ({
                     ...prev,
-                    display_config: { ...prev.display_config, layout: value }
+                    display_config: { ...prev.display_config, layout: value as 'grid' | 'list' | 'table' }
                   }))
                 }>
                   <SelectTrigger>

@@ -175,56 +175,91 @@ export async function GET(
   }
 }
 
+// Кэш для свойств
+const propertiesCache = new Map<string, { data: any[], timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
 // Функция для получения доступных свойств категории
 async function getAvailableProperties(categoryId: string) {
   try {
-    // Получаем все товары категории для анализа свойств
-    const products = await prisma.product.findMany({
-      where: {
-        catalog_category_id: categoryId,
-        is_active: true
-      },
-      select: {
-        properties_data: true
-      },
-      take: 100 // Ограничиваем для производительности
-    });
+    console.log('🚀 Loading properties for category:', categoryId);
     
-    // Получаем шаблон для маппинга displayName
+    // Проверяем кэш
+    const cached = propertiesCache.get(categoryId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      console.log('⚡ Using cached properties:', cached.data.length);
+      return cached.data;
+    }
+    
+    // Сначала получаем шаблон (это быстрее чем анализировать товары)
     let templateFieldMappings: any[] = [];
     try {
-      const templatePrisma = prisma;
-      
-      const template = await templatePrisma.importTemplate.findFirst({
-        where: { catalog_category_id: categoryId }
+      const template = await prisma.importTemplate.findFirst({
+        where: { catalog_category_id: categoryId },
+        select: { field_mappings: true }
       });
       
       if (template?.field_mappings) {
         const fieldMappingsData = typeof template.field_mappings === 'string' 
           ? JSON.parse(template.field_mappings) 
           : template.field_mappings;
-        templateFieldMappings = fieldMappingsData || [];
-        console.log('🐨 Template field mappings loaded:', templateFieldMappings.length);
+        templateFieldMappings = Array.isArray(fieldMappingsData) ? fieldMappingsData : [];
+        
+        // Если в шаблоне есть fieldMappings, используем их вместо анализа товаров
+        if (templateFieldMappings.length > 0) {
+          console.log('⚡ Using template field mappings:', templateFieldMappings.length);
+          
+          const availableProperties = templateFieldMappings
+            .filter(mapping => mapping.fieldName && mapping.displayName)
+            .map(mapping => ({
+              key: mapping.displayName,
+              displayName: mapping.displayName,
+              type: mapping.dataType || 'select',
+              values: [], // Будем загружать значения по требованию
+              count: 0
+            }));
+            
+          console.log('✅ Quick template properties loaded:', availableProperties.length);
+          
+          // Кэшируем результат
+          propertiesCache.set(categoryId, {
+            data: availableProperties,
+            timestamp: Date.now()
+          });
+          
+          return availableProperties;
+        }
       }
     } catch (templateError) {
-      console.log('No template found, using raw field names:', templateError);
+      console.log('No template found, falling back to product analysis');
     }
 
+    // Fallback: анализируем небольшое количество товаров
+    console.log('🔍 Analyzing products for properties...');
+    const products = await prisma.product.findMany({
+      where: {
+        catalog_category_id: categoryId,
+        is_active: true
+      },
+      select: { properties_data: true },
+      take: 20 // Сильно ограничиваем для скорости
+    });
+
     const propertiesMap = new Map<string, Set<string>>();
-    
-    // Создаем маппинг fieldName -> displayName из шаблона
     const keyToDisplayNameMap = new Map<string, string>();
+    
+    // Создаем маппинг из шаблона если есть
     templateFieldMappings.forEach(mapping => {
       if (mapping.fieldName && mapping.displayName) {
         keyToDisplayNameMap.set(mapping.fieldName, mapping.displayName);
       }
     });
     
+    // Быстро анализируем товары
     products.forEach(product => {
       try {
         const properties = JSON.parse(product.properties_data || '{}');
         Object.entries(properties).forEach(([key, value]) => {
-          // Используем displayName из шаблона или оригинальный key
           const displayKey = keyToDisplayNameMap.get(key) || key;
           
           if (!propertiesMap.has(displayKey)) {
@@ -235,24 +270,30 @@ async function getAvailableProperties(categoryId: string) {
           }
         });
       } catch (e) {
-        // Игнорируем невалидные данные
+        // Игнорируем
       }
     });
     
-    // Преобразуем в массив объектов
     const availableProperties = Array.from(propertiesMap.entries()).map(([displayName, values]) => ({
-      key: displayName, // Теперь key содержит displayName из шаблона
+      key: displayName,
       displayName: displayName,
       type: 'select',
       values: Array.from(values).sort(),
       count: values.size
     }));
     
-    console.log('🐨 Available properties with displayNames:', availableProperties.slice(0, 3));
+    console.log('✅ Product properties analyzed:', availableProperties.length);
+    
+    // Кэшируем результат
+    propertiesCache.set(categoryId, {
+      data: availableProperties,
+      timestamp: Date.now()
+    });
+    
     return availableProperties;
     
   } catch (error) {
-    console.error('Error getting available properties:', error);
+    console.error('❌ Error getting available properties:', error);
     return [];
   }
 }
