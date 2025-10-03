@@ -207,7 +207,7 @@ async function getAvailableProperties(categoryId: string) {
         console.log('🐨 Template field mappings loaded:', templateFieldMappings.length);
       }
     } catch (templateError) {
-      console<｜tool▁call▁begin｜>log('No template found, using raw field names:', templateError);
+      console.log('No template found, using raw field names:', templateError);
     }
 
     const propertiesMap = new Map<string, Set<string>>();
