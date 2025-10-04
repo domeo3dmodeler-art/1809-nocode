@@ -35,9 +35,7 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
 
   // Получение настроек отображения для свойства
   const getPropertyDisplaySettings = (propertyId: string) => {
-    const settings = element.props.propertyDisplaySettings?.[propertyId] || { displayType: 'input' };
-    console.log(`Display settings for property ${propertyId}:`, settings);
-    return settings;
+    return element.props.propertyDisplaySettings?.[propertyId] || { displayType: 'input' };
   };
 
   // Загрузка свойств для фильтров

@@ -50,19 +50,16 @@ export function fuzzyMatch(str1: string, str2: string): boolean {
 export function findPropertyValue(propertyName: string, data: Record<string, any>): any {
   // 1. Пробуем точное совпадение
   if (data[propertyName] !== undefined) {
-    console.log(`Found exact match for "${propertyName}":`, data[propertyName]);
     return data[propertyName];
   }
   
   // 2. Пробуем найти по fuzzy match
   for (const key in data) {
     if (fuzzyMatch(key, propertyName)) {
-      console.log(`Found fuzzy match for "${propertyName}" -> "${key}":`, data[key]);
       return data[key];
     }
   }
   
-  console.log(`No match found for "${propertyName}"`);
   return undefined;
 }
 
