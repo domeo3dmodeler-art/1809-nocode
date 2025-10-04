@@ -5,6 +5,7 @@ import { PropertiesPanelProps, BaseElement, Page, Spacing, Style } from '../type
 import { CategoryTreeSelector } from './CategoryTreeSelector';
 import { ProductPropertiesSelector } from './ProductPropertiesSelector';
 import { PropertyDisplaySettings } from './PropertyDisplaySettings';
+import { extractUniquePropertyValues } from '@/lib/string-utils';
 
 export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'page'>('content');
@@ -61,45 +62,8 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
             
             // Извлекаем уникальные значения для каждого свойства
             const propertiesWithOptions = properties.map((property: any) => {
-              const uniqueValues = new Set();
-              
-              products.forEach((product: any) => {
-                if (product.properties_data) {
-                  try {
-                    const propsData = typeof product.properties_data === 'string' 
-                      ? JSON.parse(product.properties_data) 
-                      : product.properties_data;
-                    
-                    // Ищем значение свойства по имени
-                    let propertyValue = propsData[property.name];
-                    
-                    // Если не найдено по точному имени, ищем по частичному совпадению
-                    if (propertyValue === undefined) {
-                      for (const key in propsData) {
-                        // Проверяем, содержит ли ключ название свойства или наоборот
-                        if (key.includes(property.name) || property.name.includes(key)) {
-                          propertyValue = propsData[key];
-                          break;
-                        }
-                      }
-                    }
-                    
-                    if (propertyValue !== undefined && propertyValue !== null && propertyValue !== '') {
-                      uniqueValues.add(propertyValue);
-                    }
-                  } catch (error) {
-                    console.error('Error parsing properties_data:', error);
-                  }
-                }
-              });
-              
-              console.log(`Property "${property.name}": found ${uniqueValues.size} unique values:`, Array.from(uniqueValues));
-              
-              // Преобразуем Set в массив опций
-              const options = Array.from(uniqueValues).map((value: any) => ({
-                value: value,
-                label: value
-              }));
+              const options = extractUniquePropertyValues(products, property.name);
+              console.log(`Property "${property.name}": found ${options.length} unique values:`, options.map(o => o.value));
               
               return {
                 ...property,
