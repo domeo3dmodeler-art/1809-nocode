@@ -128,3 +128,4 @@ export default function BlocksPanel({ onAddBlock }: BlocksPanelProps) {
     </div>
   )
 }
+

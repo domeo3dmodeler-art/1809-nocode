@@ -384,3 +384,4 @@ export const DoorConfiguratorPropertiesPanel: React.FC<DoorConfiguratorPropertie
     </div>
   );
 };
+

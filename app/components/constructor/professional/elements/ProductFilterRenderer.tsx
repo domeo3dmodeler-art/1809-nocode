@@ -419,3 +419,4 @@ export const ProductFilterRenderer: React.FC<ProductFilterRendererProps> = ({
     </div>
   );
 };
+

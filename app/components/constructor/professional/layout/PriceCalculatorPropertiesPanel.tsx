@@ -332,3 +332,4 @@ export const PriceCalculatorPropertiesPanel: React.FC<PriceCalculatorPropertiesP
     </div>
   );
 };
+

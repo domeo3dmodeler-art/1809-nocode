@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { PropertiesPanelProps, BaseElement, Page, Spacing, Style } from '../types';
 import { CategoryTreeSelector } from './CategoryTreeSelector';
 import { ProductPropertiesSelector } from './ProductPropertiesSelector';
+import { PropertyDisplaySettings } from './PropertyDisplaySettings';
 
 export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }: PropertiesPanelProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'style' | 'layout' | 'page'>('content');
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [availableProperties, setAvailableProperties] = useState<any[]>([]);
 
   // Загрузка категорий каталога
   useEffect(() => {
@@ -29,6 +31,95 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
 
     loadCategories();
   }, []);
+
+  // Загрузка свойств для выбранных категорий
+  useEffect(() => {
+    const loadProperties = async () => {
+      if (!element?.props?.categoryIds?.length) {
+        setAvailableProperties([]);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/catalog/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryIds: element.props.categoryIds })
+        });
+        
+        if (response.ok) {
+          const propertiesData = await response.json();
+          const properties = propertiesData.properties || [];
+          
+          // Загружаем товары для получения реальных значений свойств
+          const categoryId = element.props.categoryIds?.[0]; // Берем первую категорию
+          const productsResponse = await fetch(`/api/catalog/products?categoryId=${categoryId}&limit=100`);
+          
+          if (productsResponse.ok) {
+            const productsData = await productsResponse.json();
+            const products = productsData.products || [];
+            
+            // Извлекаем уникальные значения для каждого свойства
+            const propertiesWithOptions = properties.map((property: any) => {
+              const uniqueValues = new Set();
+              
+              products.forEach((product: any) => {
+                if (product.properties_data) {
+                  try {
+                    const propsData = typeof product.properties_data === 'string' 
+                      ? JSON.parse(product.properties_data) 
+                      : product.properties_data;
+                    
+                    // Ищем значение свойства по имени
+                    let propertyValue = propsData[property.name];
+                    
+                    // Если не найдено по точному имени, ищем по частичному совпадению
+                    if (propertyValue === undefined) {
+                      for (const key in propsData) {
+                        // Проверяем, содержит ли ключ название свойства или наоборот
+                        if (key.includes(property.name) || property.name.includes(key)) {
+                          propertyValue = propsData[key];
+                          break;
+                        }
+                      }
+                    }
+                    
+                    if (propertyValue !== undefined && propertyValue !== null && propertyValue !== '') {
+                      uniqueValues.add(propertyValue);
+                    }
+                  } catch (error) {
+                    console.error('Error parsing properties_data:', error);
+                  }
+                }
+              });
+              
+              console.log(`Property "${property.name}": found ${uniqueValues.size} unique values:`, Array.from(uniqueValues));
+              
+              // Преобразуем Set в массив опций
+              const options = Array.from(uniqueValues).map((value: any) => ({
+                value: value,
+                label: value
+              }));
+              
+              return {
+                ...property,
+                options: options
+              };
+            });
+            
+            setAvailableProperties(propertiesWithOptions);
+          } else {
+            setAvailableProperties(properties);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading properties:', error);
+        setAvailableProperties([]);
+      }
+    };
+
+    loadProperties();
+  }, [element?.props?.categoryIds]);
 
   // Обработчики для элемента
   const handleElementPropChange = (key: string, value: any) => {
@@ -303,6 +394,20 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
                     />
                   </div>
 
+                  {/* Настройка отображения свойств */}
+                  {(element.props.selectedPropertyIds?.length > 0) && (
+                    <div>
+                      <PropertyDisplaySettings
+                        selectedPropertyIds={element.props.selectedPropertyIds || []}
+                        propertyDisplaySettings={element.props.propertyDisplaySettings || {}}
+                        availableProperties={availableProperties}
+                        onSettingsChange={(settings) => {
+                          handleElementPropChange('propertyDisplaySettings', settings);
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {/* Дополнительные настройки */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -409,8 +514,21 @@ export function PropertiesPanel({ element, page, onUpdateElement, onUpdatePage }
                         handleElementPropChange('selectedPropertyIds', selectedPropertyIds);
                       }}
                     />
-                    
                   </div>
+
+                  {/* Настройка отображения свойств */}
+                  {(element.props.selectedPropertyIds?.length > 0) && (
+                    <div>
+                      <PropertyDisplaySettings
+                        selectedPropertyIds={element.props.selectedPropertyIds || []}
+                        propertyDisplaySettings={element.props.propertyDisplaySettings || {}}
+                        availableProperties={availableProperties}
+                        onSettingsChange={(settings) => {
+                          handleElementPropChange('propertyDisplaySettings', settings);
+                        }}
+                      />
+                    </div>
+                  )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

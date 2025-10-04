@@ -227,3 +227,4 @@ export const CalculatorElementRenderer: React.FC<CalculatorElementRendererProps>
     </div>
   );
 };
+

@@ -43,6 +43,16 @@ const componentCategories: ComponentCategory[] = [
     ]
   },
   {
+    id: 'configurators',
+    name: 'Продвинутые конфигураторы',
+    icon: '🎯',
+    components: [
+      { id: 'stepWizard', name: 'Пошаговый мастер', type: 'stepWizard', icon: '🧙', description: 'Пошаговая конфигурация товара с прогрессом' },
+      { id: 'comparisonTable', name: 'Сравнение товаров', type: 'comparisonTable', icon: '📊', description: 'Таблица для сравнения характеристик товаров' },
+      { id: 'priceCalculator', name: 'Калькулятор цены', type: 'priceCalculator', icon: '💰', description: 'Интерактивный калькулятор с живыми ценами' }
+    ]
+  },
+  {
     id: 'layout',
     name: 'Структура страницы',
     icon: '🏗️',
@@ -56,7 +66,7 @@ const componentCategories: ComponentCategory[] = [
 ];
 
 export function ComponentsPanel({ onAddElement, selectedCategory }: ComponentsPanelProps) {
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['essential', 'product']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['essential', 'product', 'configurators']);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Фильтрация компонентов по поиску

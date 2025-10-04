@@ -385,3 +385,4 @@ export const PriceCalculatorRenderer: React.FC<PriceCalculatorRendererProps> = (
     </div>
   );
 };
+

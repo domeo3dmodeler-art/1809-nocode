@@ -168,3 +168,4 @@ const exportToReact = (elements: Element[]) => {
 - [ ] Адаптивность
 - [ ] Анимации
 - [ ] Оптимизация
+

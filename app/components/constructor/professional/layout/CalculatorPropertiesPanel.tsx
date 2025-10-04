@@ -349,3 +349,4 @@ export const CalculatorPropertiesPanel: React.FC<CalculatorPropertiesPanelProps>
     </div>
   );
 };
+

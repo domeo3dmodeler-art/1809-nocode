@@ -10,8 +10,7 @@ import { CatalogTreePanel } from './panels/CatalogTreePanel';
 import { TemplateSelector } from './templates/TemplateSelector';
 import { useHistory } from './hooks/useHistory';
 import { DocumentProvider } from './context/DocumentContext';
-import { ExportManager } from './export/ExportManager';
-import { DocumentData, Page, BaseElement, ExportOptions, ExportResult, BlockConnection } from './types';
+import { DocumentData, Page, BaseElement, BlockConnection } from './types';
 
 // Начальный документ
 const initialDocument: DocumentData = {
@@ -321,35 +320,6 @@ export function PageBuilder() {
     console.log('Сохранение проекта:', currentDocument);
   }, [currentDocument]);
 
-  const handleExport = useCallback(async (options: ExportOptions): Promise<ExportResult> => {
-    try {
-      // Генерируем имя файла
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `${currentDocument.name.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}`;
-
-      switch (options.format) {
-        case 'html':
-          return await exportToHTML(currentDocument, options, filename);
-        case 'pdf':
-          return await exportToPDF(currentDocument, options, filename);
-        case 'xlsx':
-          return await exportToXLSX(currentDocument, options, filename);
-        case 'csv':
-          return await exportToCSV(currentDocument, options, filename);
-        default:
-          return {
-            success: false,
-            error: 'Неподдерживаемый формат экспорта'
-          };
-      }
-    } catch (error) {
-      console.error('Export error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Неизвестная ошибка экспорта'
-      };
-    }
-  }, [currentDocument]);
 
   // Обработчик выбора шаблона
   const handleSelectTemplate = useCallback((template: any) => {
@@ -669,13 +639,13 @@ export function PageBuilder() {
 
           {/* Properties Panel */}
           {showPropertiesPanel && (
-            <PropertiesPanel
+          <PropertiesPanel
               element={selectedElement}
               page={selectedPage}
               onUpdateElement={handleUpdateElement}
               onUpdatePage={(updates) => handleUpdatePage(selectedPageId, updates)}
-            />
-          )}
+                      />
+                    )}
         </div>
 
         {/* Export Manager */}
@@ -686,63 +656,8 @@ export function PageBuilder() {
             onSelectTemplate={handleSelectTemplate}
             onClose={() => setShowTemplateSelector(false)}
           />
-        )}
+      )}
       </div>
     </DocumentProvider>
   );
-}
-
-// Функции экспорта
-async function exportToHTML(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
-  // TODO: Реализовать экспорт в HTML
-  console.log('Exporting to HTML:', document, options);
-  
-  return {
-    success: true,
-    data: '<html><body><h1>HTML Export</h1><p>Функция экспорта в HTML будет реализована</p></body></html>',
-    filename: `${filename}.html`,
-    mimeType: 'text/html'
-  };
-}
-
-async function exportToPDF(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
-  // TODO: Реализовать экспорт в PDF
-  console.log('Exporting to PDF:', document, options);
-  
-  return {
-    success: true,
-    data: 'PDF content will be here',
-    filename: `${filename}.pdf`,
-    mimeType: 'application/pdf'
-  };
-}
-
-async function exportToXLSX(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
-  // TODO: Реализовать экспорт в XLSX
-  console.log('Exporting to XLSX:', document, options);
-  
-  return {
-    success: true,
-    data: 'XLSX content will be here',
-    filename: `${filename}.xlsx`,
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  };
-}
-
-async function exportToCSV(document: DocumentData, options: ExportOptions, filename: string): Promise<ExportResult> {
-  // TODO: Реализовать экспорт в CSV
-  console.log('Exporting to CSV:', document, options);
-  
-  const csvData = [
-    'Name,Type,Description',
-    `${document.name},Document,${document.description || ''}`,
-    ...document.pages.map(page => `${page.name},Page,${page.description || ''}`)
-  ].join('\n');
-  
-  return {
-    success: true,
-    data: csvData,
-    filename: `${filename}.csv`,
-    mimeType: 'text/csv'
-  };
 }

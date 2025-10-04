@@ -302,3 +302,4 @@ export const ProductComponents: React.FC<ProductComponentsProps> = ({
     </div>
   );
 };
+

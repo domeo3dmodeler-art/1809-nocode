@@ -218,3 +218,4 @@ export const UniversalProductComponents: React.FC<UniversalProductComponentsProp
     </div>
   );
 };
+

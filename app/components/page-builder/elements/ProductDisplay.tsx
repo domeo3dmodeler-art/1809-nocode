@@ -32,13 +32,21 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
   const [propertyFilters, setPropertyFilters] = useState<Record<string, any>>({});
   const [availableProperties, setAvailableProperties] = useState<any[]>([]);
 
+  // Получение настроек отображения для свойства
+  const getPropertyDisplaySettings = (propertyId: string) => {
+    const settings = element.props.propertyDisplaySettings?.[propertyId] || { displayType: 'input' };
+    console.log(`Display settings for property ${propertyId}:`, settings);
+    return settings;
+  };
+
   // Загрузка свойств для фильтров
   useEffect(() => {
     const loadProperties = async () => {
       if (!element.props.selectedPropertyIds?.length) return;
       
       try {
-        const response = await fetch('/api/catalog/properties', {
+        // Загружаем свойства
+        const propertiesResponse = await fetch('/api/catalog/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -46,12 +54,72 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
           })
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          const filteredProperties = data.properties?.filter((prop: any) => 
+        if (propertiesResponse.ok) {
+          const propertiesData = await propertiesResponse.json();
+          const filteredProperties = propertiesData.properties?.filter((prop: any) => 
             element.props.selectedPropertyIds.includes(prop.id)
           ) || [];
-          setAvailableProperties(filteredProperties);
+          
+          // Загружаем товары для получения реальных значений свойств
+          const categoryId = element.props.categoryIds?.[0]; // Берем первую категорию
+          const productsResponse = await fetch(`/api/catalog/products?categoryId=${categoryId}&limit=100`);
+          
+          if (productsResponse.ok) {
+            const productsData = await productsResponse.json();
+            const products = productsData.products || [];
+            
+            // Извлекаем уникальные значения для каждого свойства
+            const propertiesWithOptions = filteredProperties.map((property: any) => {
+              const uniqueValues = new Set();
+              
+              products.forEach((product: any) => {
+                if (product.properties_data) {
+                  try {
+                    const propsData = typeof product.properties_data === 'string' 
+                      ? JSON.parse(product.properties_data) 
+                      : product.properties_data;
+                    
+                    // Ищем значение свойства по имени
+                    let propertyValue = propsData[property.name];
+                    
+                    // Если не найдено по точному имени, ищем по частичному совпадению
+                    if (propertyValue === undefined) {
+                      for (const key in propsData) {
+                        // Проверяем, содержит ли ключ название свойства или наоборот
+                        if (key.includes(property.name) || property.name.includes(key)) {
+                          propertyValue = propsData[key];
+                          break;
+                        }
+                      }
+                    }
+                    
+                    if (propertyValue !== undefined && propertyValue !== null && propertyValue !== '') {
+                      uniqueValues.add(propertyValue);
+                    }
+                  } catch (error) {
+                    console.error('Error parsing properties_data:', error);
+                  }
+                }
+              });
+              
+              console.log(`Property "${property.name}": found ${uniqueValues.size} unique values:`, Array.from(uniqueValues));
+              
+              // Преобразуем Set в массив опций
+              const options = Array.from(uniqueValues).map((value: any) => ({
+                value: value,
+                label: value
+              }));
+              
+              return {
+                ...property,
+                options: options
+              };
+            });
+            
+            setAvailableProperties(propertiesWithOptions);
+          } else {
+            setAvailableProperties(filteredProperties);
+          }
         }
       } catch (error) {
         console.error('Error loading properties:', error);
@@ -327,26 +395,8 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
                 )}
               </div>
               
-              {/* Выбор типа отображения фильтра */}
-              <div className="mb-2">
-                <select
-                  value={propertyFilters[property.id]?.displayType || 'input'}
-                  onChange={(e) => handleFilterChange(property.id, {
-                    ...propertyFilters[property.id],
-                    displayType: e.target.value,
-                    value: undefined
-                  })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="input">Поле ввода</option>
-                  <option value="chips">Плашки</option>
-                  <option value="dropdown">Выпадающий список</option>
-                  <option value="range">Диапазон</option>
-                </select>
-              </div>
-
-              {/* Отображение в зависимости от выбранного типа */}
-              {propertyFilters[property.id]?.displayType === 'input' && (
+              {/* Отображение в зависимости от настроек */}
+              {getPropertyDisplaySettings(property.id).displayType === 'input' && (
                 <input
                   type="text"
                   placeholder={`Поиск по ${property.name.toLowerCase()}...`}
@@ -359,36 +409,44 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
                 />
               )}
               
-              {propertyFilters[property.id]?.displayType === 'chips' && (
+              {getPropertyDisplaySettings(property.id).displayType === 'chips' && (
                 <div className="space-y-2">
-                  <div className="flex flex-wrap gap-1">
-                    {property.options?.map((option: any) => (
-                      <label key={option.value} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={(propertyFilters[property.id]?.selectedChips || []).includes(option.value)}
-                          onChange={(e) => {
-                            const currentChips = propertyFilters[property.id]?.selectedChips || [];
-                            const newChips = e.target.checked
-                              ? [...currentChips, option.value]
-                              : currentChips.filter((chip: string) => chip !== option.value);
-                            
-                            handleFilterChange(property.id, {
-                              ...propertyFilters[property.id],
-                              selectedChips: newChips,
-                              value: newChips.length > 0 ? newChips : undefined
-                            });
-                          }}
-                          className="mr-1 w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-gray-700">{option.label}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {property.options?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {property.options.map((option: any) => (
+                        <label key={option.value} className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={(propertyFilters[property.id]?.selectedChips || []).includes(option.value)}
+                            onChange={(e) => {
+                              const currentChips = propertyFilters[property.id]?.selectedChips || [];
+                              const newChips = e.target.checked
+                                ? [...currentChips, option.value]
+                                : currentChips.filter((chip: string) => chip !== option.value);
+                              
+                              handleFilterChange(property.id, {
+                                ...propertyFilters[property.id],
+                                selectedChips: newChips,
+                                value: newChips.length > 0 ? newChips : undefined
+                              });
+                            }}
+                            className="mr-2 w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-xs text-gray-700 px-2 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                            {option.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 italic">
+                      Нет доступных значений для этого свойства
+                    </div>
+                  )}
                 </div>
               )}
               
-              {propertyFilters[property.id]?.displayType === 'dropdown' && (
+              {getPropertyDisplaySettings(property.id).displayType === 'dropdown' && (
                 <select
                   value={propertyFilters[property.id]?.value || ''}
                   onChange={(e) => handleFilterChange(property.id, {
@@ -406,7 +464,7 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
                 </select>
               )}
               
-              {propertyFilters[property.id]?.displayType === 'range' && (
+              {getPropertyDisplaySettings(property.id).displayType === 'range' && (
                 <div className="flex space-x-2">
                   <input
                     type="number"
@@ -447,12 +505,12 @@ export function ProductDisplay({ element, onUpdate }: ProductDisplayProps) {
                 let displayValue = '';
                 let filterChips: string[] = [];
                 
-                if (filterData.displayType === 'chips' && Array.isArray(filterData.value)) {
+                if (getPropertyDisplaySettings(property.id).displayType === 'chips' && Array.isArray(filterData.value)) {
                   filterChips = filterData.value.map((chipValue: string) => {
                     const option = property.options?.find((opt: any) => opt.value === chipValue);
                     return option ? option.label : chipValue;
                   });
-                } else if (filterData.displayType === 'range' && typeof filterData.value === 'object') {
+                } else if (getPropertyDisplaySettings(property.id).displayType === 'range' && typeof filterData.value === 'object') {
                   displayValue = `${filterData.value.min || '0'} - ${filterData.value.max || '∞'}`;
                 } else if (typeof filterData.value === 'string') {
                   const option = property.options?.find((opt: any) => opt.value === filterData.value);

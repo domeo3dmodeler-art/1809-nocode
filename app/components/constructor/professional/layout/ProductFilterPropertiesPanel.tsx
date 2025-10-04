@@ -324,3 +324,4 @@ export const ProductFilterPropertiesPanel: React.FC<ProductFilterPropertiesPanel
     </div>
   );
 };
+

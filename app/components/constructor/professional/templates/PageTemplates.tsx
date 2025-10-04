@@ -928,3 +928,4 @@ export const PageTemplates: React.FC<PageTemplatesProps> = ({
     </div>
   );
 };
+

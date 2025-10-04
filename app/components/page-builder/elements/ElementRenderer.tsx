@@ -7,6 +7,9 @@ import { ProductDisplay } from './ProductDisplay';
 import { ProductConfiguratorAdvanced } from './ProductConfiguratorAdvanced';
 import { Cart } from './Cart';
 import { CatalogTree } from './CatalogTree';
+import { StepWizard } from './StepWizard';
+import { ComparisonTable } from './ComparisonTable';
+import { PriceCalculator } from './PriceCalculator';
 
 interface ExtendedElementRendererProps extends ElementRendererProps {
   onMouseDown: (e: React.MouseEvent) => void;
@@ -502,6 +505,36 @@ export function ElementRenderer({
         return (
           <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
             <CatalogTree
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'stepWizard':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <StepWizard
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'comparisonTable':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <ComparisonTable
+              element={element}
+              onUpdate={onUpdate}
+            />
+          </div>
+        );
+
+      case 'priceCalculator':
+        return (
+          <div className="w-full h-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <PriceCalculator
               element={element}
               onUpdate={onUpdate}
             />

@@ -402,3 +402,4 @@ export const ProductElementRenderer: React.FC<ProductElementRendererProps> = ({
     </div>
   );
 };
+

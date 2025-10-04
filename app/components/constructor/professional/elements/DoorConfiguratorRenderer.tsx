@@ -438,3 +438,4 @@ export const DoorConfiguratorRenderer: React.FC<DoorConfiguratorRendererProps> =
     </div>
   );
 };
+

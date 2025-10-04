@@ -332,3 +332,4 @@ export const ProductPropertiesPanel: React.FC<ProductPropertiesPanelProps> = ({
     </div>
   );
 };
+

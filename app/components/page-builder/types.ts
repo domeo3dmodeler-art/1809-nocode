@@ -67,8 +67,10 @@ export type ElementType =
   | 'hero' | 'card' | 'gallery' | 'video' | 'testimonial' | 'faq'
   // Товарные компоненты
   | 'productConfigurator' | 'productGrid' | 'productFilters' | 'productCarousel' | 'catalogTree'
+  // Новые конфигураторы
+  | 'stepWizard' | 'comparisonTable' | 'priceCalculator'
   // Калькуляторы
-  | 'priceCalculator' | 'deliveryCalculator' | 'discountCalculator'
+  | 'deliveryCalculator' | 'discountCalculator'
   // Интерактивные элементы
   | 'cart' | 'wishlist' | 'comparison' | 'search'
   // Формы

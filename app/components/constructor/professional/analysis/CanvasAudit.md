@@ -164,3 +164,4 @@ const handleZoomChange = useCallback((newZoom: number) => {
   {/* Рабочая область с четкими границами */}
 </div>
 ```
+

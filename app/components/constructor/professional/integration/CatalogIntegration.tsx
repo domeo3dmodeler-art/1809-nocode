@@ -345,3 +345,4 @@ export const CatalogIntegration: React.FC<CatalogIntegrationProps> = ({
     </div>
   );
 };
+

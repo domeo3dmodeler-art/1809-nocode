@@ -1,327 +1,337 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Product } from '../types';
+import { BaseElement } from '../types';
 
-interface PriceCalculatorProps {
-  categoryIds: string[];
-  selectedProduct: Product | null;
-  configuration: Record<string, any>;
-  onPriceCalculated: (price: number, breakdown: PriceBreakdown[]) => void;
-}
-
-interface PriceBreakdown {
-  label: string;
-  amount: number;
-  type: 'base' | 'option' | 'discount' | 'total';
-}
-
-interface CalculatorRule {
+interface PriceOption {
   id: string;
   name: string;
-  condition: string;
-  formula: string;
-  type: 'base' | 'multiplier' | 'addition' | 'discount';
+  price: number;
+  type: 'base' | 'addon' | 'discount';
+  required?: boolean;
+  selected?: boolean;
+  description?: string;
 }
 
-export function PriceCalculator({
-  categoryIds,
-  selectedProduct,
-  configuration,
-  onPriceCalculated
-}: PriceCalculatorProps) {
-  const [rules, setRules] = useState<CalculatorRule[]>([]);
-  const [calculatedPrice, setCalculatedPrice] = useState<number>(0);
-  const [breakdown, setBreakdown] = useState<PriceBreakdown[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface PriceCalculatorProps {
+  element: BaseElement;
+  onUpdate: (updates: Partial<BaseElement>) => void;
+}
 
-  // Загрузка правил калькулятора
-  useEffect(() => {
-    if (categoryIds.length === 0) {
-      setRules([]);
-      return;
+export function PriceCalculator({ element, onUpdate }: PriceCalculatorProps) {
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, PriceOption>>({});
+  const [basePrice, setBasePrice] = useState(15000);
+  const [totalPrice, setTotalPrice] = useState(15000);
+  const [discount, setDiscount] = useState(0);
+  const [finalPrice, setFinalPrice] = useState(15000);
+
+  // Опции для калькулятора
+  const priceOptions: PriceOption[] = [
+    {
+      id: 'base_door',
+      name: 'Базовая дверь',
+      price: 15000,
+      type: 'base',
+      required: true,
+      description: 'Стандартная межкомнатная дверь'
+    },
+    {
+      id: 'material_upgrade',
+      name: 'Массив дерева',
+      price: 8000,
+      type: 'addon',
+      description: 'Улучшенный материал'
+    },
+    {
+      id: 'glass_insert',
+      name: 'Стеклянная вставка',
+      price: 3000,
+      type: 'addon',
+      description: 'Декоративная стеклянная вставка'
+    },
+    {
+      id: 'hardware_set',
+      name: 'Комплект фурнитуры',
+      price: 4500,
+      type: 'addon',
+      description: 'Ручки, петли, замок'
+    },
+    {
+      id: 'sound_insulation',
+      name: 'Звукоизоляция',
+      price: 2500,
+      type: 'addon',
+      description: 'Улучшенная звукоизоляция'
+    },
+    {
+      id: 'custom_size',
+      name: 'Нестандартный размер',
+      price: 2000,
+      type: 'addon',
+      description: 'Изготовление под размер'
+    },
+    {
+      id: 'express_delivery',
+      name: 'Экспресс доставка',
+      price: 1500,
+      type: 'addon',
+      description: 'Доставка в течение 3 дней'
+    },
+    {
+      id: 'bulk_discount',
+      name: 'Оптовая скидка',
+      price: -2000,
+      type: 'discount',
+      description: 'При заказе от 3 штук'
     }
+  ];
 
-    loadCalculatorRules();
-  }, [categoryIds]);
-
-  // Пересчет цены при изменении конфигурации или товара
+  // Инициализация базовой опции
   useEffect(() => {
-    if (selectedProduct && rules.length > 0) {
-      calculatePrice();
+    const baseOption = priceOptions.find(opt => opt.type === 'base');
+    if (baseOption) {
+      setSelectedOptions({ [baseOption.id]: baseOption });
+      setBasePrice(baseOption.price);
     }
-  }, [selectedProduct, configuration, rules]);
+  }, []);
 
-  const loadCalculatorRules = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Пересчет цены при изменении опций
+  useEffect(() => {
+    let total = 0;
+    let discountAmount = 0;
 
-      const params = categoryIds
-        .map(id => `categoryIds=${encodeURIComponent(id)}`)
-        .join('&');
-      
-      const response = await fetch(`/api/price/calculator/rules?${params}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setRules(data.rules || []);
+    Object.values(selectedOptions).forEach(option => {
+      if (option.type === 'discount') {
+        discountAmount += Math.abs(option.price);
       } else {
-        setError(data.message || 'Ошибка загрузки правил калькулятора');
-      }
-
-    } catch (error) {
-      console.error('Error loading calculator rules:', error);
-      setError('Ошибка загрузки правил калькулятора');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculatePrice = () => {
-    if (!selectedProduct || rules.length === 0) {
-      setCalculatedPrice(0);
-      setBreakdown([]);
-      return;
-    }
-
-    let totalPrice = selectedProduct.base_price;
-    const breakdownItems: PriceBreakdown[] = [
-      {
-        label: 'Базовая цена',
-        amount: selectedProduct.base_price,
-        type: 'base'
-      }
-    ];
-
-    // Применяем правила калькулятора
-    rules.forEach(rule => {
-      try {
-        if (evaluateCondition(rule.condition, configuration)) {
-          const priceDelta = evaluateFormula(rule.formula, configuration, selectedProduct);
-          
-          if (priceDelta !== 0) {
-            switch (rule.type) {
-              case 'multiplier':
-                totalPrice *= priceDelta;
-                breakdownItems.push({
-                  label: rule.name,
-                  amount: (priceDelta - 1) * selectedProduct.base_price,
-                  type: 'option'
-                });
-                break;
-              
-              case 'addition':
-                totalPrice += priceDelta;
-                breakdownItems.push({
-                  label: rule.name,
-                  amount: priceDelta,
-                  type: 'option'
-                });
-                break;
-              
-              case 'discount':
-                totalPrice -= priceDelta;
-                breakdownItems.push({
-                  label: rule.name,
-                  amount: -priceDelta,
-                  type: 'discount'
-                });
-                break;
-              
-              case 'base':
-                totalPrice = priceDelta;
-                breakdownItems.push({
-                  label: rule.name,
-                  amount: priceDelta - selectedProduct.base_price,
-                  type: 'option'
-                });
-                break;
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`Error applying rule ${rule.id}:`, error);
+        total += option.price;
       }
     });
 
-    // Добавляем итоговую сумму
-    breakdownItems.push({
-      label: 'Итого',
-      amount: totalPrice,
-      type: 'total'
+    setTotalPrice(total);
+    setDiscount(discountAmount);
+    setFinalPrice(Math.max(0, total - discountAmount));
+  }, [selectedOptions]);
+
+  const toggleOption = (option: PriceOption) => {
+    setSelectedOptions(prev => {
+      const newOptions = { ...prev };
+      
+      if (option.type === 'base') {
+        // Базовая опция всегда должна быть выбрана
+        return newOptions;
+      }
+      
+      if (newOptions[option.id]) {
+        delete newOptions[option.id];
+      } else {
+        newOptions[option.id] = { ...option, selected: true };
+      }
+      
+      return newOptions;
     });
-
-    setCalculatedPrice(totalPrice);
-    setBreakdown(breakdownItems);
-    onPriceCalculated(totalPrice, breakdownItems);
   };
 
-  // Оценка условия правила
-  const evaluateCondition = (condition: string, config: Record<string, any>): boolean => {
-    try {
-      // Заменяем переменные в условии на значения из конфигурации
-      let evaluatedCondition = condition;
-      Object.entries(config).forEach(([key, value]) => {
-        const regex = new RegExp(`\\b${key}\\b`, 'g');
-        if (typeof value === 'string') {
-          evaluatedCondition = evaluatedCondition.replace(regex, `"${value}"`);
-        } else {
-          evaluatedCondition = evaluatedCondition.replace(regex, String(value));
-        }
-      });
-
-      // Безопасная оценка условия
-      return Function(`"use strict"; return (${evaluatedCondition})`)();
-    } catch (error) {
-      console.error('Error evaluating condition:', error);
-      return false;
+  const resetCalculator = () => {
+    const baseOption = priceOptions.find(opt => opt.type === 'base');
+    if (baseOption) {
+      setSelectedOptions({ [baseOption.id]: baseOption });
     }
   };
 
-  // Оценка формулы правила
-  const evaluateFormula = (formula: string, config: Record<string, any>, product: Product): number => {
-    try {
-      // Заменяем переменные в формуле
-      let evaluatedFormula = formula;
-      Object.entries(config).forEach(([key, value]) => {
-        const regex = new RegExp(`\\b${key}\\b`, 'g');
-        evaluatedFormula = evaluatedFormula.replace(regex, String(value));
-      });
-
-      // Заменяем переменные товара
-      evaluatedFormula = evaluatedFormula.replace(/\bbase_price\b/g, String(product.base_price));
-      evaluatedFormula = evaluatedFormula.replace(/\bprice\b/g, String(product.base_price));
-
-      // Безопасная оценка формулы
-      return Function(`"use strict"; return (${evaluatedFormula})`)();
-    } catch (error) {
-      console.error('Error evaluating formula:', error);
-      return 0;
-    }
-  };
-
-  // Форматирование цены
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      style: 'currency',
-      currency: selectedProduct?.currency || 'RUB',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(price);
+    return new Intl.NumberFormat('ru-RU').format(price);
   };
-
-  if (categoryIds.length === 0) {
-    return (
-      <div className="p-6 text-center bg-gray-50 rounded-lg">
-        <div className="text-4xl mb-4">💰</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Калькулятор цены</h3>
-        <p className="text-gray-500">
-          Выберите категории товаров для настройки калькулятора
-        </p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-500">Загрузка калькулятора...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 text-center bg-red-50 rounded-lg">
-        <div className="text-4xl mb-4">❌</div>
-        <h3 className="text-lg font-medium text-red-900 mb-2">Ошибка загрузки</h3>
-        <p className="text-red-700">{error}</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Калькулятор цены</h3>
-        <p className="text-sm text-gray-500">
-          Автоматический расчет стоимости
-        </p>
-      </div>
-
-      {/* Price Display */}
-      {calculatedPrice > 0 ? (
-        <div className="text-center p-6 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="text-3xl font-bold text-blue-900 mb-2">
-            {formatPrice(calculatedPrice)}
-          </div>
-          <div className="text-sm text-blue-700">
-            Итоговая стоимость
-          </div>
+    <div className="w-full h-full p-4">
+      <div className="max-w-6xl mx-auto h-full flex flex-col">
+        {/* Компактный заголовок */}
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            {element.props.title || 'Калькулятор цены'}
+          </h2>
         </div>
-      ) : (
-        <div className="text-center p-6 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="text-lg text-gray-500">
-            Выберите товар для расчета цены
-          </div>
-        </div>
-      )}
 
-      {/* Breakdown */}
-      {breakdown.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Детализация цены</h4>
-          <div className="space-y-2">
-            {breakdown.map((item, index) => (
-              <div
-                key={index}
-                className={`flex justify-between items-center p-2 rounded ${
-                  item.type === 'total'
-                    ? 'bg-blue-100 border border-blue-200 font-medium'
-                    : 'bg-gray-50'
-                }`}
-              >
-                <span className={`text-sm ${
-                  item.type === 'total' ? 'text-blue-900' : 'text-gray-700'
-                }`}>
-                  {item.label}
-                </span>
-                <span className={`text-sm font-medium ${
-                  item.type === 'total' 
-                    ? 'text-blue-900' 
-                    : item.type === 'discount'
-                    ? 'text-green-600'
-                    : 'text-gray-900'
-                }`}>
-                  {item.type === 'discount' && item.amount > 0 ? '-' : ''}
-                  {formatPrice(Math.abs(item.amount))}
-                </span>
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-hidden">
+          {/* Левая колонка - Опции */}
+          <div className="lg:col-span-2 overflow-y-auto">
+            <div className="space-y-4">
+              {/* Базовая цена */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3">Базовая комплектация</h3>
+                <div className="space-y-3">
+                  {priceOptions.filter(opt => opt.type === 'base').map(option => (
+                    <label key={option.id} className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          disabled={true}
+                          className="mr-2 text-blue-600"
+                        />
+                        <div>
+                          <div className="font-medium text-sm text-blue-900">{option.name}</div>
+                          <div className="text-xs text-blue-700">{option.description}</div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-bold text-blue-600">
+                        {formatPrice(option.price)} ₽
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
-            ))}
+
+              {/* Дополнительные опции */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Дополнительные опции</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {priceOptions.filter(opt => opt.type === 'addon').map(option => (
+                    <label
+                      key={option.id}
+                      className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-all ${
+                        selectedOptions[option.id]
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={!!selectedOptions[option.id]}
+                          onChange={() => toggleOption(option)}
+                          className="mr-2"
+                        />
+                        <div>
+                          <div className="font-medium text-sm">{option.name}</div>
+                          <div className="text-xs text-gray-600">{option.description}</div>
+                        </div>
+                      </div>
+                      <div className={`text-sm font-bold ${
+                        selectedOptions[option.id] ? 'text-green-600' : 'text-gray-600'
+                      }`}>
+                        +{formatPrice(option.price)} ₽
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Скидки */}
+              {priceOptions.filter(opt => opt.type === 'discount').length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Скидки</h3>
+                  <div className="space-y-3">
+                    {priceOptions.filter(opt => opt.type === 'discount').map(option => (
+                      <label
+                        key={option.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedOptions[option.id]
+                            ? 'border-red-500 bg-red-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={!!selectedOptions[option.id]}
+                            onChange={() => toggleOption(option)}
+                            className="mr-3"
+                          />
+                          <div>
+                            <div className="font-medium">{option.name}</div>
+                            <div className="text-sm text-gray-600">{option.description}</div>
+                          </div>
+                        </div>
+                        <div className={`text-lg font-bold ${
+                          selectedOptions[option.id] ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                          {formatPrice(option.price)} ₽
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Правая колонка - Итоговая цена */}
+          <div className="lg:col-span-1">
+            <div className="h-full">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 h-full flex flex-col">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Итоговая цена</h3>
+                
+                {/* Базовая цена */}
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Базовая цена:</span>
+                  <span className="font-medium text-sm">{formatPrice(basePrice)} ₽</span>
+                </div>
+
+                {/* Дополнительные опции */}
+                {Object.values(selectedOptions).filter(opt => opt.type === 'addon').length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-sm text-gray-600 mb-2">Дополнительные опции:</div>
+                    {Object.values(selectedOptions).filter(opt => opt.type === 'addon').map(option => (
+                      <div key={option.id} className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-600">{option.name}:</span>
+                        <span className="font-medium text-green-600">+{formatPrice(option.price)} ₽</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Скидки */}
+                {Object.values(selectedOptions).filter(opt => opt.type === 'discount').length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-sm text-gray-600 mb-2">Скидки:</div>
+                    {Object.values(selectedOptions).filter(opt => opt.type === 'discount').map(option => (
+                      <div key={option.id} className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-600">{option.name}:</span>
+                        <span className="font-medium text-red-600">{formatPrice(option.price)} ₽</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <hr className="my-4" />
+
+                {/* Итого */}
+                <div className="flex justify-between items-center mb-4 p-3 bg-white rounded border">
+                  <span className="text-sm font-semibold text-gray-900">Итого:</span>
+                  <span className="text-xl font-bold text-blue-600">{formatPrice(finalPrice)} ₽</span>
+                </div>
+
+                {/* Кнопки действий */}
+                <div className="space-y-2 mt-auto">
+                  <button className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium text-sm">
+                    Добавить в корзину
+                  </button>
+                  <button className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm">
+                    Сохранить
+                  </button>
+                  <button
+                    onClick={resetCalculator}
+                    className="w-full px-4 py-2 text-gray-600 hover:text-gray-800 text-xs"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+
+                {/* Дополнительная информация */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div>• Цена указана без учета доставки</div>
+                    <div>• Возможны индивидуальные скидки</div>
+                    <div>• Срок изготовления: 7-14 дней</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Rules Info */}
-      {rules.length > 0 && (
-        <div className="text-center text-sm text-gray-500">
-          Активно правил: {rules.length}
-        </div>
-      )}
-
-      {/* No Product Selected */}
-      {!selectedProduct && (
-        <div className="p-4 text-center bg-yellow-50 rounded-lg">
-          <div className="text-2xl mb-2">⚠️</div>
-          <p className="text-sm text-yellow-700">
-            Выберите товар в конфигураторе для расчета цены
-          </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
