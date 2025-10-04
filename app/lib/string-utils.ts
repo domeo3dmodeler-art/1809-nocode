@@ -21,12 +21,12 @@ export function fuzzyMatch(str1: string, str2: string): boolean {
   const norm2 = normalizeString(str2);
   if (norm1 === norm2) return true;
   
-  // 3. Частичное совпадение
+  // 3. Частичное совпадение (содержит)
   if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
   
-  // 4. Совпадение по ключевым словам (минимум 3 символа)
-  const keywords1 = norm1.split(/[\s_-]+/).filter(word => word.length >= 3);
-  const keywords2 = norm2.split(/[\s_-]+/).filter(word => word.length >= 3);
+  // 4. Совпадение по ключевым словам (минимум 2 символа для кириллицы)
+  const keywords1 = norm1.split(/[\s_-]+/).filter(word => word.length >= 2);
+  const keywords2 = norm2.split(/[\s_-]+/).filter(word => word.length >= 2);
   
   // Проверяем, есть ли совпадения по ключевым словам
   const hasCommonKeywords = keywords1.some(keyword => 
@@ -34,6 +34,12 @@ export function fuzzyMatch(str1: string, str2: string): boolean {
       keyword.includes(keyKeyword) || keyKeyword.includes(keyword)
     )
   );
+  
+  // 5. Дополнительная проверка для кириллицы - ищем общие символы
+  const commonChars = norm1.split('').filter(char => norm2.includes(char));
+  if (commonChars.length >= Math.min(norm1.length, norm2.length) * 0.6) {
+    return true;
+  }
   
   return hasCommonKeywords;
 }
@@ -44,16 +50,19 @@ export function fuzzyMatch(str1: string, str2: string): boolean {
 export function findPropertyValue(propertyName: string, data: Record<string, any>): any {
   // 1. Пробуем точное совпадение
   if (data[propertyName] !== undefined) {
+    console.log(`Found exact match for "${propertyName}":`, data[propertyName]);
     return data[propertyName];
   }
   
   // 2. Пробуем найти по fuzzy match
   for (const key in data) {
     if (fuzzyMatch(key, propertyName)) {
+      console.log(`Found fuzzy match for "${propertyName}" -> "${key}":`, data[key]);
       return data[key];
     }
   }
   
+  console.log(`No match found for "${propertyName}"`);
   return undefined;
 }
 
